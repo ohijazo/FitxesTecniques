@@ -49,7 +49,7 @@ export const api = {
   detallFitxa: (id) => request(`/fitxes/${id}`),
   crearFitxa: (data) => request('/fitxes', { method: 'POST', body: JSON.stringify(data) }),
   editarFitxa: (id, data) => request(`/fitxes/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  eliminarFitxa: (id) => request(`/fitxes/${id}`, { method: 'DELETE' }),
+  eliminarFitxa: (id, esborrarFtp = false) => request(`/fitxes/${id}${esborrarFtp ? '?esborrar_ftp=1' : ''}`, { method: 'DELETE' }),
 
   // Versions
   llistarVersions: (fitxaId) => request(`/fitxes/${fitxaId}/versions`),

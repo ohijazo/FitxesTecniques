@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useLocation, Link } from 'react-router-dom';
+import { useParams, useLocation, Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useToast } from '../components/Toast';
 import { PdfDocumentView } from '../components/FitxaForm';
@@ -364,7 +364,9 @@ function VersionsSection({ fitxa, fitxaId, onPublicar, onVistaPrevia, onRefresh,
 function DetallFitxa() {
   const { id } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const toast = useToast();
+  const usuari = JSON.parse(localStorage.getItem('usuari') || '{}');
   const [fitxa, setFitxa] = useState(null);
   const [distribucions, setDistribucions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -429,6 +431,23 @@ function DetallFitxa() {
   const obrirDistribuir = () => {
     setShowDistribuir(true);
     setSection('distribucions');
+  };
+
+  const eliminarFitxa = async () => {
+    const esborrarFtp = confirm(
+      `Eliminar la fitxa ${fitxa.art_codi}?\n\n` +
+      `Prem "Acceptar" per eliminar la fitxa I esborrar-la del FTP.\n` +
+      `(Les distribucions i versions tambe s'eliminaran)`
+    );
+    if (!esborrarFtp && !confirm('Vols eliminar nomes de l\'aplicacio (sense tocar el FTP)?')) return;
+
+    try {
+      await api.eliminarFitxa(id, esborrarFtp);
+      toast.success(`Fitxa ${fitxa.art_codi} eliminada`);
+      navigate('/');
+    } catch (err) {
+      toast.error(`Error eliminant: ${err.message}`);
+    }
   };
 
   const descarregarPdf = (versioId) => {
@@ -521,6 +540,12 @@ function DetallFitxa() {
           {versioActiva && (
             <button onClick={obrirDistribuir}>
               Distribuir
+            </button>
+          )}
+          {usuari.rol === 'admin' && (
+            <button className="outline" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
+              onClick={eliminarFitxa}>
+              Eliminar
             </button>
           )}
         </div>

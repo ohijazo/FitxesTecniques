@@ -222,23 +222,36 @@ def editar_fitxa(fitxa_id):
 @rol_requerit('admin')
 def eliminar_fitxa(fitxa_id):
     fitxa = db.get_or_404(FitxaTecnica, fitxa_id)
+    esborrar_ftp = request.args.get('esborrar_ftp', '0') == '1'
 
+    # Esborrar del FTP si demanat
+    ftp_resultats = []
+    if esborrar_ftp:
+        destins = DestiDistribucio.query.filter_by(actiu=True, tipus='ftp').all()
+        for desti in destins:
+            from app.services.ftp_distributor import eliminar_ftp
+            config = desti.configuracio or {}
+            result = eliminar_ftp(fitxa.art_codi, config)
+            ftp_resultats.append({'desti': desti.nom, **result})
+
+    # Eliminar distribucions, versions i fitxa
     from app.models import Distribucio
-    distribucions = Distribucio.query.join(VersioFitxa).filter(
-        VersioFitxa.fitxa_id == fitxa_id,
-        Distribucio.estat == 'ok'
-    ).count()
-
-    if distribucions > 0:
-        return jsonify({
-            'error': "No es pot eliminar: la fitxa té distribucions realitzades"
-        }), 409
-
+    for versio in fitxa.versions.all():
+        Distribucio.query.filter_by(versio_id=versio.id).delete()
     VersioFitxa.query.filter_by(fitxa_id=fitxa_id).delete()
     db.session.delete(fitxa)
     db.session.commit()
 
-    return jsonify({'message': 'Fitxa eliminada'}), 200
+    # Eliminar fitxers locals (uploads)
+    import shutil
+    upload_path = os.path.join(UPLOAD_DIR, fitxa.art_codi)
+    if os.path.exists(upload_path):
+        shutil.rmtree(upload_path, ignore_errors=True)
+
+    return jsonify({
+        'message': 'Fitxa eliminada',
+        'ftp': ftp_resultats,
+    }), 200
 
 
 @fitxes_bp.route('/fitxes/<int:fitxa_id>/pdf', methods=['GET'])
