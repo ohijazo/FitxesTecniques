@@ -310,6 +310,17 @@ function PdfPageFooter() {
 }
 
 /* ============================================================
+   NOTES REGULATÒRIES per taula (com al PDF real)
+   ============================================================ */
+const TABLE_NOTES = {
+  microbiologiques: 'Establecidos como criterio interno en base RD 1286/1984 actualmente derogado. / Establerts com a criteri intern en base RD 1286/1984 actualment derogat.',
+  micotoxines: 'Según Reglamento 2023/915 relativo a los límites máximos de determinados contaminantes en los alimentos y posteriores modificaciones que pueda haber. / Segons Reglament 2023/915 relatiu als límits màxims de determinats contaminants en els aliments i posteriors modificacions que hi pugui haver.',
+  alcaloides: 'Según Reglamento 2023/915 relativo a los límites máximos de determinados contaminantes en los alimentos y posteriores modificaciones que pueda haber. / Segons Reglament 2023/915 relatiu als límits màxims de determinats contaminants en els aliments i posteriors modificacions que hi pugui haver.',
+  metalls_pesants: 'Según Reglamento 2023/915 relativo a los límites máximos de determinados contaminantes en los alimentos y posteriores modificaciones que pueda haber. / Segons Reglament 2023/915 relatiu als límits màxims de determinats contaminants en els aliments i posteriors modificacions que hi pugui haver.',
+  valors_nutricionals: 'Los valores pueden variar al tratarse de producto natural. / Els valors poden variar en tractar-se de producte natural.',
+};
+
+/* ============================================================
    PDF DOCUMENT VIEW (mode lectura - exportat per DetallFitxa)
    ============================================================ */
 export function PdfDocumentView({ contingut, versio }) {
@@ -342,10 +353,26 @@ export function PdfDocumentView({ contingut, versio }) {
         <div key={section.id} className="pdf-page">
           <PdfPageHeader rev={rev} dataRevisio={dataRevisio} dataComprovacio={dataComprovacio} />
 
-          {section.items.map((it) => it.type === 'table'
-            ? <EditableTable key={it.key} label={it.label} rows={Array.isArray(contingut[it.key]) ? contingut[it.key] : []} readOnly />
-            : <EditableField key={it.key} label={it.label} value={contingut[it.key]} readOnly />
-          )}
+          {/* Títol de secció (com al PDF real) */}
+          <div className="pdf-view-section-title">{section.label}</div>
+
+          {section.items.map((it) => {
+            const v = contingut[it.key];
+            const hasData = v !== undefined && v !== '' && (Array.isArray(v) ? v.length > 0 : true);
+            if (!hasData) return null;
+
+            return (
+              <div key={it.key}>
+                {it.type === 'table'
+                  ? <EditableTable label={it.label} rows={Array.isArray(v) ? v : []} readOnly />
+                  : <EditableField label={it.label} value={v} readOnly />
+                }
+                {TABLE_NOTES[it.key] && (
+                  <div className="pdf-table-note">{TABLE_NOTES[it.key]}</div>
+                )}
+              </div>
+            );
+          })}
 
           <PdfPageFooter />
           {si < sectionsWithData.length - 1 && <div className="pdf-page-divider" />}
