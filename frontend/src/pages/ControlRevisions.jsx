@@ -1,9 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useToast } from '../components/Toast';
 
-function StatCard({ label, value, color }) {
+function StatCard({ label, value, color, onClick, active }) {
   return (
-    <div className="stat-card">
+    <div
+      className={`stat-card ${onClick ? 'stat-card-clickable' : ''} ${active ? 'stat-card-active' : ''}`}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
       <div className="stat-value" style={{ color }}>{value}</div>
       <div className="stat-label">{label}</div>
     </div>
@@ -19,8 +25,10 @@ function ControlRevisions() {
   const [cerca, setCerca] = useState('');
   const [filtreEstat, setFiltreEstat] = useState('');
   const [filtreCaducada, setFiltreCaducada] = useState(false);
+  const [filtreAtencio, setFiltreAtencio] = useState(false);
   const [page, setPage] = useState(1);
   const perPage = 50;
+  const toast = useToast();
 
   useEffect(() => {
     const carregar = async () => {
@@ -57,8 +65,14 @@ function ControlRevisions() {
         a.download = `Control_revisions_${new Date().toISOString().slice(0, 10)}.xlsx`;
         a.click();
         URL.revokeObjectURL(a.href);
+        toast.success('Excel exportat correctament');
       })
-      .catch((err) => setError(err.message));
+      .catch((err) => toast.error(err.message));
+  };
+
+  // Calcular quines fitxes requereixen atencio
+  const requereixAtencio = (f) => {
+    return f.caducada || f.estat === 'esborrany' || f.te_errors_dist;
   };
 
   const dadesFiltrades = dades.filter((f) => {
@@ -70,11 +84,13 @@ function ControlRevisions() {
     }
     if (filtreEstat && f.estat !== filtreEstat) return false;
     if (filtreCaducada && !f.caducada) return false;
+    if (filtreAtencio && !requereixAtencio(f)) return false;
     return true;
   });
 
-  // Reset pàgina quan canvien filtres
-  useEffect(() => { setPage(1); }, [cerca, filtreEstat, filtreCaducada]);
+  const totalAtencio = dades.filter(requereixAtencio).length;
+
+  useEffect(() => { setPage(1); }, [cerca, filtreEstat, filtreCaducada, filtreAtencio]);
 
   if (loading) return <p aria-busy="true">Carregant control de revisions...</p>;
   if (error) return <p style={{ color: 'var(--danger)' }}>{error}</p>;
@@ -86,15 +102,41 @@ function ControlRevisions() {
         <button onClick={exportarExcel} className="outline">Exportar a Excel</button>
       </div>
 
-      {/* Estadístiques */}
+      {/* Alerta fitxes que requereixen atencio */}
+      {totalAtencio > 0 && (
+        <div className="atencio-banner" onClick={() => setFiltreAtencio(!filtreAtencio)}
+          role="button" tabIndex={0} style={{ cursor: 'pointer' }}>
+          <strong>{totalAtencio} fitxes requereixen atencio</strong>
+          <span>({stats.caducades || 0} caducades, {stats.esborranys || 0} esborranys)</span>
+          <span className="badge" style={{
+            background: filtreAtencio ? 'var(--danger)' : 'var(--gray-200)',
+            color: filtreAtencio ? '#fff' : 'var(--gray-600)',
+            marginLeft: '0.5rem'
+          }}>
+            {filtreAtencio ? 'Filtrant' : 'Filtrar'}
+          </span>
+        </div>
+      )}
+
+      {/* Estadistiques */}
       <div className="stats-grid">
-        <StatCard label="Total fitxes" value={stats.total || 0} color="var(--gray-800)" />
-        <StatCard label="Publicades" value={stats.publicades || 0} color="var(--success)" />
-        <StatCard label="En revisió" value={stats.en_revisio || 0} color="var(--warning)" />
+        <StatCard label="Total fitxes" value={stats.total || 0} color="var(--gray-800)"
+          onClick={() => { setFiltreEstat(''); setFiltreCaducada(false); setFiltreAtencio(false); }}
+          active={!filtreEstat && !filtreCaducada && !filtreAtencio} />
+        <StatCard label="Publicades" value={stats.publicades || 0} color="var(--success)"
+          onClick={() => { setFiltreEstat(filtreEstat === 'publicada' ? '' : 'publicada'); setFiltreCaducada(false); setFiltreAtencio(false); }}
+          active={filtreEstat === 'publicada'} />
+        <StatCard label="En revisio" value={stats.en_revisio || 0} color="var(--warning)"
+          onClick={() => { setFiltreEstat(filtreEstat === 'esborrany' ? '' : 'esborrany'); setFiltreCaducada(false); setFiltreAtencio(false); }}
+          active={filtreEstat === 'esborrany'} />
         <StatCard label="Esborranys" value={stats.esborranys || 0} color="var(--gray-500)" />
-        <StatCard label="Obsoletes" value={stats.obsoletes || 0} color="var(--danger)" />
+        <StatCard label="Obsoletes" value={stats.obsoletes || 0} color="var(--danger)"
+          onClick={() => { setFiltreEstat(filtreEstat === 'obsoleta' ? '' : 'obsoleta'); setFiltreCaducada(false); setFiltreAtencio(false); }}
+          active={filtreEstat === 'obsoleta'} />
         <StatCard label="Caducades (>2 anys)" value={stats.caducades || 0}
-          color={stats.caducades > 0 ? 'var(--danger)' : 'var(--success)'} />
+          color={stats.caducades > 0 ? 'var(--danger)' : 'var(--success)'}
+          onClick={() => { setFiltreCaducada(!filtreCaducada); setFiltreEstat(''); setFiltreAtencio(false); }}
+          active={filtreCaducada} />
       </div>
 
       {/* Filtres */}
@@ -104,6 +146,7 @@ function ControlRevisions() {
           placeholder="Cercar per codi, nom o observacions..."
           value={cerca}
           onChange={(e) => setCerca(e.target.value)}
+          aria-label="Cercar fitxes"
           style={{ maxWidth: '300px', margin: 0 }}
         />
         <select value={filtreEstat} onChange={(e) => setFiltreEstat(e.target.value)} style={{ maxWidth: '160px', margin: 0 }}>
@@ -115,7 +158,12 @@ function ControlRevisions() {
         <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', margin: 0, fontSize: '0.85rem', cursor: 'pointer' }}>
           <input type="checkbox" checked={filtreCaducada} onChange={(e) => setFiltreCaducada(e.target.checked)}
             style={{ width: '16px', height: '16px', margin: 0 }} />
-          Només caducades
+          Nomes caducades
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', margin: 0, fontSize: '0.85rem', cursor: 'pointer' }}>
+          <input type="checkbox" checked={filtreAtencio} onChange={(e) => setFiltreAtencio(e.target.checked)}
+            style={{ width: '16px', height: '16px', margin: 0 }} />
+          Requereix atencio
         </label>
         <span style={{ color: 'var(--gray-500)', fontSize: '0.85rem' }}>
           {dadesFiltrades.length} fitxes
@@ -132,8 +180,8 @@ function ControlRevisions() {
         {totalPages > 1 && (
           <div className="pagination">
             <button className="outline secondary btn-sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Anterior</button>
-            <span style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>Pàgina {page} de {totalPages}</span>
-            <button className="outline secondary btn-sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Següent</button>
+            <span style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>Pagina {page} de {totalPages}</span>
+            <button className="outline secondary btn-sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Seguent</button>
           </div>
         )}
         <div className="table-wrapper">
@@ -147,12 +195,12 @@ function ControlRevisions() {
                 <th>Data rev.</th>
                 <th>Data compr.</th>
                 <th>Client</th>
-                <th>Den. jurídica</th>
-                <th>Composició</th>
-                <th>Vida útil</th>
+                <th>Den. juridica</th>
+                <th>Composicio</th>
+                <th>Vida util</th>
                 <th>W</th>
                 <th>P/L</th>
-                <th>Proteïna</th>
+                <th>Proteina</th>
                 <th>Gluten</th>
                 <th>Cendres</th>
                 <th>Obs.</th>
@@ -160,9 +208,11 @@ function ControlRevisions() {
               </tr>
             </thead>
             <tbody>
-              {paginades.map((f) => (
+              {paginades.map((f) => {
+                const rowClass = f.caducada ? 'row-caducada' : requereixAtencio(f) ? 'row-atencio' : '';
+                return (
                 <>
-                  <tr key={f.id} style={f.caducada ? { background: '#fff5f5' } : {}}>
+                  <tr key={f.id} className={rowClass}>
                     <td>
                       <Link to={`/fitxes/${f.id}`} style={{ fontWeight: 600 }}>{f.art_codi}</Link>
                     </td>
@@ -174,7 +224,7 @@ function ControlRevisions() {
                     <td style={{ textAlign: 'center', fontWeight: 600 }}>{f.revisio}</td>
                     <td>{f.data_revisio}</td>
                     <td>{f.data_comprovacio}</td>
-                    <td style={{ textAlign: 'center' }}>{f.es_client ? 'Sí' : ''}</td>
+                    <td style={{ textAlign: 'center' }}>{f.es_client ? 'Si' : ''}</td>
                     <td style={{ whiteSpace: 'normal', maxWidth: '130px', fontSize: '0.78rem' }}>{f.denominacio_juridica}</td>
                     <td style={{ whiteSpace: 'normal', maxWidth: '110px', fontSize: '0.78rem' }}>{f.composicio}</td>
                     <td style={{ whiteSpace: 'normal', maxWidth: '100px', fontSize: '0.78rem' }}>{f.vida_util}</td>
@@ -205,7 +255,7 @@ function ControlRevisions() {
                               <div key={i} style={{ fontSize: '0.82rem', padding: '3px 0', borderBottom: '1px solid var(--gray-200)' }}>
                                 <strong>Rev. {h.num_versio}</strong>
                                 <span style={{ color: 'var(--gray-400)', marginLeft: '0.5rem' }}>
-                                  {h.data} {h.autor && `· ${h.autor}`}
+                                  {h.data} {h.autor && `\u00b7 ${h.autor}`}
                                 </span>
                                 <span style={{ marginLeft: '0.5rem', color: 'var(--gray-600)' }}>{h.descripcio}</span>
                               </div>
@@ -216,7 +266,8 @@ function ControlRevisions() {
                     </tr>
                   )}
                 </>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

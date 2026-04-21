@@ -1456,3 +1456,48 @@ textarea.pdf-field-input {
   font-weight: 600;
   white-space: nowrap;
 }
+
+/* ==========================================
+   CONTROL REVISIONS — alertes i files
+   ========================================== */
+.atencio-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1rem;
+  background: var(--warning-bg);
+  border-left: 4px solid var(--warning);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  margin-bottom: 1.25rem;
+  font-size: 0.88rem;
+  color: #92400e;
+  transition: var(--transition);
+}
+.atencio-banner:hover {
+  background: #fef0cd;
+}
+.row-caducada {
+  background: #fff5f5 !important;
+}
+.row-caducada:hover {
+  background: #fee2e2 !important;
+}
+.row-atencio {
+  background: #fffbeb !important;
+}
+.row-atencio:hover {
+  background: #fef3c7 !important;
+}
+.stat-card-clickable {
+  cursor: pointer;
+  transition: var(--transition);
+}
+.stat-card-clickable:hover {
+  border-color: var(--brand);
+  box-shadow: var(--shadow);
+}
+.stat-card-active {
+  border-color: var(--brand) !important;
+  background: var(--brand-50) !important;
+  box-shadow: 0 0 0 2px var(--brand-light);
+}

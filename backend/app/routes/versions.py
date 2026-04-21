@@ -75,6 +75,14 @@ def publicar_versio(fitxa_id, vid):
     fitxa = db.get_or_404(FitxaTecnica, fitxa_id)
     versio = VersioFitxa.query.filter_by(fitxa_id=fitxa_id, id=vid).first_or_404()
 
+    # Enforcar workflow: per publicar cal que estigui aprovada
+    # (excepte si es restaura una versio ja publicada anteriorment)
+    if versio.estat_versio not in ('aprovada', 'publicada'):
+        return jsonify({
+            'error': "Nomes es pot publicar una versio aprovada. "
+                     f"Estat actual: {versio.estat_versio}"
+        }), 400
+
     VersioFitxa.query.filter_by(fitxa_id=fitxa_id, activa=True)\
         .update({'activa': False})
 
