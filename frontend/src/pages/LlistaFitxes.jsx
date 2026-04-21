@@ -91,7 +91,7 @@ function LlistaFitxes() {
     <>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <div>
-          <h2 style={{ margin: 0 }}>Fitxes tecniques</h2>
+          <h2 style={{ margin: 0 }}>Fitxes tècniques</h2>
           <p style={{ color: 'var(--gray-500)', fontSize: '0.88rem', margin: '0.2rem 0 0' }}>
             {total} fitxes registrades
           </p>
@@ -138,7 +138,7 @@ function LlistaFitxes() {
                 <th>Producte</th>
                 <th>Rev.</th>
                 <th>Estat</th>
-                <th>Distribucio</th>
+                <th>Distribució</th>
                 <th>Actualitzat</th>
                 <th style={{ textAlign: 'right' }}>Accions</th>
               </tr>

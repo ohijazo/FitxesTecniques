@@ -37,13 +37,13 @@ function VerificarPanel({ fitxaId, onClose }) {
   return (
     <div className="card" style={{ border: `2px solid ${ok ? 'var(--success)' : 'var(--warning)'}` }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-        <h3 style={{ margin: 0 }}>Verificacio: App vs PDF original</h3>
+        <h3 style={{ margin: 0 }}>Verificació: App vs PDF original</h3>
         <button className="outline secondary btn-sm" onClick={onClose}>Tancar</button>
       </div>
 
       <div style={{ display: 'flex', gap: '2rem', marginBottom: '1rem', fontSize: '0.88rem' }}>
-        <div>Revisio PDF: <strong>{result.pdf_rev}</strong></div>
-        <div>Revisio App: <strong>{result.app_rev}</strong></div>
+        <div>Revisió PDF: <strong>{result.pdf_rev}</strong></div>
+        <div>Revisió App: <strong>{result.app_rev}</strong></div>
         <div>Camps PDF: <strong>{result.pdf_camps}</strong></div>
         <div>Camps App: <strong>{result.app_camps}</strong></div>
       </div>
@@ -55,7 +55,7 @@ function VerificarPanel({ fitxaId, onClose }) {
       ) : (
         <>
           <div style={{ background: 'var(--warning-bg)', color: 'var(--warning)', padding: '0.75rem 1rem', borderRadius: 'var(--radius)', marginBottom: '1rem', fontWeight: 600 }}>
-            {result.total_diferencies} diferencies trobades
+            {result.total_diferencies} diferències trobades
           </div>
           <div className="table-wrapper">
             <table style={{ fontSize: '0.82rem' }}>
@@ -133,9 +133,9 @@ function DistribuirPanel({ fitxaId, distribucions, onDone, onClose }) {
     const oks = res.filter((r) => r.ok).length;
     const errors = res.filter((r) => !r.ok).length;
     if (errors > 0) {
-      toast.warning(`Distribucio: ${oks} ok, ${errors} errors`);
+      toast.warning(`Distribució: ${oks} ok, ${errors} errors`);
     } else {
-      toast.success(`Distribuit correctament a ${oks} destins`);
+      toast.success(`Distribuït correctament a ${oks} destins`);
     }
     onDone();
   };
@@ -150,11 +150,11 @@ function DistribuirPanel({ fitxaId, distribucions, onDone, onClose }) {
       </div>
 
       {destins.length === 0 ? (
-        <p style={{ color: 'var(--gray-500)' }}>No hi ha destins de distribucio configurats. Configura'ls a Admin &gt; Destins.</p>
+        <p style={{ color: 'var(--gray-500)' }}>No hi ha destins de distribució configurats. Configura'ls a Admin &gt; Destins.</p>
       ) : (
         <>
           <p style={{ fontSize: '0.88rem', color: 'var(--gray-500)', marginBottom: '1rem' }}>
-            Selecciona els destins on vols distribuir la versio activa:
+            Selecciona els destins on vols distribuir la versió activa:
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.25rem' }}>
             {destins.map((d) => {
@@ -180,7 +180,7 @@ function DistribuirPanel({ fitxaId, distribucions, onDone, onClose }) {
                     </div>
                   </div>
                   {jaOk && (
-                    <span className="badge ok" style={{ fontSize: '0.72rem' }}>Ja distribuit</span>
+                    <span className="badge ok" style={{ fontSize: '0.72rem' }}>Ja distribuït</span>
                   )}
                 </label>
               );
@@ -196,7 +196,7 @@ function DistribuirPanel({ fitxaId, distribucions, onDone, onClose }) {
                   color: r.ok ? 'var(--success)' : 'var(--danger)',
                 }}>
                   {r.desti}: {r.ok ? (
-                    <>Distribuit {r.url && <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>{r.url}</a>}</>
+                    <>Distribuït {r.url && <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>{r.url}</a>}</>
                   ) : r.error}
                 </div>
               ))}
@@ -214,7 +214,7 @@ function DistribuirPanel({ fitxaId, distribucions, onDone, onClose }) {
 
 const ESTAT_VERSIO_LABELS = {
   esborrany: { label: 'Esborrany', cls: 'esborrany' },
-  en_revisio: { label: 'En revisio', cls: 'pendent' },
+  en_revisio: { label: 'En revisió', cls: 'pendent' },
   aprovada: { label: 'Aprovada', cls: 'ok' },
   publicada: { label: 'Publicada', cls: 'ok' },
 };
@@ -248,7 +248,7 @@ function DiffView({ fitxaId, v1Id, v2Id, onClose }) {
 
       {diff.total_canvis === 0 ? (
         <div style={{ background: 'var(--success-bg)', color: 'var(--success)', padding: '1rem', borderRadius: 'var(--radius)' }}>
-          Cap diferencia trobada entre les dues versions.
+          Cap diferència trobada entre les dues versions.
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -312,7 +312,7 @@ function VersionsSection({ fitxa, fitxaId, onPublicar, onVistaPrevia, onRefresh,
   };
 
   if (versions.length === 0) {
-    return <p style={{ color: 'var(--gray-500)' }}>Cap versio.</p>;
+    return <p style={{ color: 'var(--gray-500)' }}>Cap versió.</p>;
   }
 
   return (
@@ -397,13 +397,13 @@ function EliminarModal({ fitxa, onDone, onClose }) {
         </div>
 
         <div style={{ background: 'var(--danger-bg)', padding: '0.75rem 1rem', borderRadius: 'var(--radius)', marginBottom: '1rem', fontSize: '0.88rem' }}>
-          Estas a punt d'eliminar la fitxa <strong>{fitxa.art_codi} - {fitxa.nom_producte}</strong>.
-          Aquesta accio es irreversible.
+          Estàs a punt d'eliminar la fitxa <strong>{fitxa.art_codi} - {fitxa.nom_producte}</strong>.
+          Aquesta acció és irreversible.
         </div>
 
         <form onSubmit={handleEliminar}>
           <label>
-            Motiu de l'eliminacio *
+            Motiu de l'eliminació *
             <textarea value={motiu} onChange={(e) => setMotiu(e.target.value)}
               required placeholder="Ex: Fitxa duplicada, producte descatalogat..."
               rows={2} />
@@ -412,7 +412,7 @@ function EliminarModal({ fitxa, onDone, onClose }) {
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
             <input type="checkbox" checked={esborrarFtp} onChange={(e) => setEsborrarFtp(e.target.checked)}
               style={{ width: 'auto', margin: 0 }} />
-            Esborrar tambe del FTP
+            Esborrar també del FTP
           </label>
 
           <label>
@@ -427,7 +427,7 @@ function EliminarModal({ fitxa, onDone, onClose }) {
             <button type="button" className="outline secondary" onClick={onClose}>Cancel·lar</button>
             <button type="submit" disabled={loading} aria-busy={loading}
               style={{ background: 'var(--danger)', borderColor: 'var(--danger)' }}>
-              {loading ? 'Eliminant...' : 'Confirmar eliminacio'}
+              {loading ? 'Eliminant...' : 'Confirmar eliminació'}
             </button>
           </div>
         </form>
@@ -487,7 +487,7 @@ function DetallFitxa() {
           });
         }
       })
-      .catch(() => setVerif({ ok: null, error: 'Error de connexio' }));
+      .catch(() => setVerif({ ok: null, error: 'Error de connexió' }));
   };
 
   useEffect(() => { carregarDades(); }, [id]);
@@ -496,7 +496,7 @@ function DetallFitxa() {
   const publicarVersio = async (vid) => {
     try {
       await api.publicarVersio(id, vid);
-      toast.success('Versio publicada correctament');
+      toast.success('Versió publicada correctament');
       carregarDades();
     } catch (err) {
       toast.error(`Error publicant: ${err.message}`);
@@ -580,7 +580,7 @@ function DetallFitxa() {
               <span className="verif-ok" title="Les dades coincideixen amb el PDF del FTP">Verificat</span>
             )}
             {verif && verif.ok === false && (
-              <span className="verif-warn" title={`${verif.diffs} diferencies amb el PDF del FTP`}
+              <span className="verif-warn" title={`${verif.diffs} diferències amb el PDF del FTP`}
                 onClick={() => setShowVerifDetails(!showVerifDetails)} style={{ cursor: 'pointer' }}>
                 {verif.diffs} dif.
               </span>
@@ -589,10 +589,10 @@ function DetallFitxa() {
         </div>
         <div className="detail-actions">
           <Link to={`/fitxes/${id}/editar`} role="button" className="outline">
-            Editar / Nova versio
+            Editar / Nova versió
           </Link>
           <button onClick={() => vistaPrevia()} className="outline">
-            Vista previa PDF
+            Vista prèvia PDF
           </button>
           <button onClick={() => descarregarPdf()} className="outline secondary">
             Descarregar PDF
@@ -617,19 +617,19 @@ function DetallFitxa() {
         </div>
       )}
 
-      {/* Vista previa PDF */}
-      {pdfLoading && <p aria-busy="true">Carregant vista previa...</p>}
+      {/* Vista prèvia PDF */}
+      {pdfLoading && <p aria-busy="true">Carregant vista prèvia...</p>}
 
       {pdfUrl && (
         <div style={{ marginBottom: '1rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-            <strong>Vista previa del PDF</strong>
+            <strong>Vista prèvia del PDF</strong>
             <button className="outline secondary btn-sm" onClick={tancarPrevia}>Tancar</button>
           </div>
           <iframe
             src={pdfUrl}
             className="pdf-preview"
-            title="Vista previa PDF"
+            title="Vista prèvia PDF"
           />
         </div>
       )}
@@ -685,7 +685,7 @@ function DetallFitxa() {
 
               <h3 style={{ fontSize: '1rem', marginBottom: '0.75rem' }}>Historial de distribucions</h3>
               {distribucions.length === 0 ? (
-                <p style={{ color: 'var(--gray-500)' }}>Cap distribucio registrada.</p>
+                <p style={{ color: 'var(--gray-500)' }}>Cap distribució registrada.</p>
               ) : (
                 <table>
                   <thead>

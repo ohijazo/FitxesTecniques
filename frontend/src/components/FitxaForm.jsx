@@ -14,56 +14,56 @@ function arrayMove(arr, from, to) {
    ============================================================ */
 const DEFAULT_SECTIONS = [
   {
-    id: 'ident', label: 'Identificacio del producte',
+    id: 'ident', label: 'Identificació del producte',
     items: [
-      { key: 'codi_referencia', label: 'Codigo de referencia / Codi de referencia', type: 'text' },
-      { key: 'denominacio_comercial', label: 'Denominacion comercial del Producto', type: 'textarea' },
-      { key: 'denominacio_juridica', label: 'Denominacion juridica del producto', type: 'textarea' },
-      { key: 'codi_ean', label: 'Codigo EAN', type: 'text' },
-      { key: 'descripcio', label: 'Descripcion del producto', type: 'textarea' },
-      { key: 'origen', label: 'Origen del Producto y Procedencia del cereal', type: 'textarea' },
-      { key: 'ingredients', label: 'Ingredientes / Ingredients', type: 'textarea' },
-      { key: 'alergens', label: 'Alergenos / Al\u00b7lergens', type: 'textarea' },
+      { key: 'codi_referencia', label: 'Codi de referència', type: 'text' },
+      { key: 'denominacio_comercial', label: 'Denominació comercial del producte', type: 'textarea' },
+      { key: 'denominacio_juridica', label: 'Denominació jurídica del producte', type: 'textarea' },
+      { key: 'codi_ean', label: 'Codi EAN', type: 'text' },
+      { key: 'descripcio', label: 'Descripció del producte', type: 'textarea' },
+      { key: 'origen', label: 'Origen del producte i procedència del cereal', type: 'textarea' },
+      { key: 'ingredients', label: 'Ingredients', type: 'textarea' },
+      { key: 'alergens', label: 'Al\u00b7lèrgens', type: 'textarea' },
       { key: 'ogm', label: 'OGM', type: 'textarea' },
-      { key: 'irradiacio', label: 'Irradiacion \u2013 Ionizacion', type: 'textarea' },
+      { key: 'irradiacio', label: 'Irradiació \u2013 Ionització', type: 'textarea' },
     ],
   },
   {
-    id: 'caract', label: 'Caracteristiques',
+    id: 'caract', label: 'Característiques',
     items: [
-      { key: 'caract_organoleptiques', label: 'Caracteristicas organolepticas', type: 'textarea' },
-      { key: 'fisicoquimiques', label: 'Caracteristicas fisico \u2013 quimicas', type: 'table' },
-      { key: 'reologiques', label: 'Caracteristicas reologicas', type: 'table' },
-      { key: 'microbiologiques', label: 'Caracteristicas Microbiologicas', type: 'table' },
+      { key: 'caract_organoleptiques', label: 'Característiques organolèptiques', type: 'textarea' },
+      { key: 'fisicoquimiques', label: 'Característiques fisicoquímiques', type: 'table' },
+      { key: 'reologiques', label: 'Característiques reològiques', type: 'table' },
+      { key: 'microbiologiques', label: 'Característiques microbiològiques', type: 'table' },
     ],
   },
   {
-    id: 'contam', label: 'Parametros de Contaminantes',
+    id: 'contam', label: 'Paràmetres de contaminants',
     items: [
-      { key: 'micotoxines', label: 'Micotoxinas / Micotoxines', type: 'table' },
+      { key: 'micotoxines', label: 'Micotoxines', type: 'table' },
       { key: 'alcaloides', label: 'Alcaloides del cornezuelo', type: 'table' },
-      { key: 'metalls_pesants', label: 'Metales pesados / Metalls pesants', type: 'table' },
+      { key: 'metalls_pesants', label: 'Metalls pesants', type: 'table' },
       { key: 'contaminants_altres', label: 'Altres contaminants', type: 'table' },
-      { key: 'pesticidas', label: 'Pesticidas / Pesticides', type: 'textarea' },
+      { key: 'pesticidas', label: 'Pesticides', type: 'textarea' },
     ],
   },
   {
     id: 'nutri', label: 'Valors nutricionals',
     items: [
-      { key: 'valors_nutricionals', label: 'Valores nutricionales', type: 'table' },
+      { key: 'valors_nutricionals', label: 'Valors nutricionals', type: 'table' },
     ],
   },
   {
-    id: 'comerc', label: 'Informacio comercial',
+    id: 'comerc', label: 'Informació comercial',
     items: [
-      { key: 'presentacio_envase', label: 'Presentacion \u2013 envase', type: 'textarea' },
-      { key: 'us_previst', label: 'Uso previsto / Us previst', type: 'textarea' },
-      { key: 'condicions_emmagatzematge', label: "Condiciones de almacenaje", type: 'textarea' },
-      { key: 'condicions_transport', label: 'Condiciones de transporte', type: 'textarea' },
-      { key: 'vida_util', label: 'Vida util del producto', type: 'textarea' },
-      { key: 'legislacio_aplicable', label: 'Otra legislacion aplicable', type: 'textarea' },
-      { key: 'fabricat_per', label: 'Producto fabricado para', type: 'textarea' },
-      { key: 'vigencia_document', label: 'Vigencia del documento', type: 'textarea' },
+      { key: 'presentacio_envase', label: 'Presentació \u2013 envàs', type: 'textarea' },
+      { key: 'us_previst', label: 'Ús previst', type: 'textarea' },
+      { key: 'condicions_emmagatzematge', label: "Condicions d'emmagatzematge", type: 'textarea' },
+      { key: 'condicions_transport', label: 'Condicions de transport', type: 'textarea' },
+      { key: 'vida_util', label: 'Vida útil del producte', type: 'textarea' },
+      { key: 'legislacio_aplicable', label: 'Altra legislació aplicable', type: 'textarea' },
+      { key: 'fabricat_per', label: 'Producte fabricat per a', type: 'textarea' },
+      { key: 'vigencia_document', label: 'Vigència del document', type: 'textarea' },
     ],
   },
 ];
@@ -127,7 +127,7 @@ function ItemToolbar({ onMoveUp, onMoveDown, onMoveToSection, onRemove, canUp, c
       <button type="button" disabled={!canDown} onClick={onMoveDown} title="Baixar">&#9660;</button>
       {otherSections.length > 0 && (
         <div style={{ position: 'relative' }}>
-          <button type="button" onClick={() => setShowMove(!showMove)} title="Moure a altra seccio">&#8644;</button>
+          <button type="button" onClick={() => setShowMove(!showMove)} title="Moure a altra secció">&#8644;</button>
           {showMove && (
             <div className="move-menu">
               {otherSections.map((s) => (
@@ -187,7 +187,7 @@ function EditableTable({ label, rows, onChange, onRemove, readOnly, toolbar }) {
       <div className="pdf-field">
         <div className="pdf-section-title">{label}</div>
         <table className="pdf-param-table">
-          <thead><tr><th>Parametro</th><th>Valor</th></tr></thead>
+          <thead><tr><th>Paràmetre</th><th>Valor</th></tr></thead>
           <tbody>
             {rows.map((row, i) => (
               <tr key={i}>
@@ -216,7 +216,7 @@ function EditableTable({ label, rows, onChange, onRemove, readOnly, toolbar }) {
         {toolbar}
       </div>
       <table className="pdf-param-table">
-        <thead><tr><th>Parametro</th><th>Valor</th><th style={{ width: '36px' }}></th></tr></thead>
+        <thead><tr><th>Paràmetre</th><th>Valor</th><th style={{ width: '36px' }}></th></tr></thead>
         <tbody>
           {rows.map((row, i) => (
             <tr key={i}>
@@ -289,11 +289,11 @@ function PdfPageHeader({ rev, dataRevisio, dataComprovacio }) {
           <td className="pdf-header-logo" rowSpan={3}>
             <img src="/logo.png" alt="Farinera Coromina" className="pdf-logo-img" />
           </td>
-          <td className="pdf-header-title" rowSpan={3}>FICHA T&Eacute;CNICA</td>
+          <td className="pdf-header-title" rowSpan={3}>FITXA TÈCNICA</td>
           <td className="pdf-header-meta">Rev.: {rev ?? '-'}</td>
         </tr>
-        <tr><td className="pdf-header-meta">Fecha Revisi&oacute;n: {dataRevisio || '-'}</td></tr>
-        <tr><td className="pdf-header-meta">Fecha Comprovaci&oacute;n: {dataComprovacio || '-'}</td></tr>
+        <tr><td className="pdf-header-meta">Data revisió: {dataRevisio || '-'}</td></tr>
+        <tr><td className="pdf-header-meta">Data comprovació: {dataComprovacio || '-'}</td></tr>
       </tbody>
     </table>
   );
@@ -314,7 +314,7 @@ function PdfPageFooter() {
    ============================================================ */
 export function PdfDocumentView({ contingut, versio }) {
   if (!contingut || Object.keys(contingut).length === 0) {
-    return <div className="empty-state">Sense contingut registrat per aquesta versio.</div>;
+    return <div className="empty-state">Sense contingut registrat per aquesta versió.</div>;
   }
 
   // Prioritzar dades del model VersioFitxa, fallback a contingut
@@ -460,7 +460,7 @@ function FitxaForm({ initialData, onSubmit, isNew, versio }) {
   };
 
   const removeSection = (sectionId) => {
-    if (!confirm('Eliminar la seccio i tots els seus camps?')) return;
+    if (!confirm('Eliminar la secció i tots els seus camps?')) return;
     const section = sections.find((s) => s.id === sectionId);
     if (!section) return;
     setContingut((prev) => {
@@ -472,7 +472,7 @@ function FitxaForm({ initialData, onSubmit, isNew, versio }) {
   };
 
   const addSection = () => {
-    const label = prompt('Nom de la nova seccio:');
+    const label = prompt('Nom de la nova secció:');
     if (!label || !label.trim()) return;
     const id = `custom_${Date.now()}`;
     setSections((prev) => [...prev, { id, label: label.trim(), items: [] }]);
@@ -514,7 +514,7 @@ function FitxaForm({ initialData, onSubmit, isNew, versio }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.descripcio_canvi.trim()) { alert('Cal indicar la descripcio del canvi.'); return; }
+    if (!form.descripcio_canvi.trim()) { alert('Cal indicar la descripció del canvi.'); return; }
     setSaving(true);
     try {
       await onSubmit({
@@ -551,13 +551,13 @@ function FitxaForm({ initialData, onSubmit, isNew, versio }) {
         </div>
         <div className="pdf-topbar-row2">
           <label style={{ flex: 1, margin: 0 }}>
-            Descripcio del canvi *
+            Descripció del canvi *
             <textarea value={form.descripcio_canvi} onChange={(e) => updateForm({ ...form, descripcio_canvi: e.target.value })}
               required placeholder="Ex: S'actualitzen els valors de W i P/L. S'afegeix el niquel als contaminants."
               rows={2} style={{ resize: 'vertical', minHeight: '46px' }} />
           </label>
           <button type="submit" aria-busy={saving} disabled={saving} className="pdf-save-btn">
-            {saving ? 'Desant...' : isNew ? 'Crear fitxa' : 'Desar (nova versio)'}
+            {saving ? 'Desant...' : isNew ? 'Crear fitxa' : 'Desar (nova versió)'}
           </button>
         </div>
       </div>
@@ -581,9 +581,9 @@ function FitxaForm({ initialData, onSubmit, isNew, versio }) {
               <div className="pdf-section-header">
                 <div className="pdf-section-header-label">{section.label}</div>
                 <div className="pdf-section-header-actions">
-                  <button type="button" disabled={si === 0} onClick={() => moveSectionUp(si)} title="Pujar seccio">&#9650;</button>
-                  <button type="button" disabled={si === sections.length - 1} onClick={() => moveSectionDown(si)} title="Baixar seccio">&#9660;</button>
-                  <button type="button" onClick={() => removeSection(section.id)} title="Eliminar seccio" className="remove">&times;</button>
+                  <button type="button" disabled={si === 0} onClick={() => moveSectionUp(si)} title="Pujar secció">&#9650;</button>
+                  <button type="button" disabled={si === sections.length - 1} onClick={() => moveSectionDown(si)} title="Baixar secció">&#9660;</button>
+                  <button type="button" onClick={() => removeSection(section.id)} title="Eliminar secció" className="remove">&times;</button>
                 </div>
               </div>
 
@@ -619,9 +619,9 @@ function FitxaForm({ initialData, onSubmit, isNew, versio }) {
             </div>
           ))}
 
-          {/* Afegir seccio */}
+          {/* Afegir secció */}
           <div style={{ marginTop: '1.5rem' }}>
-            <button type="button" className="pdf-add-section-btn" onClick={addSection}>+ Afegir seccio</button>
+            <button type="button" className="pdf-add-section-btn" onClick={addSection}>+ Afegir secció</button>
           </div>
 
           {/* Peu */}

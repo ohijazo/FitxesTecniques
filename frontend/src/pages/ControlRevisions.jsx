@@ -70,7 +70,7 @@ function ControlRevisions() {
       .catch((err) => toast.error(err.message));
   };
 
-  // Calcular quines fitxes requereixen atencio
+  // Calcular quines fitxes requereixen atenció
   const requereixAtencio = (f) => {
     return f.caducada || f.estat === 'esborrany' || f.te_errors_dist;
   };
@@ -102,11 +102,11 @@ function ControlRevisions() {
         <button onClick={exportarExcel} className="outline">Exportar a Excel</button>
       </div>
 
-      {/* Alerta fitxes que requereixen atencio */}
+      {/* Alerta fitxes que requereixen atenció */}
       {totalAtencio > 0 && (
         <div className="atencio-banner" onClick={() => setFiltreAtencio(!filtreAtencio)}
           role="button" tabIndex={0} style={{ cursor: 'pointer' }}>
-          <strong>{totalAtencio} fitxes requereixen atencio</strong>
+          <strong>{totalAtencio} fitxes requereixen atenció</strong>
           <span>({stats.caducades || 0} caducades, {stats.esborranys || 0} esborranys)</span>
           <span className="badge" style={{
             background: filtreAtencio ? 'var(--danger)' : 'var(--gray-200)',
@@ -126,7 +126,7 @@ function ControlRevisions() {
         <StatCard label="Publicades" value={stats.publicades || 0} color="var(--success)"
           onClick={() => { setFiltreEstat(filtreEstat === 'publicada' ? '' : 'publicada'); setFiltreCaducada(false); setFiltreAtencio(false); }}
           active={filtreEstat === 'publicada'} />
-        <StatCard label="En revisio" value={stats.en_revisio || 0} color="var(--warning)"
+        <StatCard label="En revisió" value={stats.en_revisio || 0} color="var(--warning)"
           onClick={() => { setFiltreEstat(filtreEstat === 'esborrany' ? '' : 'esborrany'); setFiltreCaducada(false); setFiltreAtencio(false); }}
           active={filtreEstat === 'esborrany'} />
         <StatCard label="Esborranys" value={stats.esborranys || 0} color="var(--gray-500)" />
@@ -158,12 +158,12 @@ function ControlRevisions() {
         <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', margin: 0, fontSize: '0.85rem', cursor: 'pointer' }}>
           <input type="checkbox" checked={filtreCaducada} onChange={(e) => setFiltreCaducada(e.target.checked)}
             style={{ width: '16px', height: '16px', margin: 0 }} />
-          Nomes caducades
+          Només caducades
         </label>
         <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', margin: 0, fontSize: '0.85rem', cursor: 'pointer' }}>
           <input type="checkbox" checked={filtreAtencio} onChange={(e) => setFiltreAtencio(e.target.checked)}
             style={{ width: '16px', height: '16px', margin: 0 }} />
-          Requereix atencio
+          Requereix atenció
         </label>
         <span style={{ color: 'var(--gray-500)', fontSize: '0.85rem' }}>
           {dadesFiltrades.length} fitxes
@@ -180,8 +180,8 @@ function ControlRevisions() {
         {totalPages > 1 && (
           <div className="pagination">
             <button className="outline secondary btn-sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Anterior</button>
-            <span style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>Pagina {page} de {totalPages}</span>
-            <button className="outline secondary btn-sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Seguent</button>
+            <span style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>Pàgina {page} de {totalPages}</span>
+            <button className="outline secondary btn-sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Següent</button>
           </div>
         )}
         <div className="table-wrapper">
@@ -195,12 +195,12 @@ function ControlRevisions() {
                 <th>Data rev.</th>
                 <th>Data compr.</th>
                 <th>Client</th>
-                <th>Den. juridica</th>
+                <th>Den. jurídica</th>
                 <th>Composicio</th>
-                <th>Vida util</th>
+                <th>Vida útil</th>
                 <th>W</th>
                 <th>P/L</th>
-                <th>Proteina</th>
+                <th>Proteïna</th>
                 <th>Gluten</th>
                 <th>Cendres</th>
                 <th>Obs.</th>

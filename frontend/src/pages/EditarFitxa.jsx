@@ -41,7 +41,7 @@ function EditarFitxa() {
         contingut: formData.contingut,
       });
 
-      toast.success('Versio desada correctament');
+      toast.success('Versió desada correctament');
       setShowDistModal(true);
     } catch (err) {
       setError(err.message);
@@ -61,7 +61,7 @@ function EditarFitxa() {
     art_codi: fitxa?.art_codi || '',
     nom_producte: fitxa?.nom_producte || '',
     categoria: fitxa?.categoria || '',
-    descripcio_canvi: dadesWord ? 'Actualitzacio des de Word' : '',
+    descripcio_canvi: dadesWord ? 'Actualització des de Word' : '',
     contingut,
   };
 
@@ -80,8 +80,8 @@ function EditarFitxa() {
 
       {showDistModal && (
         <DistribuirModal
-          titol="Versio desada"
-          missatge={`Nova versio de ${fitxa?.art_codi} creada correctament.`}
+          titol="Versió desada"
+          missatge={`Nova versió de ${fitxa?.art_codi} creada correctament.`}
           onDistribuir={() => navigate(`/fitxes/${id}`, { state: { openDistribuir: true } })}
           onNoDistribuir={() => navigate(`/fitxes/${id}`)}
           onClose={() => navigate(`/fitxes/${id}`)}

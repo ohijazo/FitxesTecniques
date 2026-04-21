@@ -183,7 +183,7 @@ function AdminDestins() {
           </label>
 
           <fieldset>
-            <legend>Configuracio {form.tipus.toUpperCase()}</legend>
+            <legend>Configuració {form.tipus.toUpperCase()}</legend>
             {(CONFIG_FIELDS[form.tipus] || []).map((camp) => (
               camp.type === 'checkbox' ? (
                 <label key={camp.nom} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>

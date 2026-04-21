@@ -25,7 +25,7 @@ function AdminEliminacions() {
     carregar();
   }, []);
 
-  if (loading) return <p aria-busy="true">Carregant registres d'eliminacio...</p>;
+  if (loading) return <p aria-busy="true">Carregant registres d'eliminació...</p>;
   if (error) return <p style={{ color: 'var(--danger)' }}>{error}</p>;
 
   return (

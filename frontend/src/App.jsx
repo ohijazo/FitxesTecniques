@@ -28,7 +28,7 @@ function NavBar({ usuari, onLogout }) {
   return (
     <nav className="container-fluid">
       <ul>
-        <li><Link to="/"><strong>FC Fitxes Tecniques</strong></Link></li>
+        <li><Link to="/"><strong>FC Fitxes Tècniques</strong></Link></li>
       </ul>
       <ul>
         <li><Link to="/">Fitxes</Link></li>
@@ -40,14 +40,14 @@ function NavBar({ usuari, onLogout }) {
             onMouseEnter={() => setShowConfig(true)}
             onMouseLeave={() => setShowConfig(false)}>
             <a href="#" onClick={(e) => e.preventDefault()} className="nav-dropdown-trigger">
-              Configuracio &#9662;
+              Configuració &#9662;
             </a>
             {showConfig && (
               <div className="nav-dropdown">
-                <Link to="/control-revisions" onClick={() => setShowConfig(false)}>Control revisions</Link>
-                <Link to="/admin/destins" onClick={() => setShowConfig(false)}>Destins</Link>
                 <Link to="/admin/usuaris" onClick={() => setShowConfig(false)}>Usuaris</Link>
+                <Link to="/admin/destins" onClick={() => setShowConfig(false)}>Destins</Link>
                 <Link to="/admin/seccions" onClick={() => setShowConfig(false)}>Camps</Link>
+                <Link to="/control-revisions" onClick={() => setShowConfig(false)}>Control revisions</Link>
                 <Link to="/admin/eliminacions" onClick={() => setShowConfig(false)}>Eliminacions</Link>
               </div>
             )}

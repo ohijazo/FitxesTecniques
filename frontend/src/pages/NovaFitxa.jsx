@@ -61,7 +61,7 @@ function NovaFitxa() {
         art_codi: formData.art_codi,
         nom_producte: formData.nom_producte,
         categoria: formData.categoria,
-        descripcio_canvi: formData.descripcio_canvi || 'Creacio inicial',
+        descripcio_canvi: formData.descripcio_canvi || 'Creació inicial',
         contingut: formData.contingut,
       });
 
@@ -78,7 +78,7 @@ function NovaFitxa() {
   if (!mode) {
     return (
       <>
-        <h2>Nova fitxa tecnica</h2>
+        <h2>Nova fitxa tècnica</h2>
         {error && <p style={{ color: 'var(--danger)' }}>{error}</p>}
 
         <div className="option-cards">
@@ -107,7 +107,7 @@ function NovaFitxa() {
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
               Crea una fitxa nova omplint el formulari pas a pas.
             </p>
-            <span style={{ color: 'var(--brand)' }}>Comencar</span>
+            <span style={{ color: 'var(--brand)' }}>Començar</span>
           </div>
         </div>
       </>
@@ -119,14 +119,14 @@ function NovaFitxa() {
         art_codi: wordResult.art_codi || '',
         nom_producte: wordResult.nom_producte || '',
         categoria: '',
-        descripcio_canvi: 'Creacio inicial',
+        descripcio_canvi: 'Creació inicial',
         contingut: wordResult.dades_extretes || {},
       }
     : {
         art_codi: '',
         nom_producte: '',
         categoria: '',
-        descripcio_canvi: 'Creacio inicial',
+        descripcio_canvi: 'Creació inicial',
         contingut: {},
       };
 
@@ -136,7 +136,7 @@ function NovaFitxa() {
         <button className="outline secondary btn-sm" onClick={() => { setMode(null); setWordResult(null); }}>
           &larr; Tornar
         </button>
-        <h2 style={{ margin: 0 }}>Nova fitxa tecnica</h2>
+        <h2 style={{ margin: 0 }}>Nova fitxa tècnica</h2>
       </div>
       {error && <p style={{ color: 'var(--danger)' }}>{error}</p>}
       {wordResult && <p style={{ color: 'var(--success)' }}>Dades extretes del Word correctament.</p>}

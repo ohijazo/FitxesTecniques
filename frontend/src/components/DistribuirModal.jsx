@@ -19,10 +19,10 @@ function DistribuirModal({ titol, missatge, onDistribuir, onNoDistribuir, onClos
 
         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
           <button className="outline secondary" onClick={onNoDistribuir}>
-            No, mes tard
+            No, més tard
           </button>
           <button onClick={onDistribuir}>
-            Si, distribuir ara
+            Sí, distribuir ara
           </button>
         </div>
       </div>
