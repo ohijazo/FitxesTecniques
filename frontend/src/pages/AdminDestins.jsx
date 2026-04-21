@@ -3,11 +3,12 @@ import { api } from '../api/client';
 
 const CONFIG_FIELDS = {
   ftp: [
-    { nom: 'host', label: 'Host', type: 'text', placeholder: 'ftp.exemple.com' },
+    { nom: 'host', label: 'Host', type: 'text', placeholder: 'ftp.grupagrienergia.com' },
     { nom: 'port', label: 'Port', type: 'number', placeholder: '21' },
-    { nom: 'user', label: 'Usuari', type: 'text' },
+    { nom: 'user', label: 'Usuari', type: 'text', placeholder: 'gpablos@farineracoromina.com' },
     { nom: 'password', label: 'Contrasenya', type: 'password' },
-    { nom: 'ruta', label: 'Ruta destí', type: 'text', placeholder: '/fitxes/' },
+    { nom: 'path', label: 'Ruta destí', type: 'text', placeholder: '/ (arrel)' },
+    { nom: 'tls', label: 'Usar TLS (FTPS)', type: 'checkbox' },
   ],
   xarxa: [
     { nom: 'ruta_base', label: 'Ruta carpeta de xarxa', type: 'text', placeholder: '\\\\servidor\\compartit\\fitxes' },
@@ -182,17 +183,30 @@ function AdminDestins() {
           </label>
 
           <fieldset>
-            <legend>Configuració {form.tipus.toUpperCase()}</legend>
+            <legend>Configuracio {form.tipus.toUpperCase()}</legend>
             {(CONFIG_FIELDS[form.tipus] || []).map((camp) => (
-              <label key={camp.nom}>
-                {camp.label}
-                <input
-                  type={camp.type}
-                  value={form.configuracio[camp.nom] || ''}
-                  onChange={(e) => updateConfig(camp.nom, e.target.value)}
-                  placeholder={camp.placeholder || ''}
-                />
-              </label>
+              camp.type === 'checkbox' ? (
+                <label key={camp.nom} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={form.configuracio[camp.nom] !== false}
+                    onChange={(e) => updateConfig(camp.nom, e.target.checked)}
+                    role="switch"
+                    style={{ width: 'auto', margin: 0 }}
+                  />
+                  {camp.label}
+                </label>
+              ) : (
+                <label key={camp.nom}>
+                  {camp.label}
+                  <input
+                    type={camp.type}
+                    value={form.configuracio[camp.nom] || ''}
+                    onChange={(e) => updateConfig(camp.nom, e.target.value)}
+                    placeholder={camp.placeholder || ''}
+                  />
+                </label>
+              )
             ))}
           </fieldset>
 

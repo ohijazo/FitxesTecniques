@@ -1,17 +1,16 @@
-"""Servei per distribuir PDFs via FTP."""
+"""Servei per distribuir PDFs via FTP/FTPS."""
 
 import ftplib
 import os
-from datetime import datetime, timezone
 
 
 def distribuir_ftp(pdf_path, art_codi, config):
-    """Puja un PDF al servidor FTP.
+    """Puja un PDF al servidor FTP (amb TLS si disponible).
 
     Args:
         pdf_path: ruta local del fitxer PDF
         art_codi: codi article (nom del fitxer al FTP)
-        config: dict amb host, port, user, password, path
+        config: dict amb host, port, user, password, path, tls
 
     Returns:
         dict amb 'ok' (bool) i 'error' (str si ha fallat)
@@ -23,15 +22,22 @@ def distribuir_ftp(pdf_path, art_codi, config):
     port = int(config.get('port', 21))
     user = config.get('user', '')
     password = config.get('password', '')
-    ftp_path = config.get('path', '/')
+    ftp_path = config.get('path', '')
+    use_tls = config.get('tls', True)
 
     if not host or not user:
-        return {'ok': False, 'error': "Configuració FTP incompleta (host o user buit)"}
+        return {'ok': False, 'error': "Configuracio FTP incompleta (host o user buit)"}
 
     try:
-        ftp = ftplib.FTP()
-        ftp.connect(host, port, timeout=30)
-        ftp.login(user, password)
+        if use_tls:
+            ftp = ftplib.FTP_TLS()
+            ftp.connect(host, port, timeout=30)
+            ftp.login(user, password)
+            ftp.prot_p()  # Activar proteccio de dades (canal de dades encriptat)
+        else:
+            ftp = ftplib.FTP()
+            ftp.connect(host, port, timeout=30)
+            ftp.login(user, password)
 
         if ftp_path and ftp_path != '/':
             ftp.cwd(ftp_path)
