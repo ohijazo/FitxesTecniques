@@ -332,6 +332,10 @@ def descarregar_pdf(fitxa_id):
     # Comprovar cache: si existeix PDF generat per aquesta versió
     cache_dir = os.path.join(UPLOAD_DIR, fitxa.art_codi, f'v{versio.num_versio}')
     cache_path = os.path.join(cache_dir, f'{fitxa.art_codi}_generat.pdf')
+    force_regen = request.args.get('regen', '0') == '1'
+
+    if force_regen and os.path.exists(cache_path):
+        os.remove(cache_path)
 
     if not os.path.exists(cache_path):
         # Generar PDF des de les dades de l'app
