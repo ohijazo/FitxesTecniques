@@ -96,9 +96,7 @@ function LlistaFitxes() {
             {total} fitxes registrades
           </p>
         </div>
-        {canEdit && (
-          <Link to="/fitxes/nova" role="button">+ Nova fitxa</Link>
-        )}
+        <Link to="/fitxes/nova" role="button">+ Nova fitxa</Link>
       </div>
 
       <form onSubmit={handleCerca} style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', alignItems: 'flex-end' }}>
