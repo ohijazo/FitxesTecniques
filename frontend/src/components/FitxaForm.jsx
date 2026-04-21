@@ -180,14 +180,29 @@ function EditableField({ label, value, onChange, onRemove, multiline, readOnly, 
 /* ============================================================
    EDITABLE TABLE
    ============================================================ */
-function EditableTable({ label, rows, onChange, onRemove, readOnly, toolbar }) {
+// Subtítols que van dins la taula (com al PDF real)
+const TABLE_SUBTITLES = {
+  microbiologiques: 'Parámetros microbiológicos / Paràmetres microbiològics',
+  valors_nutricionals: 'Valores nutricionales (por 100g) / Valors nutricionals (per 100g)',
+};
+
+function EditableTable({ label, rows, onChange, onRemove, readOnly, toolbar, tableKey }) {
   if (readOnly) {
     if (!rows || rows.length === 0) return null;
+    const subtitle = tableKey && TABLE_SUBTITLES[tableKey];
     return (
       <div className="pdf-field">
         <div className="pdf-section-title">{label}</div>
         <table className="pdf-param-table">
-          <thead><tr><th>Paràmetre</th><th>Valor</th></tr></thead>
+          {subtitle && (
+            <thead>
+              <tr><td colSpan={2} className="pdf-table-subtitle">{subtitle}</td></tr>
+              <tr><th>Parámetro / Paràmetre</th><th>Valor</th></tr>
+            </thead>
+          )}
+          {!subtitle && (
+            <thead><tr><th>Parámetro / Paràmetre</th><th>Valor</th></tr></thead>
+          )}
           <tbody>
             {rows.map((row, i) => (
               <tr key={i}>
@@ -318,6 +333,8 @@ const TABLE_NOTES = {
   alcaloides: 'Según Reglamento 2023/915 relativo a los límites máximos de determinados contaminantes en los alimentos y posteriores modificaciones que pueda haber. / Segons Reglament 2023/915 relatiu als límits màxims de determinats contaminants en els aliments i posteriors modificacions que hi pugui haver.',
   metalls_pesants: 'Según Reglamento 2023/915 relativo a los límites máximos de determinados contaminantes en los alimentos y posteriores modificaciones que pueda haber. / Segons Reglament 2023/915 relatiu als límits màxims de determinats contaminants en els aliments i posteriors modificacions que hi pugui haver.',
   valors_nutricionals: 'Los valores pueden variar al tratarse de producto natural. / Els valors poden variar en tractar-se de producte natural.',
+  fisicoquimiques: 'Según RD 677/2016 / Segons RD 677/2016.',
+  reologiques: 'Según RD 677/2016 / Segons RD 677/2016.',
 };
 
 /* ============================================================
@@ -353,9 +370,6 @@ export function PdfDocumentView({ contingut, versio }) {
         <div key={section.id} className="pdf-page">
           <PdfPageHeader rev={rev} dataRevisio={dataRevisio} dataComprovacio={dataComprovacio} />
 
-          {/* Títol de secció (com al PDF real) */}
-          <div className="pdf-view-section-title">{section.label}</div>
-
           {section.items.map((it) => {
             const v = contingut[it.key];
             const hasData = v !== undefined && v !== '' && (Array.isArray(v) ? v.length > 0 : true);
@@ -364,7 +378,7 @@ export function PdfDocumentView({ contingut, versio }) {
             return (
               <div key={it.key}>
                 {it.type === 'table'
-                  ? <EditableTable label={it.label} rows={Array.isArray(v) ? v : []} readOnly />
+                  ? <EditableTable label={it.label} rows={Array.isArray(v) ? v : []} readOnly tableKey={it.key} />
                   : <EditableField label={it.label} value={v} readOnly />
                 }
                 {TABLE_NOTES[it.key] && (

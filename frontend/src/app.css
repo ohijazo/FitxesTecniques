@@ -1020,6 +1020,15 @@ textarea.pdf-field-input {
   padding: 3px 8px;
   border: 1px solid #B4C6E7;
 }
+.pdf-table-subtitle {
+  background: #D6E0F0;
+  font-weight: 700;
+  text-align: center;
+  color: #2F5496;
+  padding: 4px 8px;
+  border: 1px solid #B4C6E7;
+  font-size: 0.85rem;
+}
 .pdf-param-table input {
   width: 100%;
   border: none !important;
