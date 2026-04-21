@@ -11,6 +11,7 @@ import AdminUsuaris from './pages/AdminUsuaris';
 import AdminDestins from './pages/AdminDestins';
 import AdminSeccions from './pages/AdminSeccions';
 import ControlRevisions from './pages/ControlRevisions';
+import AdminEliminacions from './pages/AdminEliminacions';
 
 function ProtectedRoute({ children, usuari, rolsPermesos }) {
   if (!usuari) return <Navigate to="/login" />;
@@ -37,6 +38,7 @@ function NavBar({ usuari, onLogout }) {
             <li><Link to="/admin/seccions">Camps</Link></li>
             <li><Link to="/admin/destins">Destins</Link></li>
             <li><Link to="/admin/usuaris">Usuaris</Link></li>
+            <li><Link to="/admin/eliminacions">Eliminacions</Link></li>
           </>
         )}
         <li style={{ marginLeft: 'auto' }}>
@@ -147,6 +149,9 @@ function App() {
             } />
             <Route path="/admin/destins" element={
               <ProtectedRoute usuari={usuari} rolsPermesos={['admin']}><AdminDestins /></ProtectedRoute>
+            } />
+            <Route path="/admin/eliminacions" element={
+              <ProtectedRoute usuari={usuari} rolsPermesos={['admin']}><AdminEliminacions /></ProtectedRoute>
             } />
           </Routes>
         </main>
