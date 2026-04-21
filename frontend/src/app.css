@@ -89,8 +89,9 @@ nav.container-fluid ul {
 nav.container-fluid li {
   padding: 0;
 }
-nav.container-fluid a,
-nav.container-fluid strong {
+nav.container-fluid > ul > li > a,
+nav.container-fluid > ul > li > strong,
+nav.container-fluid a.nav-dropdown-trigger {
   color: rgba(255,255,255,0.9) !important;
   font-size: 0.88rem;
   text-decoration: none;
@@ -99,7 +100,8 @@ nav.container-fluid strong {
   transition: var(--transition);
   white-space: nowrap;
 }
-nav.container-fluid a:hover {
+nav.container-fluid > ul > li > a:hover,
+nav.container-fluid a.nav-dropdown-trigger:hover {
   color: #fff !important;
   background: rgba(255,255,255,0.1);
 }
