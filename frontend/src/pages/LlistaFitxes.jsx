@@ -87,7 +87,7 @@ function LlistaFitxes() {
   };
 
   const distribuirRapid = async (fitxa) => {
-    if (!fitxa.versio_activa) {
+    if (fitxa.versio_activa == null) {
       toast.warning('Aquesta fitxa no té versió activa');
       return;
     }
