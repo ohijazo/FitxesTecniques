@@ -47,7 +47,10 @@ def distribuir_ftp(pdf_path, art_codi, config):
             ftp.storbinary(f'STOR {filename}', f)
 
         ftp.quit()
-        return {'ok': True, 'error': None}
+
+        url_base = config.get('url_publica', 'https://farineracoromina.com/fitxestecniques/')
+        url = f'{url_base.rstrip("/")}/{filename}'
+        return {'ok': True, 'error': None, 'url': url}
 
     except ftplib.all_errors as e:
         return {'ok': False, 'error': str(e)}

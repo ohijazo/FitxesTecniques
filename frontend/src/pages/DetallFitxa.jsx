@@ -122,7 +122,7 @@ function DistribuirPanel({ fitxaId, distribucions, onDone, onClose }) {
     for (const destiId of ids) {
       try {
         const r = await api.distribuirDesti(fitxaId, destiId);
-        res.push({ desti: destins.find((d) => d.id === destiId)?.nom, ok: true });
+        res.push({ desti: destins.find((d) => d.id === destiId)?.nom, ok: true, url: r.missatge_error });
       } catch (err) {
         res.push({ desti: destins.find((d) => d.id === destiId)?.nom, ok: false, error: err.message });
       }
@@ -195,7 +195,9 @@ function DistribuirPanel({ fitxaId, distribucions, onDone, onClose }) {
                   background: r.ok ? 'var(--success-bg)' : 'var(--danger-bg)',
                   color: r.ok ? 'var(--success)' : 'var(--danger)',
                 }}>
-                  {r.desti}: {r.ok ? 'Distribucio creada' : r.error}
+                  {r.desti}: {r.ok ? (
+                    <>Distribuit {r.url && <a href={r.url} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'underline' }}>{r.url}</a>}</>
+                  ) : r.error}
                 </div>
               ))}
             </div>
@@ -634,7 +636,7 @@ function DetallFitxa() {
                       <th>Estat</th>
                       <th>Data</th>
                       <th>Usuari</th>
-                      <th>Error</th>
+                      <th>Detall</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -646,7 +648,15 @@ function DetallFitxa() {
                           {d.executat_at ? new Date(d.executat_at).toLocaleString('ca') : 'Pendent'}
                         </td>
                         <td style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>{d.executat_by || '-'}</td>
-                        <td style={{ color: 'var(--danger)', fontSize: '0.85rem' }}>{d.missatge_error || ''}</td>
+                        <td style={{ fontSize: '0.85rem' }}>
+                          {d.estat === 'ok' && d.missatge_error && d.missatge_error.startsWith('http') ? (
+                            <a href={d.missatge_error} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand)' }}>
+                              {d.missatge_error}
+                            </a>
+                          ) : d.estat === 'error' ? (
+                            <span style={{ color: 'var(--danger)' }}>{d.missatge_error || ''}</span>
+                          ) : null}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

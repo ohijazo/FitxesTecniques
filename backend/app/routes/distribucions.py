@@ -46,7 +46,7 @@ def _executar_distribucio(dist, fitxa, versio, desti):
 
         if result['ok']:
             dist.estat = 'ok'
-            dist.missatge_error = None
+            dist.missatge_error = result.get('url', '')
         else:
             dist.estat = 'error'
             dist.missatge_error = result['error']
