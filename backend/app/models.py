@@ -183,7 +183,7 @@ class Distribucio(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     versio_id = db.Column(db.Integer, db.ForeignKey('versio_fitxa.id'), nullable=False)
     desti_id = db.Column(db.Integer, db.ForeignKey('desti_distribucio.id'), nullable=True)
-    desti = db.Column(db.String(20), nullable=False)
+    desti = db.Column(db.String(200), nullable=False)
     estat = db.Column(db.String(20), default='pendent')
     intents = db.Column(db.Integer, default=0)
     missatge_error = db.Column(db.Text)
