@@ -151,6 +151,13 @@ class VersioFitxa(db.Model):
 
     distribucions = db.relationship('Distribucio', backref='versio', lazy='dynamic')
 
+    def _resolve_nom(self, email):
+        """Retorna el nom de l'usuari a partir de l'email, o l'email si no el troba."""
+        if not email:
+            return None
+        u = Usuari.query.filter_by(email=email).first()
+        return u.nom if u else email
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -162,10 +169,10 @@ class VersioFitxa(db.Model):
             'fitxer_pdf': self.fitxer_pdf,
             'data_comprovacio': self.data_comprovacio.isoformat() if self.data_comprovacio else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
-            'created_by': self.created_by,
+            'created_by': self._resolve_nom(self.created_by),
             'activa': self.activa,
             'estat_versio': self.estat_versio or 'esborrany',
-            'aprovat_per': self.aprovat_per,
+            'aprovat_per': self._resolve_nom(self.aprovat_per),
             'aprovat_at': self.aprovat_at.isoformat() if self.aprovat_at else None,
         }
 
