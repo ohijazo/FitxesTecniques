@@ -1,10 +1,53 @@
 import os
+import re
 import glob
 from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify
 from app import db
 from app.models import FitxaTecnica, VersioFitxa
 from app.auth import login_required, rol_requerit
+
+
+def _strip_html(text):
+    """Elimina tags HTML i normalitza espais per comparar contingut."""
+    if not text:
+        return ''
+    clean = re.sub(r'<[^>]+>', '', str(text))
+    clean = re.sub(r'\s+', ' ', clean).strip()
+    return clean
+
+
+# Mapa de claus internes a noms llegibles
+CAMP_LABELS = {
+    'codi_referencia': 'Codigo de referencia',
+    'denominacio_comercial': 'Denominacion comercial del Producto',
+    'denominacio_juridica': 'Denominacion juridica del producto',
+    'codi_ean': 'Codigo EAN',
+    'descripcio': 'Descripcion del producto',
+    'origen': 'Origen del Producto y Procedencia del cereal',
+    'ingredients': 'Ingredientes',
+    'alergens': 'Alergenos',
+    'ogm': 'OGM',
+    'irradiacio': 'Irradiacion - Ionizacion',
+    'caract_organoleptiques': 'Caracteristicas organolepticas',
+    'fisicoquimiques': 'Caracteristicas fisico-quimicas',
+    'reologiques': 'Caracteristicas reologicas',
+    'microbiologiques': 'Caracteristicas Microbiologicas',
+    'micotoxines': 'Micotoxinas',
+    'alcaloides': 'Alcaloides del cornezuelo',
+    'metalls_pesants': 'Metales pesados',
+    'contaminants_altres': 'Altres contaminants',
+    'pesticidas': 'Pesticidas',
+    'valors_nutricionals': 'Valores nutricionales',
+    'presentacio_envase': 'Presentacion - envase',
+    'us_previst': 'Uso previsto',
+    'condicions_emmagatzematge': 'Condiciones de almacenaje',
+    'condicions_transport': 'Condiciones de transporte',
+    'vida_util': 'Vida util del producto',
+    'legislacio_aplicable': 'Otra legislacion aplicable',
+    'fabricat_per': 'Producto fabricado para',
+    'vigencia_document': 'Vigencia del documento',
+}
 
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'uploads')
 
@@ -144,6 +187,7 @@ def diff_versions(fitxa_id):
     for key in all_keys:
         val1 = c1.get(key)
         val2 = c2.get(key)
+        camp_label = CAMP_LABELS.get(key, key)
 
         if isinstance(val1, list) or isinstance(val2, list):
             rows1 = val1 if isinstance(val1, list) else []
@@ -152,7 +196,6 @@ def diff_versions(fitxa_id):
             if rows1 == rows2:
                 continue
 
-            # Detectar files afegides, eliminades, modificades
             file_canvis = []
             max_len = max(len(rows1), len(rows2))
             for i in range(max_len):
@@ -169,23 +212,25 @@ def diff_versions(fitxa_id):
                     file_canvis.append({'tipus': 'igual', 'valor': r1})
 
             canvis.append({
-                'camp': key,
+                'camp': camp_label,
                 'tipus': 'taula',
                 'files': file_canvis,
             })
         else:
-            str1 = str(val1 or '').strip()
-            str2 = str(val2 or '').strip()
+            # Netejar HTML per comparar contingut real
+            clean1 = _strip_html(val1)
+            clean2 = _strip_html(val2)
 
-            if str1 == str2:
+            if clean1 == clean2:
                 continue
 
-            if not str1 and str2:
-                canvis.append({'camp': key, 'tipus': 'afegit', 'nou': str2})
-            elif str1 and not str2:
-                canvis.append({'camp': key, 'tipus': 'eliminat', 'antic': str1})
+            # Mostrar text net (sense tags HTML)
+            if not clean1 and clean2:
+                canvis.append({'camp': camp_label, 'tipus': 'afegit', 'nou': clean2})
+            elif clean1 and not clean2:
+                canvis.append({'camp': camp_label, 'tipus': 'eliminat', 'antic': clean1})
             else:
-                canvis.append({'camp': key, 'tipus': 'modificat', 'antic': str1, 'nou': str2})
+                canvis.append({'camp': camp_label, 'tipus': 'modificat', 'antic': clean1, 'nou': clean2})
 
     return jsonify({
         'v1': {'id': v1.id, 'num': v1.num_versio, 'data': v1.created_at.isoformat() if v1.created_at else '', 'autor': v1.created_by or ''},
