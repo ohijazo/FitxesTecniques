@@ -1,0 +1,638 @@
+import { useState, useEffect } from 'react';
+import { useParams, useLocation, Link } from 'react-router-dom';
+import { api } from '../api/client';
+import { PdfDocumentView } from '../components/FitxaForm';
+
+
+function VerificarPanel({ fitxaId, onClose }) {
+  const [loading, setLoading] = useState(true);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    fetch(`/api/fitxes/${fitxaId}/verificar`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.error) setError(data.error);
+        else setResult(data);
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [fitxaId]);
+
+  if (loading) return <div className="card"><p aria-busy="true">Comparant dades amb el PDF original...</p></div>;
+  if (error) return (
+    <div className="card">
+      <p style={{ color: 'var(--danger)' }}>{error}</p>
+      <button className="outline secondary btn-sm" onClick={onClose}>Tancar</button>
+    </div>
+  );
+
+  const ok = result.total_diferencies === 0;
+
+  return (
+    <div className="card" style={{ border: `2px solid ${ok ? 'var(--success)' : 'var(--warning)'}` }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <h3 style={{ margin: 0 }}>Verificació: App vs PDF original</h3>
+        <button className="outline secondary btn-sm" onClick={onClose}>Tancar</button>
+      </div>
+
+      <div style={{ display: 'flex', gap: '2rem', marginBottom: '1rem', fontSize: '0.88rem' }}>
+        <div>Revisió PDF: <strong>{result.pdf_rev}</strong></div>
+        <div>Revisió App: <strong>{result.app_rev}</strong></div>
+        <div>Camps PDF: <strong>{result.pdf_camps}</strong></div>
+        <div>Camps App: <strong>{result.app_camps}</strong></div>
+      </div>
+
+      {ok ? (
+        <div style={{ background: 'var(--success-bg)', color: 'var(--success)', padding: '1rem', borderRadius: 'var(--radius)', fontWeight: 600 }}>
+          Les dades de l'app coincideixen amb el PDF original.
+        </div>
+      ) : (
+        <>
+          <div style={{ background: 'var(--warning-bg)', color: 'var(--warning)', padding: '0.75rem 1rem', borderRadius: 'var(--radius)', marginBottom: '1rem', fontWeight: 600 }}>
+            {result.total_diferencies} diferències trobades
+          </div>
+          <div className="table-wrapper">
+            <table style={{ fontSize: '0.82rem' }}>
+              <thead>
+                <tr>
+                  <th>Camp</th>
+                  <th>Tipus</th>
+                  <th>Valor al PDF</th>
+                  <th>Valor a l'App</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.diferencies.map((d, i) => (
+                  <tr key={i}>
+                    <td style={{ fontWeight: 600 }}>{d.camp}{d.fila ? ` (fila ${d.fila})` : ''}</td>
+                    <td><span className="badge" style={{ background: 'var(--gray-100)', color: 'var(--gray-600)' }}>{d.tipus}</span></td>
+                    <td style={{ whiteSpace: 'pre-line', maxWidth: '300px', fontSize: '0.8rem', color: 'var(--success)' }}>
+                      {typeof d.pdf === 'string' ? d.pdf : JSON.stringify(d.pdf)}
+                    </td>
+                    <td style={{ whiteSpace: 'pre-line', maxWidth: '300px', fontSize: '0.8rem', color: 'var(--danger)' }}>
+                      {typeof d.app === 'string' ? d.app : JSON.stringify(d.app)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function DistribuirPanel({ fitxaId, distribucions, onDone, onClose }) {
+  const [destins, setDestins] = useState([]);
+  const [selected, setSelected] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [resultats, setResultats] = useState([]);
+
+  useEffect(() => {
+    api.llistarDestins().then((data) => {
+      const actius = data.filter((d) => d.actiu);
+      setDestins(actius);
+      // Pre-seleccionar tots
+      const sel = {};
+      actius.forEach((d) => { sel[d.id] = true; });
+      setSelected(sel);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  // Comprovar si un destí ja té distribució ok per la versió activa
+  const destiJaDistribuit = (destiId) => {
+    return distribucions.some((d) => d.desti_id === destiId && d.estat === 'ok');
+  };
+
+  const toggle = (id) => setSelected((prev) => ({ ...prev, [id]: !prev[id] }));
+
+  const distribuir = async () => {
+    const ids = Object.entries(selected).filter(([, v]) => v).map(([k]) => parseInt(k));
+    if (ids.length === 0) return;
+    setSending(true);
+    const res = [];
+    for (const destiId of ids) {
+      try {
+        const r = await api.distribuirDesti(fitxaId, destiId);
+        res.push({ desti: destins.find((d) => d.id === destiId)?.nom, ok: true });
+      } catch (err) {
+        res.push({ desti: destins.find((d) => d.id === destiId)?.nom, ok: false, error: err.message });
+      }
+    }
+    setResultats(res);
+    setSending(false);
+    onDone();
+  };
+
+  if (loading) return <p aria-busy="true">Carregant destins...</p>;
+
+  return (
+    <div className="card" style={{ border: '2px solid var(--brand-light)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <h3 style={{ margin: 0 }}>Distribuir fitxa</h3>
+        <button className="outline secondary btn-sm" onClick={onClose}>Tancar</button>
+      </div>
+
+      {destins.length === 0 ? (
+        <p style={{ color: 'var(--gray-500)' }}>No hi ha destins de distribució configurats. Configura'ls a Admin &gt; Destins.</p>
+      ) : (
+        <>
+          <p style={{ fontSize: '0.88rem', color: 'var(--gray-500)', marginBottom: '1rem' }}>
+            Selecciona els destins on vols distribuir la versió activa:
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.25rem' }}>
+            {destins.map((d) => {
+              const jaOk = destiJaDistribuit(d.id);
+              return (
+                <label key={d.id} className="desti-check" style={{
+                  display: 'flex', alignItems: 'center', gap: '0.75rem',
+                  padding: '0.7rem 1rem', border: '1px solid var(--gray-200)',
+                  borderRadius: 'var(--radius)', cursor: 'pointer', margin: 0,
+                  background: selected[d.id] ? 'var(--brand-50)' : '#fff',
+                  borderColor: selected[d.id] ? 'var(--brand)' : 'var(--gray-200)',
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={selected[d.id] || false}
+                    onChange={() => toggle(d.id)}
+                    style={{ width: '18px', height: '18px', margin: 0, accentColor: 'var(--brand)' }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{d.nom}</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--gray-500)' }}>
+                      Tipus: {d.tipus.toUpperCase()} &middot; Patró: {d.patro_nom_fitxer}
+                    </div>
+                  </div>
+                  {jaOk && (
+                    <span className="badge ok" style={{ fontSize: '0.72rem' }}>Ja distribuït</span>
+                  )}
+                </label>
+              );
+            })}
+          </div>
+
+          {resultats.length > 0 && (
+            <div style={{ marginBottom: '1rem' }}>
+              {resultats.map((r, i) => (
+                <div key={i} style={{
+                  padding: '0.4rem 0.75rem', fontSize: '0.85rem', borderRadius: '4px', marginBottom: '4px',
+                  background: r.ok ? 'var(--success-bg)' : 'var(--danger-bg)',
+                  color: r.ok ? 'var(--success)' : 'var(--danger)',
+                }}>
+                  {r.desti}: {r.ok ? 'Distribució creada' : r.error}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <button onClick={distribuir} disabled={sending || !Object.values(selected).some(Boolean)} aria-busy={sending}>
+            {sending ? 'Distribuint...' : 'Distribuir als destins seleccionats'}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+const ESTAT_VERSIO_LABELS = {
+  esborrany: { label: 'Esborrany', cls: 'esborrany' },
+  en_revisio: { label: 'En revisió', cls: 'pendent' },
+  aprovada: { label: 'Aprovada', cls: 'ok' },
+  publicada: { label: 'Publicada', cls: 'ok' },
+};
+
+function DiffView({ fitxaId, v1Id, v2Id, onClose }) {
+  const [loading, setLoading] = useState(true);
+  const [diff, setDiff] = useState(null);
+
+  useEffect(() => {
+    api.diffVersions(fitxaId, v1Id, v2Id)
+      .then(setDiff)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [fitxaId, v1Id, v2Id]);
+
+  if (loading) return <p aria-busy="true">Comparant versions...</p>;
+  if (!diff) return <p style={{ color: 'var(--danger)' }}>Error comparant versions.</p>;
+
+  return (
+    <div className="card" style={{ border: '2px solid var(--brand-light)', marginBottom: '1rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <h3 style={{ margin: 0 }}>
+          Canvis entre Rev. {diff.v1.num} i Rev. {diff.v2.num}
+        </h3>
+        <button className="outline secondary btn-sm" onClick={onClose}>Tancar</button>
+      </div>
+      <div style={{ fontSize: '0.85rem', color: 'var(--gray-500)', marginBottom: '1rem' }}>
+        <span>Rev. {diff.v1.num} ({diff.v1.autor}) → Rev. {diff.v2.num} ({diff.v2.autor})</span>
+        <span style={{ marginLeft: '1rem' }}>{diff.total_canvis} canvis</span>
+      </div>
+
+      {diff.total_canvis === 0 ? (
+        <div style={{ background: 'var(--success-bg)', color: 'var(--success)', padding: '1rem', borderRadius: 'var(--radius)' }}>
+          Cap diferència trobada entre les dues versions.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          {diff.canvis.map((c, i) => (
+            <div key={i} className="diff-item">
+              <div className="diff-camp">{c.camp}</div>
+              {c.tipus === 'afegit' && (
+                <div className="diff-added">{c.nou}</div>
+              )}
+              {c.tipus === 'eliminat' && (
+                <div className="diff-removed">{c.antic}</div>
+              )}
+              {c.tipus === 'modificat' && (
+                <>
+                  <div className="diff-removed">{c.antic}</div>
+                  <div className="diff-added">{c.nou}</div>
+                </>
+              )}
+              {c.tipus === 'taula' && (
+                <table style={{ fontSize: '0.82rem', marginTop: '4px' }}>
+                  <tbody>
+                    {c.files.map((f, fi) => {
+                      if (f.tipus === 'igual') return null;
+                      return (
+                        <tr key={fi}>
+                          <td style={{ width: '60px', fontWeight: 600, color: 'var(--gray-500)' }}>Fila {fi + 1}</td>
+                          {f.tipus === 'afegit' && (
+                            <td className="diff-added">{f.valor?.parametre}: {f.valor?.valor}</td>
+                          )}
+                          {f.tipus === 'eliminat' && (
+                            <td className="diff-removed">{f.valor?.parametre}: {f.valor?.valor}</td>
+                          )}
+                          {f.tipus === 'modificat' && (
+                            <td>
+                              <div className="diff-removed">{f.antic?.parametre}: {f.antic?.valor}</div>
+                              <div className="diff-added">{f.nou?.parametre}: {f.nou?.valor}</div>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VersionsSection({ fitxa, fitxaId, onPublicar, onVistaPrevia, onRefresh, setMsg }) {
+  const [diffPair, setDiffPair] = useState(null);
+  const versions = fitxa.versions || [];
+
+  const mostrarDiff = (v, i) => {
+    if (i < versions.length - 1) {
+      setDiffPair({ v1Id: versions[i + 1].id, v2Id: v.id });
+    }
+  };
+
+  if (versions.length === 0) {
+    return <p style={{ color: 'var(--gray-500)' }}>Cap versió.</p>;
+  }
+
+  return (
+    <>
+      {diffPair && (
+        <DiffView fitxaId={fitxaId} v1Id={diffPair.v1Id} v2Id={diffPair.v2Id}
+          onClose={() => setDiffPair(null)} />
+      )}
+
+      <div className="version-timeline">
+        {versions.map((v, i) => {
+          const hasPrev = i < versions.length - 1;
+
+          return (
+            <div key={v.id} className={`version-item ${v.activa ? 'active' : ''}`}>
+              <div className="version-dot" />
+              <div className="version-content">
+                <div className="version-header">
+                  <span className="version-num">Rev. {v.num_versio}</span>
+                  {v.activa && <span className="badge ok">Activa</span>}
+                </div>
+                <div className="version-desc">{v.descripcio_canvi}</div>
+                <div className="version-meta">
+                  <span>{v.created_at ? new Date(v.created_at).toLocaleDateString('ca') : '-'}</span>
+                  {v.created_by && <span>per {v.created_by}</span>}
+                </div>
+                <div className="version-actions">
+                  {hasPrev && (
+                    <button className="outline btn-sm" onClick={() => mostrarDiff(v, i)}>
+                      Veure canvis
+                    </button>
+                  )}
+                  <button className="outline btn-sm" onClick={() => onVistaPrevia(v.id)}>
+                    Veure PDF
+                  </button>
+                  {!v.activa && (
+                    <button className="outline secondary btn-sm" onClick={() => onPublicar(v.id)}>
+                      Restaurar
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+function DetallFitxa() {
+  const { id } = useParams();
+  const location = useLocation();
+  const [fitxa, setFitxa] = useState(null);
+  const [distribucions, setDistribucions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [msg, setMsg] = useState(null);
+  const [pdfUrl, setPdfUrl] = useState(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const openDist = location.state?.openDistribuir || false;
+  const [section, setSection] = useState(openDist ? 'distribucions' : 'contingut');
+  const [showDistribuir, setShowDistribuir] = useState(openDist);
+  const [verif, setVerif] = useState(null); // null=carregant, {ok,diffs}=resultat
+  const [showVerifDetails, setShowVerifDetails] = useState(false);
+
+  const carregarDades = async () => {
+    try {
+      const [f, d] = await Promise.all([
+        api.detallFitxa(id),
+        api.llistarDistribucions(id),
+      ]);
+      setFitxa(f);
+      setDistribucions(d);
+      setError(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Verificació automàtica en background
+  const verificarAuto = () => {
+    const token = localStorage.getItem('token');
+    fetch(`/api/fitxes/${id}/verificar`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.error) {
+          setVerif({ ok: null, error: data.error });
+        } else {
+          setVerif({
+            ok: data.total_diferencies === 0,
+            diffs: data.total_diferencies,
+            data: data,
+          });
+        }
+      })
+      .catch(() => setVerif({ ok: null, error: 'Error de connexió' }));
+  };
+
+  useEffect(() => { carregarDades(); }, [id]);
+  useEffect(() => { if (id) verificarAuto(); }, [id]);
+
+  const publicarVersio = async (vid) => {
+    try {
+      await api.publicarVersio(id, vid);
+      setMsg('Versió publicada correctament');
+      carregarDades();
+    } catch (err) {
+      setMsg(`Error: ${err.message}`);
+    }
+  };
+
+  const obrirDistribuir = () => {
+    setShowDistribuir(true);
+    setSection('distribucions');
+  };
+
+  const descarregarPdf = (versioId) => {
+    const token = localStorage.getItem('token');
+    const url = versioId
+      ? `/api/fitxes/${id}/pdf?versio_id=${versioId}`
+      : `/api/fitxes/${id}/pdf`;
+    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => {
+        if (!res.ok) throw new Error('Error descarregant el PDF');
+        return res.blob();
+      })
+      .then((blob) => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${fitxa.art_codi}.pdf`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      })
+      .catch((err) => setMsg(`Error: ${err.message}`));
+  };
+
+  const vistaPrevia = (versioId) => {
+    if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+    setPdfUrl(null);
+    setPdfLoading(true);
+    setSection('pdf');
+    const token = localStorage.getItem('token');
+    const url = versioId
+      ? `/api/fitxes/${id}/pdf?versio_id=${versioId}`
+      : `/api/fitxes/${id}/pdf`;
+    fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => {
+        if (!res.ok) throw new Error('Error carregant el PDF');
+        return res.blob();
+      })
+      .then((blob) => {
+        setPdfUrl(URL.createObjectURL(blob));
+      })
+      .catch((err) => setMsg(`Error: ${err.message}`))
+      .finally(() => setPdfLoading(false));
+  };
+
+  const tancarPrevia = () => {
+    if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+    setPdfUrl(null);
+    setSection('contingut');
+  };
+
+  if (loading) return <p aria-busy="true">Carregant...</p>;
+  if (error) return <p style={{ color: '#dc3545' }}>{error}</p>;
+  if (!fitxa) return null;
+
+  const versioActiva = fitxa.versions?.find((v) => v.activa);
+  const contingut = versioActiva?.contingut || fitxa.versions?.[0]?.contingut;
+
+  return (
+    <>
+      {/* Capçalera */}
+      <div className="detail-header">
+        <div>
+          <h2 style={{ margin: 0 }}>{fitxa.nom_producte}</h2>
+          <div className="detail-meta">
+            <code className="detail-code">{fitxa.art_codi}</code>
+            <span className={`badge ${fitxa.estat}`}>{fitxa.estat}</span>
+            {fitxa.es_client && <span className="badge" style={{ background: '#e3f2fd', color: '#1565c0' }}>Client</span>}
+            {versioActiva && <span style={{ color: 'var(--gray-500)' }}>Rev. {versioActiva.num_versio}</span>}
+            {verif && verif.ok === true && (
+              <span className="verif-ok" title="Les dades coincideixen amb el PDF del FTP">Verificat</span>
+            )}
+            {verif && verif.ok === false && (
+              <span className="verif-warn" title={`${verif.diffs} diferències amb el PDF del FTP`}
+                onClick={() => setShowVerifDetails(!showVerifDetails)} style={{ cursor: 'pointer' }}>
+                {verif.diffs} dif.
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="detail-actions">
+          <Link to={`/fitxes/${id}/editar`} role="button" className="outline">
+            Editar / Nova versió
+          </Link>
+          <button onClick={() => vistaPrevia()} className="outline">
+            Vista prèvia PDF
+          </button>
+          <button onClick={() => descarregarPdf()} className="outline secondary">
+            Descarregar PDF
+          </button>
+          {versioActiva && (
+            <button onClick={obrirDistribuir}>
+              Distribuir
+            </button>
+          )}
+        </div>
+      </div>
+
+      {fitxa.observacions && (
+        <div className="detail-obs">
+          <strong>Observacions:</strong> {fitxa.observacions}
+        </div>
+      )}
+
+      {msg && <p className="detail-msg"><small>{msg}</small></p>}
+
+      {/* Vista prèvia PDF */}
+      {pdfLoading && <p aria-busy="true">Carregant vista prèvia...</p>}
+
+      {pdfUrl && (
+        <div style={{ marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <strong>Vista prèvia del PDF</strong>
+            <button className="outline secondary btn-sm" onClick={tancarPrevia}>Tancar</button>
+          </div>
+          <iframe
+            src={pdfUrl}
+            className="pdf-preview"
+            title="Vista prèvia PDF"
+          />
+        </div>
+      )}
+
+      {/* Seccions principals */}
+      {!pdfUrl && (
+        <>
+          <div className="detail-sections">
+            <button type="button" className={section === 'contingut' ? 'active' : ''} onClick={() => setSection('contingut')}>
+              Contingut
+            </button>
+            <button type="button" className={section === 'versions' ? 'active' : ''} onClick={() => setSection('versions')}>
+              Versions ({fitxa.versions?.length || 0})
+            </button>
+            <button type="button" className={section === 'distribucions' ? 'active' : ''} onClick={() => setSection('distribucions')}>
+              Distribucions ({distribucions.length})
+            </button>
+          </div>
+
+          {section === 'contingut' && (
+            <>
+              {showVerifDetails && verif?.data && (
+                <VerificarPanel fitxaId={id} onClose={() => setShowVerifDetails(false)} />
+              )}
+              <PdfDocumentView contingut={contingut} />
+            </>
+          )}
+
+          {section === 'versions' && (
+            <VersionsSection fitxa={fitxa} fitxaId={id}
+              onPublicar={publicarVersio} onVistaPrevia={vistaPrevia}
+              onRefresh={carregarDades} setMsg={setMsg} />
+          )}
+
+          {section === 'distribucions' && (
+            <>
+              {showDistribuir && versioActiva && (
+                <DistribuirPanel
+                  fitxaId={id}
+                  distribucions={distribucions}
+                  onDone={carregarDades}
+                  onClose={() => setShowDistribuir(false)}
+                />
+              )}
+
+              {!showDistribuir && versioActiva && (
+                <div style={{ marginBottom: '1rem' }}>
+                  <button onClick={() => setShowDistribuir(true)} className="outline">
+                    Distribuir a nous destins
+                  </button>
+                </div>
+              )}
+
+              <h3 style={{ fontSize: '1rem', marginBottom: '0.75rem' }}>Historial de distribucions</h3>
+              {distribucions.length === 0 ? (
+                <p style={{ color: 'var(--gray-500)' }}>Cap distribució registrada.</p>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Destí</th>
+                      <th>Estat</th>
+                      <th>Data</th>
+                      <th>Usuari</th>
+                      <th>Error</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {distribucions.map((d) => (
+                      <tr key={d.id}>
+                        <td style={{ fontWeight: 500 }}>{d.desti}</td>
+                        <td><span className={`badge ${d.estat}`}>{d.estat}</span></td>
+                        <td style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>
+                          {d.executat_at ? new Date(d.executat_at).toLocaleString('ca') : 'Pendent'}
+                        </td>
+                        <td style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>{d.executat_by || '-'}</td>
+                        <td style={{ color: 'var(--danger)', fontSize: '0.85rem' }}>{d.missatge_error || ''}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </>
+          )}
+        </>
+      )}
+
+      <div style={{ marginTop: '1.5rem' }}>
+        <Link to="/" className="outline secondary" role="button">
+          ← Tornar a la llista
+        </Link>
+      </div>
+    </>
+  );
+}
+
+export default DetallFitxa;
