@@ -270,6 +270,37 @@ function AddItemInline({ onAdd }) {
 }
 
 /* ============================================================
+   PDF PAGE HEADER (replicat del PDF real)
+   ============================================================ */
+function PdfPageHeader({ rev, dataRevisio, dataComprovacio }) {
+  return (
+    <table className="pdf-header">
+      <tbody>
+        <tr>
+          <td className="pdf-header-logo" rowSpan={3}>
+            <img src="/logo.png" alt="Farinera Coromina" className="pdf-logo-img" />
+          </td>
+          <td className="pdf-header-title" rowSpan={3}>FICHA T&Eacute;CNICA</td>
+          <td className="pdf-header-meta">Rev.: {rev ?? '-'}</td>
+        </tr>
+        <tr><td className="pdf-header-meta">Fecha Revisi&oacute;n: {dataRevisio || '-'}</td></tr>
+        <tr><td className="pdf-header-meta">Fecha Comprovaci&oacute;n: {dataComprovacio || '-'}</td></tr>
+      </tbody>
+    </table>
+  );
+}
+
+function PdfPageFooter() {
+  return (
+    <div className="pdf-footer">
+      AGRI-ENERGIA, S.A.<br />
+      C/ Girona, 155 &ndash; 17820 Banyoles &ndash; GIRONA &ndash; Tel. 972 58 33 63<br />
+      www.farineracoromina.com
+    </div>
+  );
+}
+
+/* ============================================================
    PDF DOCUMENT VIEW (mode lectura - exportat per DetallFitxa)
    ============================================================ */
 export function PdfDocumentView({ contingut }) {
@@ -277,58 +308,53 @@ export function PdfDocumentView({ contingut }) {
     return <div className="empty-state">Sense contingut registrat per aquesta versio.</div>;
   }
 
+  const rev = contingut.rev;
+  const dataRevisio = contingut.data_revisio;
+  const dataComprovacio = contingut.data_comprovacio;
+
   const knownKeys = new Set();
   DEFAULT_SECTIONS.forEach((s) => s.items.forEach((it) => knownKeys.add(it.key)));
   const extraKeys = Object.keys(contingut).filter(
     (k) => !knownKeys.has(k) && !['rev', 'data_revisio', 'data_comprovacio'].includes(k)
   );
 
-  return (
-    <div className="pdf-document">
-      <table className="pdf-header">
-        <tbody>
-          <tr>
-            <td className="pdf-header-logo" rowSpan={3}><div className="pdf-logo-placeholder">FC</div></td>
-            <td className="pdf-header-title" rowSpan={3}>FITXA TECNICA</td>
-            <td className="pdf-header-meta">Rev.: {contingut.rev || '-'}</td>
-          </tr>
-          <tr><td className="pdf-header-meta">Data revisio: {contingut.data_revisio || '-'}</td></tr>
-          <tr><td className="pdf-header-meta">Data comprovacio: {contingut.data_comprovacio || '-'}</td></tr>
-        </tbody>
-      </table>
+  // Agrupar seccions que tenen dades
+  const sectionsWithData = DEFAULT_SECTIONS.filter((section) =>
+    section.items.some((it) => {
+      const v = contingut[it.key];
+      return v !== undefined && v !== '' && (Array.isArray(v) ? v.length > 0 : true);
+    })
+  );
 
-      {DEFAULT_SECTIONS.map((section) => {
-        const hasData = section.items.some((it) => {
-          const v = contingut[it.key];
-          return v !== undefined && v !== '' && (Array.isArray(v) ? v.length > 0 : true);
-        });
-        if (!hasData) return null;
-        return (
-          <div key={section.id} className="pdf-section-block">
-            <div className="pdf-page-break">{section.label}</div>
-            {section.items.map((it) => it.type === 'table'
-              ? <EditableTable key={it.key} label={it.label} rows={Array.isArray(contingut[it.key]) ? contingut[it.key] : []} readOnly />
-              : <EditableField key={it.key} label={it.label} value={contingut[it.key]} readOnly />
-            )}
-          </div>
-        );
-      })}
+  return (
+    <div className="pdf-document pdf-view-mode">
+      {sectionsWithData.map((section, si) => (
+        <div key={section.id} className="pdf-page">
+          <PdfPageHeader rev={rev} dataRevisio={dataRevisio} dataComprovacio={dataComprovacio} />
+
+          {section.items.map((it) => it.type === 'table'
+            ? <EditableTable key={it.key} label={it.label} rows={Array.isArray(contingut[it.key]) ? contingut[it.key] : []} readOnly />
+            : <EditableField key={it.key} label={it.label} value={contingut[it.key]} readOnly />
+          )}
+
+          <PdfPageFooter />
+          {si < sectionsWithData.length - 1 && <div className="pdf-page-divider" />}
+        </div>
+      ))}
 
       {extraKeys.length > 0 && (
-        <div className="pdf-section-block">
-          <div className="pdf-page-break">Camps addicionals</div>
+        <div className="pdf-page">
+          <PdfPageHeader rev={rev} dataRevisio={dataRevisio} dataComprovacio={dataComprovacio} />
+          <div className="pdf-section-title">Camps addicionals</div>
           {extraKeys.map((key) => {
             const v = contingut[key];
             if (Array.isArray(v)) return <EditableTable key={key} label={key} rows={v} readOnly />;
             if (v && String(v).trim()) return <EditableField key={key} label={key} value={v} readOnly />;
             return null;
           })}
+          <PdfPageFooter />
         </div>
       )}
-
-      <div className="pdf-footer">
-        AGRI-ENERGIA, S.A. &mdash; C/ Girona, 155 &ndash; 17820 Banyoles &ndash; GIRONA &mdash; www.farineracoromina.com
-      </div>
     </div>
   );
 }
