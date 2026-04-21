@@ -102,7 +102,12 @@ def distribuir_tots(fitxa_id):
         db.session.add(dist)
         db.session.flush()
 
-        _executar_distribucio(dist, fitxa, versio_activa, desti)
+        try:
+            _executar_distribucio(dist, fitxa, versio_activa, desti)
+        except Exception as e:
+            dist.estat = 'error'
+            dist.missatge_error = str(e)
+
         resultats.append(dist)
 
     db.session.commit()
@@ -134,7 +139,12 @@ def distribuir_desti(fitxa_id, desti_id):
     db.session.add(dist)
     db.session.flush()
 
-    _executar_distribucio(dist, fitxa, versio_activa, desti)
+    try:
+        _executar_distribucio(dist, fitxa, versio_activa, desti)
+    except Exception as e:
+        dist.estat = 'error'
+        dist.missatge_error = str(e)
+
     db.session.commit()
 
     return jsonify(dist.to_dict()), 200
