@@ -272,6 +272,15 @@ function AddItemInline({ onAdd }) {
 /* ============================================================
    PDF PAGE HEADER (replicat del PDF real)
    ============================================================ */
+function formatDate(isoStr) {
+  if (!isoStr) return '-';
+  try {
+    const d = new Date(isoStr);
+    if (isNaN(d)) return isoStr;
+    return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  } catch { return isoStr; }
+}
+
 function PdfPageHeader({ rev, dataRevisio, dataComprovacio }) {
   return (
     <table className="pdf-header">
@@ -303,14 +312,15 @@ function PdfPageFooter() {
 /* ============================================================
    PDF DOCUMENT VIEW (mode lectura - exportat per DetallFitxa)
    ============================================================ */
-export function PdfDocumentView({ contingut }) {
+export function PdfDocumentView({ contingut, versio }) {
   if (!contingut || Object.keys(contingut).length === 0) {
     return <div className="empty-state">Sense contingut registrat per aquesta versio.</div>;
   }
 
-  const rev = contingut.rev;
-  const dataRevisio = contingut.data_revisio;
-  const dataComprovacio = contingut.data_comprovacio;
+  // Prioritzar dades del model VersioFitxa, fallback a contingut
+  const rev = versio?.num_versio ?? contingut.rev ?? '-';
+  const dataRevisio = versio?.created_at ? formatDate(versio.created_at) : (contingut.data_revisio || '-');
+  const dataComprovacio = versio?.data_comprovacio ? formatDate(versio.data_comprovacio) : (contingut.data_comprovacio || '-');
 
   const knownKeys = new Set();
   DEFAULT_SECTIONS.forEach((s) => s.items.forEach((it) => knownKeys.add(it.key)));
@@ -362,7 +372,7 @@ export function PdfDocumentView({ contingut }) {
 /* ============================================================
    FITXA FORM (editor amb sidebar nav)
    ============================================================ */
-function FitxaForm({ initialData, onSubmit, isNew }) {
+function FitxaForm({ initialData, onSubmit, isNew, versio }) {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [activeSection, setActiveSection] = useState(null);
@@ -558,18 +568,12 @@ function FitxaForm({ initialData, onSubmit, isNew }) {
 
         {/* Document */}
         <div className="pdf-document">
-          {/* Capsalera */}
-          <table className="pdf-header">
-            <tbody>
-              <tr>
-                <td className="pdf-header-logo" rowSpan={3}><div className="pdf-logo-placeholder">FC</div></td>
-                <td className="pdf-header-title" rowSpan={3}>FITXA TECNICA</td>
-                <td className="pdf-header-meta">Rev.: {contingut.rev || '-'}</td>
-              </tr>
-              <tr><td className="pdf-header-meta">Data revisio: {contingut.data_revisio || '-'}</td></tr>
-              <tr><td className="pdf-header-meta">Data comprovacio: {contingut.data_comprovacio || '-'}</td></tr>
-            </tbody>
-          </table>
+          {/* Capsalera — logo + dades de versio (read-only) */}
+          <PdfPageHeader
+            rev={isNew ? '-' : (versio?.num_versio ?? contingut.rev ?? '-')}
+            dataRevisio={versio?.created_at ? formatDate(versio.created_at) : (contingut.data_revisio || '-')}
+            dataComprovacio={versio?.data_comprovacio ? formatDate(versio.data_comprovacio) : (contingut.data_comprovacio || '-')}
+          />
 
           {/* Seccions */}
           {sections.map((section, si) => (

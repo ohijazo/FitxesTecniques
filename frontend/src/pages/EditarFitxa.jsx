@@ -74,7 +74,7 @@ function EditarFitxa() {
       {error && <p style={{ color: '#dc3545' }}>{error}</p>}
       {dadesWord && <p style={{ color: '#28a745' }}>Dades actualitzades des del Word.</p>}
 
-      <FitxaForm initialData={initialData} onSubmit={handleSubmit} isNew={false} />
+      <FitxaForm initialData={initialData} onSubmit={handleSubmit} isNew={false} versio={ultimaVersio} />
     </>
   );
 }

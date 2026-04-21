@@ -569,7 +569,7 @@ function DetallFitxa() {
               {showVerifDetails && verif?.data && (
                 <VerificarPanel fitxaId={id} onClose={() => setShowVerifDetails(false)} />
               )}
-              <PdfDocumentView contingut={contingut} />
+              <PdfDocumentView contingut={contingut} versio={versioActiva} />
             </>
           )}
 
