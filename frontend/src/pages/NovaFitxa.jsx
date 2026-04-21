@@ -1,14 +1,19 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
+import { useToast } from '../components/Toast';
 import FitxaForm from '../components/FitxaForm';
+import DistribuirModal from '../components/DistribuirModal';
 
 function NovaFitxa() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [mode, setMode] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   const [wordResult, setWordResult] = useState(null);
+  const [novaFitxaId, setNovaFitxaId] = useState(null);
+  const [novaFitxaCodi, setNovaFitxaCodi] = useState('');
 
   const handleWordUpload = async (e) => {
     const file = e.target.files[0];
@@ -56,17 +61,16 @@ function NovaFitxa() {
         art_codi: formData.art_codi,
         nom_producte: formData.nom_producte,
         categoria: formData.categoria,
-        descripcio_canvi: formData.descripcio_canvi || 'Creació inicial',
+        descripcio_canvi: formData.descripcio_canvi || 'Creacio inicial',
         contingut: formData.contingut,
       });
 
-      if (confirm('Fitxa creada correctament. Vols distribuir-la ara?')) {
-        navigate(`/fitxes/${fitxa.id}`, { state: { openDistribuir: true } });
-      } else {
-        navigate(`/fitxes/${fitxa.id}`);
-      }
+      toast.success('Fitxa creada correctament');
+      setNovaFitxaId(fitxa.id);
+      setNovaFitxaCodi(fitxa.art_codi);
     } catch (err) {
       setError(err.message);
+      toast.error(`Error creant: ${err.message}`);
     }
   };
 
@@ -74,14 +78,14 @@ function NovaFitxa() {
   if (!mode) {
     return (
       <>
-        <h2>Nova fitxa tècnica</h2>
-        {error && <p style={{ color: '#dc3545' }}>{error}</p>}
+        <h2>Nova fitxa tecnica</h2>
+        {error && <p style={{ color: 'var(--danger)' }}>{error}</p>}
 
         <div className="option-cards">
           <label className="option-card" htmlFor="word-upload">
             <h3>Pujar Word</h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-              Puja un .docx existent i les dades s'extrauran automàticament.
+              Puja un .docx existent i les dades s'extrauran automaticament.
             </p>
             <input
               id="word-upload"
@@ -103,7 +107,7 @@ function NovaFitxa() {
             <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
               Crea una fitxa nova omplint el formulari pas a pas.
             </p>
-            <span style={{ color: 'var(--brand)' }}>Començar</span>
+            <span style={{ color: 'var(--brand)' }}>Comencar</span>
           </div>
         </div>
       </>
@@ -115,14 +119,14 @@ function NovaFitxa() {
         art_codi: wordResult.art_codi || '',
         nom_producte: wordResult.nom_producte || '',
         categoria: '',
-        descripcio_canvi: 'Creació inicial',
+        descripcio_canvi: 'Creacio inicial',
         contingut: wordResult.dades_extretes || {},
       }
     : {
         art_codi: '',
         nom_producte: '',
         categoria: '',
-        descripcio_canvi: 'Creació inicial',
+        descripcio_canvi: 'Creacio inicial',
         contingut: {},
       };
 
@@ -130,14 +134,24 @@ function NovaFitxa() {
     <>
       <div className="toolbar">
         <button className="outline secondary btn-sm" onClick={() => { setMode(null); setWordResult(null); }}>
-          ← Tornar
+          &larr; Tornar
         </button>
-        <h2 style={{ margin: 0 }}>Nova fitxa tècnica</h2>
+        <h2 style={{ margin: 0 }}>Nova fitxa tecnica</h2>
       </div>
-      {error && <p style={{ color: '#dc3545' }}>{error}</p>}
-      {wordResult && <p style={{ color: '#28a745' }}>Dades extretes del Word correctament.</p>}
+      {error && <p style={{ color: 'var(--danger)' }}>{error}</p>}
+      {wordResult && <p style={{ color: 'var(--success)' }}>Dades extretes del Word correctament.</p>}
 
       <FitxaForm initialData={initialData} onSubmit={handleCrear} isNew={true} />
+
+      {novaFitxaId && (
+        <DistribuirModal
+          titol="Fitxa creada"
+          missatge={`La fitxa ${novaFitxaCodi} s'ha creat correctament.`}
+          onDistribuir={() => navigate(`/fitxes/${novaFitxaId}`, { state: { openDistribuir: true } })}
+          onNoDistribuir={() => navigate(`/fitxes/${novaFitxaId}`)}
+          onClose={() => navigate(`/fitxes/${novaFitxaId}`)}
+        />
+      )}
     </>
   );
 }
