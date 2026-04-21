@@ -363,6 +363,79 @@ function VersionsSection({ fitxa, fitxaId, onPublicar, onVistaPrevia, onRefresh,
   );
 }
 
+function EliminarModal({ fitxa, onDone, onClose }) {
+  const [motiu, setMotiu] = useState('');
+  const [password, setPassword] = useState('');
+  const [esborrarFtp, setEsborrarFtp] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const toast = useToast();
+
+  const handleEliminar = async (e) => {
+    e.preventDefault();
+    if (!motiu.trim()) { setError('Cal indicar un motiu'); return; }
+    if (!password) { setError('Cal la contrasenya'); return; }
+
+    setLoading(true);
+    setError(null);
+    try {
+      await api.eliminarFitxa(fitxa.id, { motiu, password, esborrar_ftp: esborrarFtp });
+      toast.success(`Fitxa ${fitxa.art_codi} eliminada correctament`);
+      onDone();
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3 style={{ margin: 0, color: 'var(--danger)' }}>Eliminar fitxa</h3>
+          <button className="outline secondary btn-sm" onClick={onClose}>&times;</button>
+        </div>
+
+        <div style={{ background: 'var(--danger-bg)', padding: '0.75rem 1rem', borderRadius: 'var(--radius)', marginBottom: '1rem', fontSize: '0.88rem' }}>
+          Estas a punt d'eliminar la fitxa <strong>{fitxa.art_codi} - {fitxa.nom_producte}</strong>.
+          Aquesta accio es irreversible.
+        </div>
+
+        <form onSubmit={handleEliminar}>
+          <label>
+            Motiu de l'eliminacio *
+            <textarea value={motiu} onChange={(e) => setMotiu(e.target.value)}
+              required placeholder="Ex: Fitxa duplicada, producte descatalogat..."
+              rows={2} />
+          </label>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+            <input type="checkbox" checked={esborrarFtp} onChange={(e) => setEsborrarFtp(e.target.checked)}
+              style={{ width: 'auto', margin: 0 }} />
+            Esborrar tambe del FTP
+          </label>
+
+          <label>
+            Confirma amb la teva contrasenya *
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+              required placeholder="Contrasenya" autoComplete="current-password" />
+          </label>
+
+          {error && <p style={{ color: 'var(--danger)', fontSize: '0.88rem', marginBottom: '0.5rem' }}>{error}</p>}
+
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+            <button type="button" className="outline secondary" onClick={onClose}>Cancel·lar</button>
+            <button type="submit" disabled={loading} aria-busy={loading}
+              style={{ background: 'var(--danger)', borderColor: 'var(--danger)' }}>
+              {loading ? 'Eliminant...' : 'Confirmar eliminacio'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function DetallFitxa() {
   const { id } = useParams();
   const location = useLocation();
@@ -435,22 +508,7 @@ function DetallFitxa() {
     setSection('distribucions');
   };
 
-  const eliminarFitxa = async () => {
-    const esborrarFtp = confirm(
-      `Eliminar la fitxa ${fitxa.art_codi}?\n\n` +
-      `Prem "Acceptar" per eliminar la fitxa I esborrar-la del FTP.\n` +
-      `(Les distribucions i versions tambe s'eliminaran)`
-    );
-    if (!esborrarFtp && !confirm('Vols eliminar nomes de l\'aplicacio (sense tocar el FTP)?')) return;
-
-    try {
-      await api.eliminarFitxa(id, esborrarFtp);
-      toast.success(`Fitxa ${fitxa.art_codi} eliminada`);
-      navigate('/');
-    } catch (err) {
-      toast.error(`Error eliminant: ${err.message}`);
-    }
-  };
+  const [showEliminar, setShowEliminar] = useState(false);
 
   const descarregarPdf = (versioId) => {
     const token = localStorage.getItem('token');
@@ -546,7 +604,7 @@ function DetallFitxa() {
           )}
           {usuari.rol === 'admin' && (
             <button className="outline" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
-              onClick={eliminarFitxa}>
+              onClick={() => setShowEliminar(true)}>
               Eliminar
             </button>
           )}
@@ -672,6 +730,14 @@ function DetallFitxa() {
           &larr; Tornar a la llista
         </Link>
       </div>
+
+      {showEliminar && (
+        <EliminarModal
+          fitxa={fitxa}
+          onDone={() => navigate('/')}
+          onClose={() => setShowEliminar(false)}
+        />
+      )}
     </>
   );
 }

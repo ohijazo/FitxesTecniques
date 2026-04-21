@@ -221,8 +221,32 @@ def editar_fitxa(fitxa_id):
 @fitxes_bp.route('/fitxes/<int:fitxa_id>', methods=['DELETE'])
 @rol_requerit('admin')
 def eliminar_fitxa(fitxa_id):
+    from app.models import Distribucio, Usuari, RegistreEliminacio
+    import shutil
+
     fitxa = db.get_or_404(FitxaTecnica, fitxa_id)
-    esborrar_ftp = request.args.get('esborrar_ftp', '0') == '1'
+    data = request.get_json() or {}
+
+    # Validar motiu obligatori
+    motiu = (data.get('motiu') or '').strip()
+    if not motiu:
+        return jsonify({'error': "Cal indicar un motiu per eliminar la fitxa"}), 400
+
+    # Validar contrasenya de l'usuari
+    password = data.get('password', '')
+    if not password:
+        return jsonify({'error': "Cal confirmar amb la teva contrasenya"}), 400
+
+    usuari = Usuari.query.filter_by(email=request.usuari.get('email')).first()
+    if not usuari or not usuari.check_password(password):
+        return jsonify({'error': "Contrasenya incorrecta"}), 403
+
+    esborrar_ftp = data.get('esborrar_ftp', False)
+
+    # Info per al registre (abans d'eliminar)
+    versions_list = fitxa.versions.all()
+    num_versions = len(versions_list)
+    ultima_versio = max((v.num_versio for v in versions_list), default=0)
 
     # Esborrar del FTP si demanat
     ftp_resultats = []
@@ -234,16 +258,26 @@ def eliminar_fitxa(fitxa_id):
             result = eliminar_ftp(fitxa.art_codi, config)
             ftp_resultats.append({'desti': desti.nom, **result})
 
+    # Registrar l'eliminacio
+    registre = RegistreEliminacio(
+        art_codi=fitxa.art_codi,
+        nom_producte=fitxa.nom_producte,
+        num_versions=num_versions,
+        ultima_versio=ultima_versio,
+        motiu=motiu,
+        esborrat_ftp=esborrar_ftp,
+        eliminat_per=usuari.nom,
+    )
+    db.session.add(registre)
+
     # Eliminar distribucions, versions i fitxa
-    from app.models import Distribucio
-    for versio in fitxa.versions.all():
+    for versio in versions_list:
         Distribucio.query.filter_by(versio_id=versio.id).delete()
     VersioFitxa.query.filter_by(fitxa_id=fitxa_id).delete()
     db.session.delete(fitxa)
     db.session.commit()
 
     # Eliminar fitxers locals (uploads)
-    import shutil
     upload_path = os.path.join(UPLOAD_DIR, fitxa.art_codi)
     if os.path.exists(upload_path):
         shutil.rmtree(upload_path, ignore_errors=True)
@@ -252,6 +286,17 @@ def eliminar_fitxa(fitxa_id):
         'message': 'Fitxa eliminada',
         'ftp': ftp_resultats,
     }), 200
+
+
+@fitxes_bp.route('/fitxes/eliminacions', methods=['GET'])
+@rol_requerit('admin')
+def llistar_eliminacions():
+    """Historial de fitxes eliminades."""
+    from app.models import RegistreEliminacio
+    registres = RegistreEliminacio.query.order_by(
+        RegistreEliminacio.eliminat_at.desc()
+    ).all()
+    return jsonify([r.to_dict() for r in registres])
 
 
 @fitxes_bp.route('/fitxes/<int:fitxa_id>/pdf', methods=['GET'])

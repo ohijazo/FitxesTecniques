@@ -255,3 +255,31 @@ class CampFitxa(db.Model):
             'opcions': self.opcions,
             'valor_defecte': self.valor_defecte,
         }
+
+
+class RegistreEliminacio(db.Model):
+    """Registre d'audit per fitxes eliminades."""
+    __tablename__ = 'registre_eliminacio'
+
+    id = db.Column(db.Integer, primary_key=True)
+    art_codi = db.Column(db.String(50), nullable=False)
+    nom_producte = db.Column(db.String(200), nullable=False)
+    num_versions = db.Column(db.Integer, default=0)
+    ultima_versio = db.Column(db.Integer, default=0)
+    motiu = db.Column(db.Text, nullable=False)
+    esborrat_ftp = db.Column(db.Boolean, default=False)
+    eliminat_per = db.Column(db.String(200), nullable=False)
+    eliminat_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'art_codi': self.art_codi,
+            'nom_producte': self.nom_producte,
+            'num_versions': self.num_versions,
+            'ultima_versio': self.ultima_versio,
+            'motiu': self.motiu,
+            'esborrat_ftp': self.esborrat_ftp,
+            'eliminat_per': self.eliminat_per,
+            'eliminat_at': self.eliminat_at.isoformat() if self.eliminat_at else None,
+        }
