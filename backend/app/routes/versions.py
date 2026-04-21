@@ -20,6 +20,7 @@ def _strip_html(text):
 # Mapa de claus internes a noms llegibles
 CAMP_LABELS = {
     'codi_referencia': 'Código de referencia / Codi de referència',
+    'certificacio': 'Certificación / Certificació',
     'denominacio_comercial': 'Denominación comercial / Denominació comercial',
     'denominacio_juridica': 'Denominación jurídica / Denominació jurídica',
     'codi_ean': 'Código EAN / Codi EAN',

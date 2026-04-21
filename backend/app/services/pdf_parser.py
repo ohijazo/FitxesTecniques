@@ -122,6 +122,8 @@ def _parse_header(pages):
 FIELD_LABELS = [
     ('código de referencia', 'codi_referencia'),
     ('codi de referència', 'codi_referencia'),
+    ('certificación', 'certificacio'),
+    ('certificació', 'certificacio'),
     ('denominación comercial', 'denominacio_comercial'),
     ('denominació comercial', 'denominacio_comercial'),
     ('denominación jurídica', 'denominacio_juridica'),

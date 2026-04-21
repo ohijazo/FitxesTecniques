@@ -18,6 +18,7 @@ const DEFAULT_SECTIONS = [
     id: 'ident', label: 'Identificación del producto / Identificació del producte',
     items: [
       { key: 'codi_referencia', label: 'Código de referencia / Codi de referència', type: 'text' },
+      { key: 'certificacio', label: 'Certificación / Certificació', type: 'textarea' },
       { key: 'denominacio_comercial', label: 'Denominación comercial del Producto / Denominació comercial del producte', type: 'textarea' },
       { key: 'denominacio_juridica', label: 'Denominación jurídica del producto / Denominació jurídica del producte', type: 'textarea' },
       { key: 'codi_ean', label: 'Código EAN / Codi EAN', type: 'text' },
