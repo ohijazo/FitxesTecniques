@@ -18,7 +18,6 @@ const DEFAULT_SECTIONS = [
     id: 'ident', label: 'Identificación del producto / Identificació del producte',
     items: [
       { key: 'codi_referencia', label: 'Código de referencia / Codi de referència', type: 'text' },
-      { key: 'certificacio_img', label: 'Imatge certificació', type: 'image' },
       { key: 'certificacio', label: 'Certificación / Certificació', type: 'textarea' },
       { key: 'denominacio_comercial', label: 'Denominación comercial del Producto / Denominació comercial del producte', type: 'textarea' },
       { key: 'denominacio_juridica', label: 'Denominación jurídica del producto / Denominació jurídica del producte', type: 'textarea' },
@@ -412,12 +411,18 @@ export function PdfDocumentView({ contingut, versio }) {
   const knownKeys = new Set();
   DEFAULT_SECTIONS.forEach((s) => s.items.forEach((it) => knownKeys.add(it.key)));
   const extraKeys = Object.keys(contingut).filter(
-    (k) => !knownKeys.has(k) && !['rev', 'data_revisio', 'data_comprovacio'].includes(k)
+    (k) => !knownKeys.has(k) && !['rev', 'data_revisio', 'data_comprovacio'].includes(k) && !k.startsWith('certificacio_img')
   );
+
+  // Recollir imatges de certificacio del contingut
+  const certImgs = Object.entries(contingut)
+    .filter(([k, v]) => k.startsWith('certificacio_img') && v && typeof v === 'string')
+    .map(([k, v]) => ({ key: k, url: v }));
 
   // Agrupar seccions que tenen dades
   const sectionsWithData = DEFAULT_SECTIONS.filter((section) =>
     section.items.some((it) => {
+      if (it.key.startsWith('certificacio_img')) return false; // mostrades apart
       const v = contingut[it.key];
       return v !== undefined && v !== '' && (Array.isArray(v) ? v.length > 0 : true);
     })
@@ -428,6 +433,15 @@ export function PdfDocumentView({ contingut, versio }) {
       {sectionsWithData.map((section, si) => (
         <div key={section.id} className="pdf-page">
           <PdfPageHeader rev={rev} dataRevisio={dataRevisio} dataComprovacio={dataComprovacio} />
+
+          {/* Imatges certificacio a la primera pagina, alineades a la dreta */}
+          {si === 0 && certImgs.length > 0 && (
+            <div className="pdf-cert-images">
+              {certImgs.map((img) => (
+                <img key={img.key} src={img.url} alt="Certificació" className="pdf-cert-img" />
+              ))}
+            </div>
+          )}
 
           {section.items.map((it) => {
             const v = contingut[it.key];

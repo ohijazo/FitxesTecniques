@@ -1353,7 +1353,20 @@ textarea.pdf-field-input {
   margin: 0.2rem 0;
 }
 
-/* Imatges dins fitxa (certificacions, segells) */
+/* Imatges de certificacio (com al PDF real: alineades a la dreta) */
+.pdf-cert-images {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.pdf-cert-img {
+  max-width: 120px;
+  max-height: 80px;
+  object-fit: contain;
+}
+
+/* Imatges dins fitxa (camps genèrics) */
 .pdf-image-container {
   margin: 0.5rem 0;
 }

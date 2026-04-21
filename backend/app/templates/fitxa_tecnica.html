@@ -174,11 +174,11 @@
 </table>
 
 {% if imatges %}
-{% for img in imatges %}
-<div style="text-align: right; margin-bottom: 8px;">
-  <img src="{{ img.data_uri }}" style="max-width: 150px; max-height: 100px;" alt="{{ img.key }}">
+<div style="text-align: right; margin-bottom: 10px;">
+  {% for img in imatges %}
+  <img src="{{ img.data_uri }}" style="max-width: 100px; max-height: 70px; margin-left: 6px;" alt="{{ img.key }}">
+  {% endfor %}
 </div>
-{% endfor %}
 {% endif %}
 
 <div class="field-label">Código de referencia</div>
