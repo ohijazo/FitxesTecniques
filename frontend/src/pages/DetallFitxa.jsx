@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useLocation, Link } from 'react-router-dom';
 import { api } from '../api/client';
+import { useToast } from '../components/Toast';
 import { PdfDocumentView } from '../components/FitxaForm';
 
 
@@ -36,13 +37,13 @@ function VerificarPanel({ fitxaId, onClose }) {
   return (
     <div className="card" style={{ border: `2px solid ${ok ? 'var(--success)' : 'var(--warning)'}` }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-        <h3 style={{ margin: 0 }}>Verificació: App vs PDF original</h3>
+        <h3 style={{ margin: 0 }}>Verificacio: App vs PDF original</h3>
         <button className="outline secondary btn-sm" onClick={onClose}>Tancar</button>
       </div>
 
       <div style={{ display: 'flex', gap: '2rem', marginBottom: '1rem', fontSize: '0.88rem' }}>
-        <div>Revisió PDF: <strong>{result.pdf_rev}</strong></div>
-        <div>Revisió App: <strong>{result.app_rev}</strong></div>
+        <div>Revisio PDF: <strong>{result.pdf_rev}</strong></div>
+        <div>Revisio App: <strong>{result.app_rev}</strong></div>
         <div>Camps PDF: <strong>{result.pdf_camps}</strong></div>
         <div>Camps App: <strong>{result.app_camps}</strong></div>
       </div>
@@ -54,7 +55,7 @@ function VerificarPanel({ fitxaId, onClose }) {
       ) : (
         <>
           <div style={{ background: 'var(--warning-bg)', color: 'var(--warning)', padding: '0.75rem 1rem', borderRadius: 'var(--radius)', marginBottom: '1rem', fontWeight: 600 }}>
-            {result.total_diferencies} diferències trobades
+            {result.total_diferencies} diferencies trobades
           </div>
           <div className="table-wrapper">
             <table style={{ fontSize: '0.82rem' }}>
@@ -94,12 +95,12 @@ function DistribuirPanel({ fitxaId, distribucions, onDone, onClose }) {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [resultats, setResultats] = useState([]);
+  const toast = useToast();
 
   useEffect(() => {
     api.llistarDestins().then((data) => {
       const actius = data.filter((d) => d.actiu);
       setDestins(actius);
-      // Pre-seleccionar tots
       const sel = {};
       actius.forEach((d) => { sel[d.id] = true; });
       setSelected(sel);
@@ -107,7 +108,6 @@ function DistribuirPanel({ fitxaId, distribucions, onDone, onClose }) {
     }).catch(() => setLoading(false));
   }, []);
 
-  // Comprovar si un destí ja té distribució ok per la versió activa
   const destiJaDistribuit = (destiId) => {
     return distribucions.some((d) => d.desti_id === destiId && d.estat === 'ok');
   };
@@ -129,6 +129,14 @@ function DistribuirPanel({ fitxaId, distribucions, onDone, onClose }) {
     }
     setResultats(res);
     setSending(false);
+
+    const oks = res.filter((r) => r.ok).length;
+    const errors = res.filter((r) => !r.ok).length;
+    if (errors > 0) {
+      toast.warning(`Distribucio: ${oks} ok, ${errors} errors`);
+    } else {
+      toast.success(`Distribuit correctament a ${oks} destins`);
+    }
     onDone();
   };
 
@@ -142,11 +150,11 @@ function DistribuirPanel({ fitxaId, distribucions, onDone, onClose }) {
       </div>
 
       {destins.length === 0 ? (
-        <p style={{ color: 'var(--gray-500)' }}>No hi ha destins de distribució configurats. Configura'ls a Admin &gt; Destins.</p>
+        <p style={{ color: 'var(--gray-500)' }}>No hi ha destins de distribucio configurats. Configura'ls a Admin &gt; Destins.</p>
       ) : (
         <>
           <p style={{ fontSize: '0.88rem', color: 'var(--gray-500)', marginBottom: '1rem' }}>
-            Selecciona els destins on vols distribuir la versió activa:
+            Selecciona els destins on vols distribuir la versio activa:
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.25rem' }}>
             {destins.map((d) => {
@@ -168,11 +176,11 @@ function DistribuirPanel({ fitxaId, distribucions, onDone, onClose }) {
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{d.nom}</div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--gray-500)' }}>
-                      Tipus: {d.tipus.toUpperCase()} &middot; Patró: {d.patro_nom_fitxer}
+                      Tipus: {d.tipus.toUpperCase()} &middot; Patro: {d.patro_nom_fitxer}
                     </div>
                   </div>
                   {jaOk && (
-                    <span className="badge ok" style={{ fontSize: '0.72rem' }}>Ja distribuït</span>
+                    <span className="badge ok" style={{ fontSize: '0.72rem' }}>Ja distribuit</span>
                   )}
                 </label>
               );
@@ -187,7 +195,7 @@ function DistribuirPanel({ fitxaId, distribucions, onDone, onClose }) {
                   background: r.ok ? 'var(--success-bg)' : 'var(--danger-bg)',
                   color: r.ok ? 'var(--success)' : 'var(--danger)',
                 }}>
-                  {r.desti}: {r.ok ? 'Distribució creada' : r.error}
+                  {r.desti}: {r.ok ? 'Distribucio creada' : r.error}
                 </div>
               ))}
             </div>
@@ -204,7 +212,7 @@ function DistribuirPanel({ fitxaId, distribucions, onDone, onClose }) {
 
 const ESTAT_VERSIO_LABELS = {
   esborrany: { label: 'Esborrany', cls: 'esborrany' },
-  en_revisio: { label: 'En revisió', cls: 'pendent' },
+  en_revisio: { label: 'En revisio', cls: 'pendent' },
   aprovada: { label: 'Aprovada', cls: 'ok' },
   publicada: { label: 'Publicada', cls: 'ok' },
 };
@@ -232,13 +240,13 @@ function DiffView({ fitxaId, v1Id, v2Id, onClose }) {
         <button className="outline secondary btn-sm" onClick={onClose}>Tancar</button>
       </div>
       <div style={{ fontSize: '0.85rem', color: 'var(--gray-500)', marginBottom: '1rem' }}>
-        <span>Rev. {diff.v1.num} ({diff.v1.autor}) → Rev. {diff.v2.num} ({diff.v2.autor})</span>
+        <span>Rev. {diff.v1.num} ({diff.v1.autor}) &rarr; Rev. {diff.v2.num} ({diff.v2.autor})</span>
         <span style={{ marginLeft: '1rem' }}>{diff.total_canvis} canvis</span>
       </div>
 
       {diff.total_canvis === 0 ? (
         <div style={{ background: 'var(--success-bg)', color: 'var(--success)', padding: '1rem', borderRadius: 'var(--radius)' }}>
-          Cap diferència trobada entre les dues versions.
+          Cap diferencia trobada entre les dues versions.
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -246,15 +254,15 @@ function DiffView({ fitxaId, v1Id, v2Id, onClose }) {
             <div key={i} className="diff-item">
               <div className="diff-camp">{c.camp}</div>
               {c.tipus === 'afegit' && (
-                <div className="diff-added">{c.nou}</div>
+                <div className="diff-added">+ {c.nou}</div>
               )}
               {c.tipus === 'eliminat' && (
-                <div className="diff-removed">{c.antic}</div>
+                <div className="diff-removed">- {c.antic}</div>
               )}
               {c.tipus === 'modificat' && (
                 <>
-                  <div className="diff-removed">{c.antic}</div>
-                  <div className="diff-added">{c.nou}</div>
+                  <div className="diff-removed">- {c.antic}</div>
+                  <div className="diff-added">+ {c.nou}</div>
                 </>
               )}
               {c.tipus === 'taula' && (
@@ -266,15 +274,15 @@ function DiffView({ fitxaId, v1Id, v2Id, onClose }) {
                         <tr key={fi}>
                           <td style={{ width: '60px', fontWeight: 600, color: 'var(--gray-500)' }}>Fila {fi + 1}</td>
                           {f.tipus === 'afegit' && (
-                            <td className="diff-added">{f.valor?.parametre}: {f.valor?.valor}</td>
+                            <td className="diff-added">+ {f.valor?.parametre}: {f.valor?.valor}</td>
                           )}
                           {f.tipus === 'eliminat' && (
-                            <td className="diff-removed">{f.valor?.parametre}: {f.valor?.valor}</td>
+                            <td className="diff-removed">- {f.valor?.parametre}: {f.valor?.valor}</td>
                           )}
                           {f.tipus === 'modificat' && (
                             <td>
-                              <div className="diff-removed">{f.antic?.parametre}: {f.antic?.valor}</div>
-                              <div className="diff-added">{f.nou?.parametre}: {f.nou?.valor}</div>
+                              <div className="diff-removed">- {f.antic?.parametre}: {f.antic?.valor}</div>
+                              <div className="diff-added">+ {f.nou?.parametre}: {f.nou?.valor}</div>
                             </td>
                           )}
                         </tr>
@@ -302,7 +310,7 @@ function VersionsSection({ fitxa, fitxaId, onPublicar, onVistaPrevia, onRefresh,
   };
 
   if (versions.length === 0) {
-    return <p style={{ color: 'var(--gray-500)' }}>Cap versió.</p>;
+    return <p style={{ color: 'var(--gray-500)' }}>Cap versio.</p>;
   }
 
   return (
@@ -356,17 +364,17 @@ function VersionsSection({ fitxa, fitxaId, onPublicar, onVistaPrevia, onRefresh,
 function DetallFitxa() {
   const { id } = useParams();
   const location = useLocation();
+  const toast = useToast();
   const [fitxa, setFitxa] = useState(null);
   const [distribucions, setDistribucions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [msg, setMsg] = useState(null);
   const [pdfUrl, setPdfUrl] = useState(null);
   const [pdfLoading, setPdfLoading] = useState(false);
   const openDist = location.state?.openDistribuir || false;
   const [section, setSection] = useState(openDist ? 'distribucions' : 'contingut');
   const [showDistribuir, setShowDistribuir] = useState(openDist);
-  const [verif, setVerif] = useState(null); // null=carregant, {ok,diffs}=resultat
+  const [verif, setVerif] = useState(null);
   const [showVerifDetails, setShowVerifDetails] = useState(false);
 
   const carregarDades = async () => {
@@ -385,7 +393,6 @@ function DetallFitxa() {
     }
   };
 
-  // Verificació automàtica en background
   const verificarAuto = () => {
     const token = localStorage.getItem('token');
     fetch(`/api/fitxes/${id}/verificar`, {
@@ -403,7 +410,7 @@ function DetallFitxa() {
           });
         }
       })
-      .catch(() => setVerif({ ok: null, error: 'Error de connexió' }));
+      .catch(() => setVerif({ ok: null, error: 'Error de connexio' }));
   };
 
   useEffect(() => { carregarDades(); }, [id]);
@@ -412,10 +419,10 @@ function DetallFitxa() {
   const publicarVersio = async (vid) => {
     try {
       await api.publicarVersio(id, vid);
-      setMsg('Versió publicada correctament');
+      toast.success('Versio publicada correctament');
       carregarDades();
     } catch (err) {
-      setMsg(`Error: ${err.message}`);
+      toast.error(`Error publicant: ${err.message}`);
     }
   };
 
@@ -440,8 +447,9 @@ function DetallFitxa() {
         a.download = `${fitxa.art_codi}.pdf`;
         a.click();
         URL.revokeObjectURL(a.href);
+        toast.success('PDF descarregat');
       })
-      .catch((err) => setMsg(`Error: ${err.message}`));
+      .catch((err) => toast.error(`Error: ${err.message}`));
   };
 
   const vistaPrevia = (versioId) => {
@@ -461,7 +469,7 @@ function DetallFitxa() {
       .then((blob) => {
         setPdfUrl(URL.createObjectURL(blob));
       })
-      .catch((err) => setMsg(`Error: ${err.message}`))
+      .catch((err) => toast.error(`Error: ${err.message}`))
       .finally(() => setPdfLoading(false));
   };
 
@@ -472,7 +480,7 @@ function DetallFitxa() {
   };
 
   if (loading) return <p aria-busy="true">Carregant...</p>;
-  if (error) return <p style={{ color: '#dc3545' }}>{error}</p>;
+  if (error) return <p style={{ color: 'var(--danger)' }}>{error}</p>;
   if (!fitxa) return null;
 
   const versioActiva = fitxa.versions?.find((v) => v.activa);
@@ -480,7 +488,7 @@ function DetallFitxa() {
 
   return (
     <>
-      {/* Capçalera */}
+      {/* Capsalera */}
       <div className="detail-header">
         <div>
           <h2 style={{ margin: 0 }}>{fitxa.nom_producte}</h2>
@@ -493,7 +501,7 @@ function DetallFitxa() {
               <span className="verif-ok" title="Les dades coincideixen amb el PDF del FTP">Verificat</span>
             )}
             {verif && verif.ok === false && (
-              <span className="verif-warn" title={`${verif.diffs} diferències amb el PDF del FTP`}
+              <span className="verif-warn" title={`${verif.diffs} diferencies amb el PDF del FTP`}
                 onClick={() => setShowVerifDetails(!showVerifDetails)} style={{ cursor: 'pointer' }}>
                 {verif.diffs} dif.
               </span>
@@ -502,10 +510,10 @@ function DetallFitxa() {
         </div>
         <div className="detail-actions">
           <Link to={`/fitxes/${id}/editar`} role="button" className="outline">
-            Editar / Nova versió
+            Editar / Nova versio
           </Link>
           <button onClick={() => vistaPrevia()} className="outline">
-            Vista prèvia PDF
+            Vista previa PDF
           </button>
           <button onClick={() => descarregarPdf()} className="outline secondary">
             Descarregar PDF
@@ -524,21 +532,19 @@ function DetallFitxa() {
         </div>
       )}
 
-      {msg && <p className="detail-msg"><small>{msg}</small></p>}
-
-      {/* Vista prèvia PDF */}
-      {pdfLoading && <p aria-busy="true">Carregant vista prèvia...</p>}
+      {/* Vista previa PDF */}
+      {pdfLoading && <p aria-busy="true">Carregant vista previa...</p>}
 
       {pdfUrl && (
         <div style={{ marginBottom: '1rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-            <strong>Vista prèvia del PDF</strong>
+            <strong>Vista previa del PDF</strong>
             <button className="outline secondary btn-sm" onClick={tancarPrevia}>Tancar</button>
           </div>
           <iframe
             src={pdfUrl}
             className="pdf-preview"
-            title="Vista prèvia PDF"
+            title="Vista previa PDF"
           />
         </div>
       )}
@@ -570,7 +576,7 @@ function DetallFitxa() {
           {section === 'versions' && (
             <VersionsSection fitxa={fitxa} fitxaId={id}
               onPublicar={publicarVersio} onVistaPrevia={vistaPrevia}
-              onRefresh={carregarDades} setMsg={setMsg} />
+              onRefresh={carregarDades} setMsg={() => {}} />
           )}
 
           {section === 'distribucions' && (
@@ -594,12 +600,12 @@ function DetallFitxa() {
 
               <h3 style={{ fontSize: '1rem', marginBottom: '0.75rem' }}>Historial de distribucions</h3>
               {distribucions.length === 0 ? (
-                <p style={{ color: 'var(--gray-500)' }}>Cap distribució registrada.</p>
+                <p style={{ color: 'var(--gray-500)' }}>Cap distribucio registrada.</p>
               ) : (
                 <table>
                   <thead>
                     <tr>
-                      <th>Destí</th>
+                      <th>Desti</th>
                       <th>Estat</th>
                       <th>Data</th>
                       <th>Usuari</th>
@@ -628,7 +634,7 @@ function DetallFitxa() {
 
       <div style={{ marginTop: '1.5rem' }}>
         <Link to="/" className="outline secondary" role="button">
-          ← Tornar a la llista
+          &larr; Tornar a la llista
         </Link>
       </div>
     </>

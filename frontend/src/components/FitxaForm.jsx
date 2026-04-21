@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import DOMPurify from 'dompurify';
 import RichEditor from './RichEditor';
 
@@ -14,31 +14,31 @@ function arrayMove(arr, from, to) {
    ============================================================ */
 const DEFAULT_SECTIONS = [
   {
-    id: 'ident', label: 'Identificació del producte',
+    id: 'ident', label: 'Identificacio del producte',
     items: [
-      { key: 'codi_referencia', label: 'Código de referencia / Codi de referència', type: 'text' },
-      { key: 'denominacio_comercial', label: 'Denominación comercial del Producto', type: 'textarea' },
-      { key: 'denominacio_juridica', label: 'Denominación jurídica del producto', type: 'textarea' },
-      { key: 'codi_ean', label: 'Código EAN', type: 'text' },
-      { key: 'descripcio', label: 'Descripción del producto', type: 'textarea' },
+      { key: 'codi_referencia', label: 'Codigo de referencia / Codi de referencia', type: 'text' },
+      { key: 'denominacio_comercial', label: 'Denominacion comercial del Producto', type: 'textarea' },
+      { key: 'denominacio_juridica', label: 'Denominacion juridica del producto', type: 'textarea' },
+      { key: 'codi_ean', label: 'Codigo EAN', type: 'text' },
+      { key: 'descripcio', label: 'Descripcion del producto', type: 'textarea' },
       { key: 'origen', label: 'Origen del Producto y Procedencia del cereal', type: 'textarea' },
       { key: 'ingredients', label: 'Ingredientes / Ingredients', type: 'textarea' },
-      { key: 'alergens', label: 'Alérgenos / Al·lèrgens', type: 'textarea' },
+      { key: 'alergens', label: 'Alergenos / Al\u00b7lergens', type: 'textarea' },
       { key: 'ogm', label: 'OGM', type: 'textarea' },
-      { key: 'irradiacio', label: 'Irradiación – Ionización', type: 'textarea' },
+      { key: 'irradiacio', label: 'Irradiacion \u2013 Ionizacion', type: 'textarea' },
     ],
   },
   {
-    id: 'caract', label: 'Característiques',
+    id: 'caract', label: 'Caracteristiques',
     items: [
-      { key: 'caract_organoleptiques', label: 'Características organolépticas', type: 'textarea' },
-      { key: 'fisicoquimiques', label: 'Características físico – químicas', type: 'table' },
-      { key: 'reologiques', label: 'Características reológicas', type: 'table' },
-      { key: 'microbiologiques', label: 'Características Microbiológicas', type: 'table' },
+      { key: 'caract_organoleptiques', label: 'Caracteristicas organolepticas', type: 'textarea' },
+      { key: 'fisicoquimiques', label: 'Caracteristicas fisico \u2013 quimicas', type: 'table' },
+      { key: 'reologiques', label: 'Caracteristicas reologicas', type: 'table' },
+      { key: 'microbiologiques', label: 'Caracteristicas Microbiologicas', type: 'table' },
     ],
   },
   {
-    id: 'contam', label: 'Parámetros de Contaminantes',
+    id: 'contam', label: 'Parametros de Contaminantes',
     items: [
       { key: 'micotoxines', label: 'Micotoxinas / Micotoxines', type: 'table' },
       { key: 'alcaloides', label: 'Alcaloides del cornezuelo', type: 'table' },
@@ -54,19 +54,65 @@ const DEFAULT_SECTIONS = [
     ],
   },
   {
-    id: 'comerc', label: 'Informació comercial',
+    id: 'comerc', label: 'Informacio comercial',
     items: [
-      { key: 'presentacio_envase', label: 'Presentación – envase', type: 'textarea' },
-      { key: 'us_previst', label: 'Uso previsto / Ús previst', type: 'textarea' },
+      { key: 'presentacio_envase', label: 'Presentacion \u2013 envase', type: 'textarea' },
+      { key: 'us_previst', label: 'Uso previsto / Us previst', type: 'textarea' },
       { key: 'condicions_emmagatzematge', label: "Condiciones de almacenaje", type: 'textarea' },
       { key: 'condicions_transport', label: 'Condiciones de transporte', type: 'textarea' },
-      { key: 'vida_util', label: 'Vida útil del producto', type: 'textarea' },
-      { key: 'legislacio_aplicable', label: 'Otra legislación aplicable', type: 'textarea' },
+      { key: 'vida_util', label: 'Vida util del producto', type: 'textarea' },
+      { key: 'legislacio_aplicable', label: 'Otra legislacion aplicable', type: 'textarea' },
       { key: 'fabricat_per', label: 'Producto fabricado para', type: 'textarea' },
       { key: 'vigencia_document', label: 'Vigencia del documento', type: 'textarea' },
     ],
   },
 ];
+
+/* ============================================================
+   SECTION NAV SIDEBAR
+   ============================================================ */
+function SectionNav({ sections, contingut, activeSection }) {
+  const countFilled = (items) => {
+    return items.filter((it) => {
+      const v = contingut[it.key];
+      if (it.type === 'table') return Array.isArray(v) && v.length > 0 && v.some((r) => r.parametre || r.valor);
+      return v && String(v).trim().length > 0;
+    }).length;
+  };
+
+  const scrollTo = (sectionId) => {
+    const el = document.getElementById(`section-${sectionId}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  return (
+    <nav className="section-nav" aria-label="Seccions del formulari">
+      {sections.map((s) => {
+        const filled = countFilled(s.items);
+        const total = s.items.length;
+        const pct = total > 0 ? Math.round((filled / total) * 100) : 0;
+        const isActive = activeSection === s.id;
+
+        return (
+          <button
+            key={s.id}
+            type="button"
+            className={`section-nav-item ${isActive ? 'active' : ''}`}
+            onClick={() => scrollTo(s.id)}
+          >
+            <div className="section-nav-label">{s.label}</div>
+            <div className="section-nav-progress">
+              <div className="section-nav-bar">
+                <div className="section-nav-bar-fill" style={{ width: `${pct}%` }} />
+              </div>
+              <span className="section-nav-count">{filled}/{total}</span>
+            </div>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
 
 /* ============================================================
    ITEM TOOLBAR (ordenar + moure + eliminar)
@@ -81,7 +127,7 @@ function ItemToolbar({ onMoveUp, onMoveDown, onMoveToSection, onRemove, canUp, c
       <button type="button" disabled={!canDown} onClick={onMoveDown} title="Baixar">&#9660;</button>
       {otherSections.length > 0 && (
         <div style={{ position: 'relative' }}>
-          <button type="button" onClick={() => setShowMove(!showMove)} title="Moure a altra secció">&#8644;</button>
+          <button type="button" onClick={() => setShowMove(!showMove)} title="Moure a altra seccio">&#8644;</button>
           {showMove && (
             <div className="move-menu">
               {otherSections.map((s) => (
@@ -141,7 +187,7 @@ function EditableTable({ label, rows, onChange, onRemove, readOnly, toolbar }) {
       <div className="pdf-field">
         <div className="pdf-section-title">{label}</div>
         <table className="pdf-param-table">
-          <thead><tr><th>Parámetro</th><th>Valor</th></tr></thead>
+          <thead><tr><th>Parametro</th><th>Valor</th></tr></thead>
           <tbody>
             {rows.map((row, i) => (
               <tr key={i}>
@@ -170,11 +216,11 @@ function EditableTable({ label, rows, onChange, onRemove, readOnly, toolbar }) {
         {toolbar}
       </div>
       <table className="pdf-param-table">
-        <thead><tr><th>Parámetro</th><th>Valor</th><th style={{ width: '36px' }}></th></tr></thead>
+        <thead><tr><th>Parametro</th><th>Valor</th><th style={{ width: '36px' }}></th></tr></thead>
         <tbody>
           {rows.map((row, i) => (
             <tr key={i}>
-              <td><input value={row.parametre || ''} onChange={(e) => updateRow(i, 'parametre', e.target.value)} placeholder="Paràmetre" /></td>
+              <td><input value={row.parametre || ''} onChange={(e) => updateRow(i, 'parametre', e.target.value)} placeholder="Parametre" /></td>
               <td><input value={row.valor || ''} onChange={(e) => updateRow(i, 'valor', e.target.value)} placeholder="Valor" /></td>
               <td><button type="button" className="pdf-row-remove" onClick={() => removeRow(i)}>&times;</button></td>
             </tr>
@@ -196,7 +242,7 @@ function AddItemInline({ onAdd }) {
 
   const confirm = () => {
     if (!label.trim()) return;
-    const key = label.trim().toLowerCase().replace(/[^a-z0-9àèéíòóúïüç ]/g, '').replace(/\s+/g, '_');
+    const key = label.trim().toLowerCase().replace(/[^a-z0-9\u00e0\u00e8\u00e9\u00ed\u00f2\u00f3\u00fa\u00ef\u00fc\u00e7 ]/g, '').replace(/\s+/g, '_');
     onAdd(key, label.trim(), mode === 'table' ? 'table' : 'textarea');
     setLabel(''); setMode(null); setOpen(false);
   };
@@ -208,27 +254,27 @@ function AddItemInline({ onAdd }) {
     <div className="pdf-add-element-panel">
       <button type="button" className="outline btn-sm" onClick={() => setMode('textarea')}>Camp de text</button>
       <button type="button" className="outline btn-sm" onClick={() => setMode('table')}>Taula</button>
-      <button type="button" className="outline secondary btn-sm" onClick={() => { setOpen(false); setMode(null); }}>Cancel·lar</button>
+      <button type="button" className="outline secondary btn-sm" onClick={() => { setOpen(false); setMode(null); }}>Cancel\u00b7lar</button>
     </div>
   );
   return (
     <div className="pdf-add-element-panel">
       <input type="text" value={label} onChange={(e) => setLabel(e.target.value)}
-        placeholder="Nom (ex: Vitamines, Níquel...)" autoFocus
+        placeholder="Nom (ex: Vitamines, Niquel...)" autoFocus
         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirm(); } }}
         style={{ flex: 1, margin: 0 }} />
       <button type="button" className="btn-sm" onClick={confirm}>Afegir</button>
-      <button type="button" className="outline secondary btn-sm" onClick={() => { setMode(null); setLabel(''); }}>Cancel·lar</button>
+      <button type="button" className="outline secondary btn-sm" onClick={() => { setMode(null); setLabel(''); }}>Cancel\u00b7lar</button>
     </div>
   );
 }
 
 /* ============================================================
-   PDF DOCUMENT VIEW (mode lectura — exportat per DetallFitxa)
+   PDF DOCUMENT VIEW (mode lectura - exportat per DetallFitxa)
    ============================================================ */
 export function PdfDocumentView({ contingut }) {
   if (!contingut || Object.keys(contingut).length === 0) {
-    return <div className="empty-state">Sense contingut registrat per aquesta versió.</div>;
+    return <div className="empty-state">Sense contingut registrat per aquesta versio.</div>;
   }
 
   const knownKeys = new Set();
@@ -243,11 +289,11 @@ export function PdfDocumentView({ contingut }) {
         <tbody>
           <tr>
             <td className="pdf-header-logo" rowSpan={3}><div className="pdf-logo-placeholder">FC</div></td>
-            <td className="pdf-header-title" rowSpan={3}>FITXA TÈCNICA</td>
+            <td className="pdf-header-title" rowSpan={3}>FITXA TECNICA</td>
             <td className="pdf-header-meta">Rev.: {contingut.rev || '-'}</td>
           </tr>
-          <tr><td className="pdf-header-meta">Data revisió: {contingut.data_revisio || '-'}</td></tr>
-          <tr><td className="pdf-header-meta">Data comprovació: {contingut.data_comprovacio || '-'}</td></tr>
+          <tr><td className="pdf-header-meta">Data revisio: {contingut.data_revisio || '-'}</td></tr>
+          <tr><td className="pdf-header-meta">Data comprovacio: {contingut.data_comprovacio || '-'}</td></tr>
         </tbody>
       </table>
 
@@ -281,18 +327,20 @@ export function PdfDocumentView({ contingut }) {
       )}
 
       <div className="pdf-footer">
-        AGRI-ENERGIA, S.A. — C/ Girona, 155 – 17820 Banyoles – GIRONA — www.farineracoromina.com
+        AGRI-ENERGIA, S.A. &mdash; C/ Girona, 155 &ndash; 17820 Banyoles &ndash; GIRONA &mdash; www.farineracoromina.com
       </div>
     </div>
   );
 }
 
 /* ============================================================
-   FITXA FORM (editor amb drag & drop)
+   FITXA FORM (editor amb sidebar nav)
    ============================================================ */
 function FitxaForm({ initialData, onSubmit, isNew }) {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [activeSection, setActiveSection] = useState(null);
+  const formRef = useRef(null);
   const c = initialData.contingut || {};
 
   const [form, setForm] = useState({
@@ -304,11 +352,9 @@ function FitxaForm({ initialData, onSubmit, isNew }) {
 
   const [contingut, setContingut] = useState(c);
 
-  // Marcar dirty quan canvia qualsevol cosa
   const updateForm = (newForm) => { setForm(newForm); setDirty(true); };
   const updateContingut = useCallback((fn) => { setContingut(fn); setDirty(true); }, []);
 
-  // Avís si tanques la pàgina amb canvis pendents
   useEffect(() => {
     const handler = (e) => {
       if (dirty) { e.preventDefault(); e.returnValue = ''; }
@@ -338,6 +384,25 @@ function FitxaForm({ initialData, onSubmit, isNew }) {
     return base;
   });
 
+  // Track which section is visible via IntersectionObserver
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setActiveSection(entry.target.id.replace('section-', ''));
+          }
+        }
+      },
+      { rootMargin: '-100px 0px -60% 0px', threshold: 0 }
+    );
+    sections.forEach((s) => {
+      const el = document.getElementById(`section-${s.id}`);
+      if (el) observer.observe(el);
+    });
+    return () => observer.disconnect();
+  }, [sections]);
+
   const update = (key, value) => { setContingut((prev) => ({ ...prev, [key]: value })); setDirty(true); };
 
   const removeItem = (sectionId, itemKey) => {
@@ -359,7 +424,7 @@ function FitxaForm({ initialData, onSubmit, isNew }) {
   };
 
   const removeSection = (sectionId) => {
-    if (!confirm('Eliminar la secció i tots els seus camps?')) return;
+    if (!confirm('Eliminar la seccio i tots els seus camps?')) return;
     const section = sections.find((s) => s.id === sectionId);
     if (!section) return;
     setContingut((prev) => {
@@ -371,13 +436,12 @@ function FitxaForm({ initialData, onSubmit, isNew }) {
   };
 
   const addSection = () => {
-    const label = prompt('Nom de la nova secció:');
+    const label = prompt('Nom de la nova seccio:');
     if (!label || !label.trim()) return;
     const id = `custom_${Date.now()}`;
     setSections((prev) => [...prev, { id, label: label.trim(), items: [] }]);
   };
 
-  // Moure item amunt/avall dins la mateixa secció
   const moveItemInSection = (sectionId, itemIdx, direction) => {
     setSections((prev) => prev.map((s) => {
       if (s.id !== sectionId) return s;
@@ -388,7 +452,6 @@ function FitxaForm({ initialData, onSubmit, isNew }) {
     setDirty(true);
   };
 
-  // Moure item a una altra secció concreta
   const moveItemToSection = (fromSectionId, itemKey, toSectionId) => {
     setSections((prev) => {
       const next = prev.map((s) => ({ ...s, items: [...s.items] }));
@@ -404,7 +467,6 @@ function FitxaForm({ initialData, onSubmit, isNew }) {
     setDirty(true);
   };
 
-  // Moure secció sencera
   const moveSectionUp = (idx) => {
     if (idx <= 0) return;
     setSections((prev) => arrayMove(prev, idx, idx - 1));
@@ -416,7 +478,7 @@ function FitxaForm({ initialData, onSubmit, isNew }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.descripcio_canvi.trim()) { alert('Cal indicar la descripció del canvi.'); return; }
+    if (!form.descripcio_canvi.trim()) { alert('Cal indicar la descripcio del canvi.'); return; }
     setSaving(true);
     try {
       await onSubmit({
@@ -432,7 +494,7 @@ function FitxaForm({ initialData, onSubmit, isNew }) {
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit} ref={formRef}>
       {/* Barra superior */}
       <div className="pdf-topbar">
         <div className="pdf-topbar-fields">
@@ -453,86 +515,89 @@ function FitxaForm({ initialData, onSubmit, isNew }) {
         </div>
         <div className="pdf-topbar-row2">
           <label style={{ flex: 1, margin: 0 }}>
-            Descripció del canvi *
+            Descripcio del canvi *
             <textarea value={form.descripcio_canvi} onChange={(e) => updateForm({ ...form, descripcio_canvi: e.target.value })}
-              required placeholder="Ex: S'actualitzen els valors de W i P/L. S'afegeix el níquel als contaminants."
+              required placeholder="Ex: S'actualitzen els valors de W i P/L. S'afegeix el niquel als contaminants."
               rows={2} style={{ resize: 'vertical', minHeight: '46px' }} />
           </label>
           <button type="submit" aria-busy={saving} disabled={saving} className="pdf-save-btn">
-            {saving ? 'Desant...' : isNew ? 'Crear fitxa' : 'Desar (nova versió)'}
+            {saving ? 'Desant...' : isNew ? 'Crear fitxa' : 'Desar (nova versio)'}
           </button>
         </div>
       </div>
 
-      {/* Document */}
-      <div className="pdf-document">
-        {/* Capçalera */}
-        <table className="pdf-header">
-          <tbody>
-            <tr>
-              <td className="pdf-header-logo" rowSpan={3}><div className="pdf-logo-placeholder">FC</div></td>
-              <td className="pdf-header-title" rowSpan={3}>FITXA TÈCNICA</td>
-              <td className="pdf-header-meta">Rev.: {contingut.rev || '-'}</td>
-            </tr>
-            <tr><td className="pdf-header-meta">Data revisió: {contingut.data_revisio || '-'}</td></tr>
-            <tr><td className="pdf-header-meta">Data comprovació: {contingut.data_comprovacio || '-'}</td></tr>
-          </tbody>
-        </table>
+      {/* Layout amb sidebar */}
+      <div className="form-with-sidebar">
+        <SectionNav sections={sections} contingut={contingut} activeSection={activeSection} />
 
-        {/* Seccions */}
-        {sections.map((section, si) => (
-          <div key={section.id} className="pdf-section-block">
-            {/* Títol secció amb controls */}
-            <div className="pdf-section-header">
-              <div className="pdf-section-header-label">{section.label}</div>
-              <div className="pdf-section-header-actions">
-                <button type="button" disabled={si === 0} onClick={() => moveSectionUp(si)} title="Pujar secció">&#9650;</button>
-                <button type="button" disabled={si === sections.length - 1} onClick={() => moveSectionDown(si)} title="Baixar secció">&#9660;</button>
-                <button type="button" onClick={() => removeSection(section.id)} title="Eliminar secció" className="remove">&times;</button>
+        {/* Document */}
+        <div className="pdf-document">
+          {/* Capsalera */}
+          <table className="pdf-header">
+            <tbody>
+              <tr>
+                <td className="pdf-header-logo" rowSpan={3}><div className="pdf-logo-placeholder">FC</div></td>
+                <td className="pdf-header-title" rowSpan={3}>FITXA TECNICA</td>
+                <td className="pdf-header-meta">Rev.: {contingut.rev || '-'}</td>
+              </tr>
+              <tr><td className="pdf-header-meta">Data revisio: {contingut.data_revisio || '-'}</td></tr>
+              <tr><td className="pdf-header-meta">Data comprovacio: {contingut.data_comprovacio || '-'}</td></tr>
+            </tbody>
+          </table>
+
+          {/* Seccions */}
+          {sections.map((section, si) => (
+            <div key={section.id} id={`section-${section.id}`} className="pdf-section-block">
+              <div className="pdf-section-header">
+                <div className="pdf-section-header-label">{section.label}</div>
+                <div className="pdf-section-header-actions">
+                  <button type="button" disabled={si === 0} onClick={() => moveSectionUp(si)} title="Pujar seccio">&#9650;</button>
+                  <button type="button" disabled={si === sections.length - 1} onClick={() => moveSectionDown(si)} title="Baixar seccio">&#9660;</button>
+                  <button type="button" onClick={() => removeSection(section.id)} title="Eliminar seccio" className="remove">&times;</button>
+                </div>
               </div>
+
+              {section.items.map((it, ii) => {
+                const tb = (
+                  <ItemToolbar
+                    canUp={ii > 0}
+                    canDown={ii < section.items.length - 1}
+                    onMoveUp={() => moveItemInSection(section.id, ii, -1)}
+                    onMoveDown={() => moveItemInSection(section.id, ii, 1)}
+                    onMoveToSection={(toId) => moveItemToSection(section.id, it.key, toId)}
+                    onRemove={() => removeItem(section.id, it.key)}
+                    sections={sections}
+                    currentSection={section.id}
+                  />
+                );
+
+                return it.type === 'table' ? (
+                  <EditableTable key={it.id} label={it.label}
+                    rows={Array.isArray(contingut[it.key]) ? contingut[it.key] : []}
+                    onChange={(v) => update(it.key, v)}
+                    toolbar={tb} />
+                ) : (
+                  <EditableField key={it.id} label={it.label}
+                    value={contingut[it.key]}
+                    onChange={(v) => update(it.key, v)}
+                    multiline={it.type === 'textarea'}
+                    toolbar={tb} />
+                );
+              })}
+
+              <AddItemInline onAdd={(key, label, type) => addItemToSection(section.id, key, label, type)} />
             </div>
+          ))}
 
-            {/* Items amb controls d'ordenar */}
-            {section.items.map((it, ii) => {
-              const tb = (
-                <ItemToolbar
-                  canUp={ii > 0}
-                  canDown={ii < section.items.length - 1}
-                  onMoveUp={() => moveItemInSection(section.id, ii, -1)}
-                  onMoveDown={() => moveItemInSection(section.id, ii, 1)}
-                  onMoveToSection={(toId) => moveItemToSection(section.id, it.key, toId)}
-                  onRemove={() => removeItem(section.id, it.key)}
-                  sections={sections}
-                  currentSection={section.id}
-                />
-              );
-
-              return it.type === 'table' ? (
-                <EditableTable key={it.id} label={it.label}
-                  rows={Array.isArray(contingut[it.key]) ? contingut[it.key] : []}
-                  onChange={(v) => update(it.key, v)}
-                  toolbar={tb} />
-              ) : (
-                <EditableField key={it.id} label={it.label}
-                  value={contingut[it.key]}
-                  onChange={(v) => update(it.key, v)}
-                  multiline={it.type === 'textarea'}
-                  toolbar={tb} />
-              );
-            })}
-
-            <AddItemInline onAdd={(key, label, type) => addItemToSection(section.id, key, label, type)} />
+          {/* Afegir seccio */}
+          <div style={{ marginTop: '1.5rem' }}>
+            <button type="button" className="pdf-add-section-btn" onClick={addSection}>+ Afegir seccio</button>
           </div>
-        ))}
 
-        {/* Afegir secció */}
-        <div style={{ marginTop: '1.5rem' }}>
-          <button type="button" className="pdf-add-section-btn" onClick={addSection}>+ Afegir secció</button>
-        </div>
-
-        {/* Peu */}
-        <div className="pdf-footer">
-          AGRI-ENERGIA, S.A. — C/ Girona, 155 – 17820 Banyoles – GIRONA — www.farineracoromina.com
+          {/* Peu */}
+          <div className="pdf-footer">
+            AGRI-ENERGIA, S.A. &mdash; C/ Girona, 155 &ndash; 17820 Banyoles &ndash; GIRONA &mdash; www.farineracoromina.com
+          </div>
         </div>
       </div>
     </form>

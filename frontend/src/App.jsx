@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
 import { api } from './api/client';
+import { ToastProvider } from './components/Toast';
 import Login from './pages/Login';
 import LlistaFitxes from './pages/LlistaFitxes';
 import DetallFitxa from './pages/DetallFitxa';
@@ -14,7 +15,7 @@ import ControlRevisions from './pages/ControlRevisions';
 function ProtectedRoute({ children, usuari, rolsPermesos }) {
   if (!usuari) return <Navigate to="/login" />;
   if (rolsPermesos && !rolsPermesos.includes(usuari.rol)) {
-    return <p>No tens permisos per accedir a aquesta pàgina.</p>;
+    return <p>No tens permisos per accedir a aquesta pagina.</p>;
   }
   return children;
 }
@@ -23,7 +24,7 @@ function NavBar({ usuari, onLogout }) {
   return (
     <nav className="container-fluid">
       <ul>
-        <li><Link to="/"><strong>FC Fitxes Tècniques</strong></Link></li>
+        <li><Link to="/"><strong>FC Fitxes Tecniques</strong></Link></li>
       </ul>
       <ul>
         <li><Link to="/">Fitxes</Link></li>
@@ -43,6 +44,48 @@ function NavBar({ usuari, onLogout }) {
           <a href="#" onClick={(e) => { e.preventDefault(); onLogout(); }}>Sortir</a>
         </li>
       </ul>
+    </nav>
+  );
+}
+
+function Breadcrumbs() {
+  const location = useLocation();
+  const path = location.pathname;
+
+  if (path === '/' || path === '/login') return null;
+
+  const crumbs = [{ label: 'Fitxes', to: '/' }];
+
+  if (path.startsWith('/fitxes/nova')) {
+    crumbs.push({ label: 'Nova fitxa' });
+  } else if (path.match(/^\/fitxes\/\d+\/editar$/)) {
+    const id = path.split('/')[2];
+    crumbs.push({ label: `Fitxa #${id}`, to: `/fitxes/${id}` });
+    crumbs.push({ label: 'Editar' });
+  } else if (path.match(/^\/fitxes\/\d+$/)) {
+    const id = path.split('/')[2];
+    crumbs.push({ label: `Fitxa #${id}` });
+  } else if (path === '/control-revisions') {
+    crumbs.push({ label: 'Control revisions' });
+  } else if (path.startsWith('/admin/')) {
+    const section = path.split('/')[2];
+    const labels = { seccions: 'Camps', usuaris: 'Usuaris', destins: 'Destins', tipus: 'Tipus' };
+    crumbs[0] = { label: 'Admin', to: '/' };
+    crumbs.push({ label: labels[section] || section });
+  }
+
+  return (
+    <nav className="breadcrumbs" aria-label="Breadcrumb">
+      {crumbs.map((c, i) => (
+        <span key={i}>
+          {i > 0 && <span className="breadcrumb-sep">/</span>}
+          {c.to && i < crumbs.length - 1 ? (
+            <Link to={c.to}>{c.label}</Link>
+          ) : (
+            <span className="breadcrumb-current">{c.label}</span>
+          )}
+        </span>
+      ))}
     </nav>
   );
 }
@@ -67,44 +110,47 @@ function App() {
       api.refreshToken()
         .then((data) => { if (data.token) localStorage.setItem('token', data.token); })
         .catch(() => { handleLogout(); });
-    }, 60 * 60 * 1000); // 1 hora
+    }, 60 * 60 * 1000);
     return () => clearInterval(interval);
   }, [usuari]);
 
   return (
     <BrowserRouter>
-      {usuari && <NavBar usuari={usuari} onLogout={handleLogout} />}
-      <main className="container" style={{ paddingTop: '2rem', paddingBottom: '3rem' }}>
-        <Routes>
-          <Route path="/login" element={
-            usuari ? <Navigate to="/" /> : <Login onLogin={handleLogin} />
-          } />
-          <Route path="/" element={
-            <ProtectedRoute usuari={usuari}><LlistaFitxes /></ProtectedRoute>
-          } />
-          <Route path="/fitxes/nova" element={
-            <ProtectedRoute usuari={usuari} rolsPermesos={['admin', 'editor']}><NovaFitxa /></ProtectedRoute>
-          } />
-          <Route path="/fitxes/:id" element={
-            <ProtectedRoute usuari={usuari}><DetallFitxa /></ProtectedRoute>
-          } />
-          <Route path="/fitxes/:id/editar" element={
-            <ProtectedRoute usuari={usuari} rolsPermesos={['admin', 'editor']}><EditarFitxa /></ProtectedRoute>
-          } />
-          <Route path="/control-revisions" element={
-            <ProtectedRoute usuari={usuari}><ControlRevisions /></ProtectedRoute>
-          } />
-          <Route path="/admin/seccions" element={
-            <ProtectedRoute usuari={usuari} rolsPermesos={['admin']}><AdminSeccions /></ProtectedRoute>
-          } />
-          <Route path="/admin/usuaris" element={
-            <ProtectedRoute usuari={usuari} rolsPermesos={['admin']}><AdminUsuaris /></ProtectedRoute>
-          } />
-          <Route path="/admin/destins" element={
-            <ProtectedRoute usuari={usuari} rolsPermesos={['admin']}><AdminDestins /></ProtectedRoute>
-          } />
-        </Routes>
-      </main>
+      <ToastProvider>
+        {usuari && <NavBar usuari={usuari} onLogout={handleLogout} />}
+        <main className="container" style={{ paddingTop: '1rem', paddingBottom: '3rem' }}>
+          {usuari && <Breadcrumbs />}
+          <Routes>
+            <Route path="/login" element={
+              usuari ? <Navigate to="/" /> : <Login onLogin={handleLogin} />
+            } />
+            <Route path="/" element={
+              <ProtectedRoute usuari={usuari}><LlistaFitxes /></ProtectedRoute>
+            } />
+            <Route path="/fitxes/nova" element={
+              <ProtectedRoute usuari={usuari} rolsPermesos={['admin', 'editor']}><NovaFitxa /></ProtectedRoute>
+            } />
+            <Route path="/fitxes/:id" element={
+              <ProtectedRoute usuari={usuari}><DetallFitxa /></ProtectedRoute>
+            } />
+            <Route path="/fitxes/:id/editar" element={
+              <ProtectedRoute usuari={usuari} rolsPermesos={['admin', 'editor']}><EditarFitxa /></ProtectedRoute>
+            } />
+            <Route path="/control-revisions" element={
+              <ProtectedRoute usuari={usuari}><ControlRevisions /></ProtectedRoute>
+            } />
+            <Route path="/admin/seccions" element={
+              <ProtectedRoute usuari={usuari} rolsPermesos={['admin']}><AdminSeccions /></ProtectedRoute>
+            } />
+            <Route path="/admin/usuaris" element={
+              <ProtectedRoute usuari={usuari} rolsPermesos={['admin']}><AdminUsuaris /></ProtectedRoute>
+            } />
+            <Route path="/admin/destins" element={
+              <ProtectedRoute usuari={usuari} rolsPermesos={['admin']}><AdminDestins /></ProtectedRoute>
+            } />
+          </Routes>
+        </main>
+      </ToastProvider>
     </BrowserRouter>
   );
 }

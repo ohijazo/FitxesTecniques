@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, send_file, current_app
 from werkzeug.utils import secure_filename
 from app import db
-from app.models import FitxaTecnica, VersioFitxa
+from app.models import FitxaTecnica, VersioFitxa, Distribucio, DestiDistribucio
 from app.auth import login_required, rol_requerit
 
 fitxes_bp = Blueprint('fitxes', __name__)
@@ -44,8 +44,31 @@ def llistar_fitxes():
     query = query.order_by(FitxaTecnica.updated_at.desc())
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
+    # Afegir resum de distribució i versió activa per cada fitxa
+    fitxes_data = []
+    for f in pagination.items:
+        d = f.to_dict()
+        # Versió activa
+        va = VersioFitxa.query.filter_by(fitxa_id=f.id, activa=True).first()
+        d['versio_activa'] = va.num_versio if va else None
+        # Resum distribucions de la versió activa
+        if va:
+            dists = Distribucio.query.filter_by(versio_id=va.id).all()
+            total_destins = DestiDistribucio.query.filter_by(actiu=True).count()
+            ok_count = sum(1 for dd in dists if dd.estat == 'ok')
+            error_count = sum(1 for dd in dists if dd.estat == 'error')
+            d['dist_resum'] = {
+                'total_destins': total_destins,
+                'ok': ok_count,
+                'error': error_count,
+                'pendent': total_destins - ok_count - error_count,
+            }
+        else:
+            d['dist_resum'] = None
+        fitxes_data.append(d)
+
     return jsonify({
-        'fitxes': [f.to_dict() for f in pagination.items],
+        'fitxes': fitxes_data,
         'total': pagination.total,
         'pages': pagination.pages,
         'page': page,
