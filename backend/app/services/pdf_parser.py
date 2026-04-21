@@ -121,25 +121,43 @@ def _parse_header(pages):
 # Cada tupla: (etiqueta per detectar a l'inici de línia, nom camp JSON)
 FIELD_LABELS = [
     ('código de referencia', 'codi_referencia'),
+    ('codi de referència', 'codi_referencia'),
     ('denominación comercial', 'denominacio_comercial'),
+    ('denominació comercial', 'denominacio_comercial'),
     ('denominación jurídica', 'denominacio_juridica'),
+    ('denominació jurídica', 'denominacio_juridica'),
     ('código ean', 'codi_ean'),
+    ('codi ean', 'codi_ean'),
     ('descripción del producto', 'descripcio'),
+    ('descripció del producte', 'descripcio'),
     ('origen del producto', 'origen'),
+    ('origen del producte', 'origen'),
     ('ingredientes', 'ingredients'),
+    ('ingredients', 'ingredients'),
     ('alérgenos', 'alergens'),
+    ('al·lèrgens', 'alergens'),
     ('ogm', 'ogm'),
     ('irradiación', 'irradiacio'),
+    ('irradiació', 'irradiacio'),
     ('características organolépticas', 'caract_organoleptiques'),
+    ('característiques organolèptiques', 'caract_organoleptiques'),
     ('presentación', 'presentacio_envase'),
+    ('presentació', 'presentacio_envase'),
     ('uso previsto', 'us_previst'),
+    ('ús previst', 'us_previst'),
     ('condiciones de almacenaje', 'condicions_emmagatzematge'),
+    ("condicions d'emmagatzematge", 'condicions_emmagatzematge'),
     ('condiciones de transporte', 'condicions_transport'),
+    ('condicions de transport', 'condicions_transport'),
     ('vida útil', 'vida_util'),
     ('otra legislación', 'legislacio_aplicable'),
+    ('altra legislació', 'legislacio_aplicable'),
     ('producto fabricado para', 'fabricat_per'),
+    ('producte fabricat per', 'fabricat_per'),
     ('vigencia del documento', 'vigencia_document'),
+    ('vigència del document', 'vigencia_document'),
     ('pesticidas', 'pesticidas'),
+    ('pesticides', 'pesticidas'),
     ('níquel', 'niquel'),
 ]
 
@@ -315,20 +333,28 @@ def _parse_text_fields(pages):
         text = page.extract_text() or ''
         lines = text.split('\n')
 
+        # Detectar si la pàgina comença amb capçalera repetida
+        # Si és així, el camp actiu de la pàgina anterior ha de continuar
+        page_has_header = any(
+            'FICHA TÉCNICA' in (l or '') or 'FITXA TÈCNICA' in (l or '')
+            for l in lines[:5]
+        )
+
         for line in lines:
             line = line.strip()
             if not line:
-                current_field = None
+                # No resetejar current_field si estem entre pàgines
+                # (les línies buides entre capçalera i contingut no tallen el camp)
                 continue
 
             # Ignorar peu de pàgina i números de pàgina (1-9)
             if line.startswith('AGRI-ENERGIA') or line.startswith('C/ Girona') or \
                line.startswith('www.farinera') or re.match(r'^[1-9]$', line):
-                current_field = None
                 continue
 
             # Ignorar capçalera repetida
-            if 'FICHA TÉCNICA' in line or line.startswith('Rev.:') or \
+            if 'FICHA TÉCNICA' in line or 'FITXA TÈCNICA' in line or \
+               line.startswith('Rev.:') or \
                line.startswith('Fecha') or 'Comprov' in line:
                 continue
 
@@ -338,10 +364,19 @@ def _parse_text_fields(pages):
             cleaned_lower = re.sub(r'^\d+', '', line_lower)
 
             # Comprovar si és una etiqueta de camp (NOMÉS startswith)
+            # Per etiquetes bilingües "Condiciones de almacenaje / Condicions d'emmagatzematge"
+            # comprovar també la part després del " / "
             matched_field = None
+            check_texts = [line_lower, cleaned_lower]
+            if ' / ' in line_lower:
+                parts = line_lower.split(' / ')
+                check_texts.extend([p.strip() for p in parts])
             for label, field_name in FIELD_LABELS:
-                if line_lower.startswith(label) or cleaned_lower.startswith(label):
-                    matched_field = field_name
+                for check in check_texts:
+                    if check.startswith(label):
+                        matched_field = field_name
+                        break
+                if matched_field:
                     break
 
             if matched_field:
