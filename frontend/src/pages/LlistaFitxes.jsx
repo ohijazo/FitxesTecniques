@@ -86,28 +86,6 @@ function LlistaFitxes() {
     }
   };
 
-  const distribuirRapid = async (fitxa) => {
-    if (fitxa.versio_activa == null) {
-      toast.warning('Aquesta fitxa no té versió activa');
-      return;
-    }
-    try {
-      const resultats = await api.distribuirTots(fitxa.id);
-      const oks = resultats.filter((r) => r.estat === 'ok').length;
-      const errors = resultats.filter((r) => r.estat === 'error').length;
-      if (errors > 0) {
-        toast.warning(`${fitxa.art_codi}: ${oks} ok, ${errors} error`);
-      } else {
-        toast.success(`${fitxa.art_codi}: distribuït a ${oks} destins`);
-      }
-      carregarFitxes(cerca, estat);
-    } catch (err) {
-      toast.error(`Error distribuint ${fitxa.art_codi}: ${err.message}`);
-    }
-  };
-
-  const usuari = JSON.parse(localStorage.getItem('usuari') || '{}');
-  const canEdit = usuari.rol === 'admin' || usuari.rol === 'editor';
 
   return (
     <>
@@ -193,11 +171,6 @@ function LlistaFitxes() {
                       <button className="outline secondary btn-sm" onClick={() => descarregarPdf(f)} title="Descarregar PDF">
                         PDF
                       </button>
-                      {canEdit && (
-                        <button className="outline btn-sm" onClick={() => distribuirRapid(f)} title="Distribuir a tots els destins">
-                          Distribuir
-                        </button>
-                      )}
                       <Link to={`/fitxes/${f.id}`} className="outline secondary btn-sm" role="button">
                         Veure
                       </Link>
