@@ -1,9 +1,52 @@
 import os
 import io
+import re
 import base64
 from flask import current_app
 from jinja2 import Environment, FileSystemLoader
 from xhtml2pdf import pisa
+
+
+# Mapa de caràcters Unicode superíndex/subíndex a digits normals
+SUPERSCRIPT_MAP = str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ⁿ', '0123456789+-=()n')
+SUBSCRIPT_MAP = str.maketrans('₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎', '0123456789+-=()')
+
+
+def _fix_unicode_scripts(text):
+    """Converteix caràcters Unicode superíndex/subíndex a tags HTML <sup>/<sub>."""
+    if not text or not isinstance(text, str):
+        return text
+
+    # Superíndex: agrupar caràcters consecutius
+    def replace_sup(m):
+        digits = m.group(0).translate(SUPERSCRIPT_MAP)
+        return f'<sup>{digits}</sup>'
+
+    def replace_sub(m):
+        digits = m.group(0).translate(SUBSCRIPT_MAP)
+        return f'<sub>{digits}</sub>'
+
+    text = re.sub(r'[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ⁿ]+', replace_sup, text)
+    text = re.sub(r'[₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎]+', replace_sub, text)
+    return text
+
+
+def _process_value(value):
+    """Processa un valor (string o llista de dicts) per convertir superíndex."""
+    if isinstance(value, str):
+        return _fix_unicode_scripts(value)
+    if isinstance(value, list):
+        result = []
+        for item in value:
+            if isinstance(item, dict):
+                result.append({
+                    k: _fix_unicode_scripts(v) if isinstance(v, str) else v
+                    for k, v in item.items()
+                })
+            else:
+                result.append(item)
+        return result
+    return value
 
 
 def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
@@ -87,6 +130,11 @@ def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
         'fabricat_per': contingut.get('fabricat_per', ''),
         'vigencia_document': contingut.get('vigencia_document', defaults['vigencia_document']),
     }
+
+    # Convertir superíndex/subíndex Unicode a HTML <sup>/<sub>
+    for key in ctx:
+        if key != 'logo_path':
+            ctx[key] = _process_value(ctx[key])
 
     html_content = template.render(**ctx)
 
