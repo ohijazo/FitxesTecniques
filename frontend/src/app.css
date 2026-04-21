@@ -116,6 +116,38 @@ nav .user-info {
   margin-right: 0.5rem;
 }
 
+/* Nav dropdown */
+.nav-dropdown-wrapper {
+  position: relative;
+}
+.nav-dropdown-trigger {
+  cursor: pointer;
+}
+.nav-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  min-width: 190px;
+  padding: 4px 0;
+  z-index: 200;
+}
+.nav-dropdown a {
+  display: block;
+  padding: 0.5rem 1rem;
+  font-size: 0.88rem;
+  color: var(--gray-700) !important;
+  text-decoration: none;
+  transition: var(--transition);
+}
+.nav-dropdown a:hover {
+  background: var(--brand-50);
+  color: var(--brand) !important;
+}
+
 /* -- Buttons -- */
 button, [role="button"], a[role="button"] {
   font-family: inherit;

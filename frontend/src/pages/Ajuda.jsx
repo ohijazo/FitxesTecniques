@@ -235,12 +235,14 @@ const SECTIONS = [
     titol: 'Administracio',
     contingut: (
       <>
-        <p>Les seccions d'administracio son accessibles nomes per usuaris amb rol <strong>admin</strong>.</p>
-
-        <h4>Camps (Seccions)</h4>
         <p>
-          Defineix l'estructura de les fitxes: quines seccions i camps apareixen al formulari.
-          Pots afegir, editar, reordenar i eliminar camps.
+          Les opcions d'administracio es troben al menu <strong>Configuracio</strong> de la barra superior
+          (nomes visible per administradors). Inclou:
+        </p>
+
+        <h4>Control revisions</h4>
+        <p>
+          Vista global de totes les fitxes amb dades tecniques clau. Tambe accessible des del menu Configuracio.
         </p>
 
         <h4>Destins</h4>
@@ -256,6 +258,12 @@ const SECTIONS = [
           <li><strong>Editor</strong> — crear i editar fitxes, distribuir</li>
           <li><strong>Visualitzador</strong> — nomes lectura</li>
         </ul>
+
+        <h4>Camps (Seccions)</h4>
+        <p>
+          Defineix l'estructura de les fitxes: quines seccions i camps apareixen al formulari.
+          Pots afegir, editar, reordenar i eliminar camps.
+        </p>
 
         <h4>Eliminacions</h4>
         <p>Historial de totes les fitxes que s'han eliminat, amb motiu i responsable.</p>

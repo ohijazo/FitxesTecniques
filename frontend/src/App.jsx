@@ -23,6 +23,8 @@ function ProtectedRoute({ children, usuari, rolsPermesos }) {
 }
 
 function NavBar({ usuari, onLogout }) {
+  const [showConfig, setShowConfig] = useState(false);
+
   return (
     <nav className="container-fluid">
       <ul>
@@ -30,17 +32,29 @@ function NavBar({ usuari, onLogout }) {
       </ul>
       <ul>
         <li><Link to="/">Fitxes</Link></li>
-        <li><Link to="/control-revisions">Control revisions</Link></li>
         {(usuari.rol === 'admin' || usuari.rol === 'editor') && (
           <li><Link to="/fitxes/nova">Nova fitxa</Link></li>
         )}
         {usuari.rol === 'admin' && (
-          <>
-            <li><Link to="/admin/seccions">Camps</Link></li>
-            <li><Link to="/admin/destins">Destins</Link></li>
-            <li><Link to="/admin/usuaris">Usuaris</Link></li>
-            <li><Link to="/admin/eliminacions">Eliminacions</Link></li>
-          </>
+          <li className="nav-dropdown-wrapper"
+            onMouseEnter={() => setShowConfig(true)}
+            onMouseLeave={() => setShowConfig(false)}>
+            <a href="#" onClick={(e) => e.preventDefault()} className="nav-dropdown-trigger">
+              Configuracio &#9662;
+            </a>
+            {showConfig && (
+              <div className="nav-dropdown">
+                <Link to="/control-revisions" onClick={() => setShowConfig(false)}>Control revisions</Link>
+                <Link to="/admin/destins" onClick={() => setShowConfig(false)}>Destins</Link>
+                <Link to="/admin/usuaris" onClick={() => setShowConfig(false)}>Usuaris</Link>
+                <Link to="/admin/seccions" onClick={() => setShowConfig(false)}>Camps</Link>
+                <Link to="/admin/eliminacions" onClick={() => setShowConfig(false)}>Eliminacions</Link>
+              </div>
+            )}
+          </li>
+        )}
+        {usuari.rol !== 'admin' && (
+          <li><Link to="/control-revisions">Control revisions</Link></li>
         )}
         <li style={{ marginLeft: 'auto' }}><Link to="/ajuda">Ajuda</Link></li>
         <li>
