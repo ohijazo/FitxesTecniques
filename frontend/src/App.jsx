@@ -12,6 +12,7 @@ import AdminDestins from './pages/AdminDestins';
 import AdminSeccions from './pages/AdminSeccions';
 import ControlRevisions from './pages/ControlRevisions';
 import AdminEliminacions from './pages/AdminEliminacions';
+import Ajuda from './pages/Ajuda';
 
 function ProtectedRoute({ children, usuari, rolsPermesos }) {
   if (!usuari) return <Navigate to="/login" />;
@@ -41,7 +42,8 @@ function NavBar({ usuari, onLogout }) {
             <li><Link to="/admin/eliminacions">Eliminacions</Link></li>
           </>
         )}
-        <li style={{ marginLeft: 'auto' }}>
+        <li style={{ marginLeft: 'auto' }}><Link to="/ajuda">Ajuda</Link></li>
+        <li>
           <span className="user-info">{usuari.nom}</span>
           <a href="#" onClick={(e) => { e.preventDefault(); onLogout(); }}>Sortir</a>
         </li>
@@ -69,9 +71,11 @@ function Breadcrumbs() {
     crumbs.push({ label: `Fitxa #${id}` });
   } else if (path === '/control-revisions') {
     crumbs.push({ label: 'Control revisions' });
+  } else if (path === '/ajuda') {
+    crumbs.push({ label: 'Ajuda' });
   } else if (path.startsWith('/admin/')) {
     const section = path.split('/')[2];
-    const labels = { seccions: 'Camps', usuaris: 'Usuaris', destins: 'Destins', tipus: 'Tipus' };
+    const labels = { seccions: 'Camps', usuaris: 'Usuaris', destins: 'Destins', tipus: 'Tipus', eliminacions: 'Eliminacions' };
     crumbs[0] = { label: 'Admin', to: '/' };
     crumbs.push({ label: labels[section] || section });
   }
@@ -152,6 +156,9 @@ function App() {
             } />
             <Route path="/admin/eliminacions" element={
               <ProtectedRoute usuari={usuari} rolsPermesos={['admin']}><AdminEliminacions /></ProtectedRoute>
+            } />
+            <Route path="/ajuda" element={
+              <ProtectedRoute usuari={usuari}><Ajuda /></ProtectedRoute>
             } />
           </Routes>
         </main>
