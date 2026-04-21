@@ -18,6 +18,7 @@ const DEFAULT_SECTIONS = [
     id: 'ident', label: 'Identificación del producto / Identificació del producte',
     items: [
       { key: 'codi_referencia', label: 'Código de referencia / Codi de referència', type: 'text' },
+      { key: 'certificacio_img', label: 'Imatge certificació', type: 'image' },
       { key: 'certificacio', label: 'Certificación / Certificació', type: 'textarea' },
       { key: 'denominacio_comercial', label: 'Denominación comercial del Producto / Denominació comercial del producte', type: 'textarea' },
       { key: 'denominacio_juridica', label: 'Denominación jurídica del producto / Denominació jurídica del producte', type: 'textarea' },
@@ -460,6 +461,9 @@ export function PdfDocumentView({ contingut, versio }) {
           {extraKeys.map((key) => {
             const v = contingut[key];
             if (Array.isArray(v)) return <EditableTable key={key} label={key} rows={v} readOnly />;
+            if (typeof v === 'string' && v.startsWith('/api/fitxes/') && v.includes('/imatges/')) {
+              return <EditableImage key={key} label={key} value={v} readOnly />;
+            }
             if (v && String(v).trim()) return <EditableField key={key} label={key} value={v} readOnly />;
             return null;
           })}
