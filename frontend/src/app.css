@@ -1657,3 +1657,23 @@ textarea.pdf-field-input {
   margin: 0.75rem 0;
   color: var(--gray-700);
 }
+.help-img-wrapper {
+  margin: 1rem 0;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+.help-img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.help-img-caption {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.78rem;
+  color: var(--gray-500);
+  background: var(--gray-50);
+  border-top: 1px solid var(--gray-200);
+  font-style: italic;
+}

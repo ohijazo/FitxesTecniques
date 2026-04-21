@@ -1,5 +1,16 @@
 import { useState } from 'react';
 
+function HelpImg({ src, alt }) {
+  const [error, setError] = useState(false);
+  if (error) return null;
+  return (
+    <div className="help-img-wrapper">
+      <img src={src} alt={alt} className="help-img" onError={() => setError(true)} loading="lazy" />
+      <div className="help-img-caption">{alt}</div>
+    </div>
+  );
+}
+
 const SECTIONS = [
   {
     id: 'intro',
@@ -25,10 +36,20 @@ const SECTIONS = [
     titol: 'Gestio de fitxes tecniques',
     contingut: (
       <>
+        <h4>Pagina principal — Llista de fitxes</h4>
+        <p>
+          La pagina principal mostra totes les fitxes amb el codi, nom, revisio, estat i estat de distribucio.
+          Pots cercar per codi o nom i filtrar per estat.
+        </p>
+        <HelpImg src="/help/llista.png" alt="Llista de fitxes tecniques amb filtres i accions rapides" />
+
         <h4>Crear una fitxa nova</h4>
         <ol>
-          <li>Ves a <strong>Nova fitxa</strong> al menu</li>
+          <li>Prem <strong>+ Nova fitxa</strong> al menu o a la pagina principal</li>
           <li>Tria entre <strong>Pujar Word</strong> (extreu les dades automaticament del .docx) o <strong>Crear manualment</strong></li>
+        </ol>
+        <HelpImg src="/help/nova.png" alt="Pantalla de creacio: triar entre pujar Word o crear manualment" />
+        <ol start={3}>
           <li>Omple els camps del formulari per seccions</li>
           <li>Indica una descripcio del canvi (obligatoria)</li>
           <li>Prem <strong>Crear fitxa</strong></li>
@@ -43,6 +64,7 @@ const SECTIONS = [
           <li>Indica que has canviat a "Descripcio del canvi"</li>
           <li>Prem <strong>Desar (nova versio)</strong> — es crea una nova revisio automaticament</li>
         </ol>
+        <HelpImg src="/help/editor.png" alt="Editor de fitxa amb navegacio lateral per seccions i barra de progres" />
         <div className="help-tip">
           <strong>Navegacio per seccions:</strong> A l'esquerra del formulari hi ha un menu amb totes les seccions
           i una barra de progres que indica quants camps estan omplerts.
@@ -51,8 +73,10 @@ const SECTIONS = [
         <h4>Visualitzar una fitxa</h4>
         <p>
           La vista de detall mostra la fitxa amb un format similar al PDF real, incloent la capsalera
-          amb el logo, numero de revisio i dates. Pots canviar entre tres pestanyes:
+          amb el logo, numero de revisio i dates.
         </p>
+        <HelpImg src="/help/detall.png" alt="Detall de fitxa amb capsalera, contingut i accions" />
+        <p>Pots canviar entre tres pestanyes:</p>
         <ul>
           <li><strong>Contingut</strong> — visualitzacio de la fitxa</li>
           <li><strong>Versions</strong> — historial de totes les revisions amb comparacio de canvis</li>
@@ -70,6 +94,7 @@ const SECTIONS = [
           Cada vegada que edites una fitxa es crea una <strong>nova versio</strong> (revisio).
           Les versions anteriors es conserven i mai es sobreescriuen.
         </p>
+        <HelpImg src="/help/versions.png" alt="Timeline de versions amb comparacio de canvis" />
 
         <h4>Comparar versions</h4>
         <p>
@@ -110,6 +135,7 @@ const SECTIONS = [
           <li>Veuras el resultat per cada desti (ok o error)</li>
           <li>Si la distribucio es correcta, es mostra la URL publica del fitxer</li>
         </ol>
+        <HelpImg src="/help/distribucio.png" alt="Panell de distribucio amb seleccio de destins i resultats" />
 
         <h4>Indicadors a la llista</h4>
         <p>A la llista principal, cada fitxa mostra l'estat de distribucio:</p>
@@ -137,6 +163,7 @@ const SECTIONS = [
           La pagina <strong>Control de revisions</strong> (al menu principal) mostra una vista global
           de totes les fitxes amb les seves dades tecniques clau, equivalent a l'Excel PR09.02.
         </p>
+        <HelpImg src="/help/control.png" alt="Control de revisions amb estadistiques i filtres" />
 
         <h4>Estadistiques</h4>
         <p>
@@ -195,6 +222,7 @@ const SECTIONS = [
           <li>Marca si vols <strong>esborrar tambe del FTP</strong></li>
           <li>Confirma amb la teva <strong>contrasenya</strong></li>
         </ol>
+        <HelpImg src="/help/eliminar.png" alt="Modal d'eliminacio amb motiu, opcio FTP i confirmacio amb contrasenya" />
         <div className="help-tip">
           <strong>Registre d'audit:</strong> Totes les eliminacions queden registrades a
           <strong> Admin &gt; Eliminacions</strong> amb el codi, producte, motiu, qui i quan.
