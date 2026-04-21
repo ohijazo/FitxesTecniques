@@ -64,6 +64,22 @@ export const api = {
   distribuirTots: (fitxaId) => request(`/fitxes/${fitxaId}/distribuir`, { method: 'POST' }),
   distribuirDesti: (fitxaId, destiId) => request(`/fitxes/${fitxaId}/distribuir/${destiId}`, { method: 'POST' }),
 
+  // Imatges
+  pujarImatge: (fitxaId, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const token = getToken();
+    return fetch(`${API_BASE}/fitxes/${fitxaId}/imatges`, {
+      method: 'POST',
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: formData,
+    }).then(res => {
+      if (!res.ok) return res.json().then(e => { throw new Error(e.error); });
+      return res.json();
+    });
+  },
+  llistarImatges: (fitxaId) => request(`/fitxes/${fitxaId}/imatges`),
+
   // Admin - Tipus de fitxa
   llistarTipus: () => request('/admin/tipus'),
   detallTipus: (id) => request(`/admin/tipus/${id}`),

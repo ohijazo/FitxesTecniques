@@ -173,6 +173,14 @@
   </tr>
 </table>
 
+{% if imatges %}
+{% for img in imatges %}
+<div style="text-align: right; margin-bottom: 8px;">
+  <img src="{{ img.data_uri }}" style="max-width: 150px; max-height: 100px;" alt="{{ img.key }}">
+</div>
+{% endfor %}
+{% endif %}
+
 <div class="field-label">Código de referencia</div>
 <div class="field-value">{{ codi_referencia }}</div>
 

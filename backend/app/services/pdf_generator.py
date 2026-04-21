@@ -136,6 +136,31 @@ def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
         if key != 'logo_path':
             ctx[key] = _process_value(ctx[key])
 
+    # Recollir imatges del contingut (camps amb URLs /api/fitxes/...)
+    imatges = []
+    upload_base = os.path.join(current_app.root_path, '..', 'uploads')
+    for key, val in contingut.items():
+        if isinstance(val, str) and val.startswith('/api/fitxes/') and '/imatges/' in val:
+            # Extreure path local de la imatge
+            parts = val.split('/imatges/')
+            if len(parts) == 2:
+                filename = parts[1]
+                art_codi = contingut.get('codi_referencia', '')
+                img_path = os.path.join(upload_base, art_codi, 'img', filename)
+                if os.path.exists(img_path):
+                    with open(img_path, 'rb') as imgf:
+                        img_b64 = base64.b64encode(imgf.read()).decode('utf-8')
+                    ext = os.path.splitext(filename)[1].lower().lstrip('.')
+                    if ext == 'svg':
+                        mime = 'image/svg+xml'
+                    else:
+                        mime = f'image/{ext}' if ext in ('png', 'gif', 'webp') else 'image/jpeg'
+                    imatges.append({
+                        'key': key,
+                        'data_uri': f'data:{mime};base64,{img_b64}',
+                    })
+    ctx['imatges'] = imatges
+
     html_content = template.render(**ctx)
 
     result = io.BytesIO()

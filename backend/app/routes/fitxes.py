@@ -299,6 +299,79 @@ def llistar_eliminacions():
     return jsonify([r.to_dict() for r in registres])
 
 
+@fitxes_bp.route('/fitxes/<int:fitxa_id>/imatges', methods=['POST'])
+@rol_requerit('admin', 'editor')
+def pujar_imatge(fitxa_id):
+    """Puja una imatge associada a una fitxa (certificacions, segells, etc.)."""
+    fitxa = db.get_or_404(FitxaTecnica, fitxa_id)
+
+    if 'file' not in request.files:
+        return jsonify({'error': "Cal enviar un fitxer d'imatge"}), 400
+
+    file = request.files['file']
+    if not file.filename:
+        return jsonify({'error': "Fitxer buit"}), 400
+
+    # Validar extensió
+    allowed = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'}
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in allowed:
+        return jsonify({'error': f"Format no permès. Formats vàlids: {', '.join(allowed)}"}), 400
+
+    # Guardar a uploads/{art_codi}/img/
+    img_dir = os.path.join(UPLOAD_DIR, fitxa.art_codi, 'img')
+    os.makedirs(img_dir, exist_ok=True)
+
+    filename = secure_filename(file.filename)
+    # Evitar sobreescriure: afegir timestamp si ja existeix
+    filepath = os.path.join(img_dir, filename)
+    if os.path.exists(filepath):
+        name, extension = os.path.splitext(filename)
+        filename = f"{name}_{int(datetime.now(timezone.utc).timestamp())}{extension}"
+        filepath = os.path.join(img_dir, filename)
+
+    file.save(filepath)
+
+    url = f'/api/fitxes/{fitxa_id}/imatges/{filename}'
+    return jsonify({'url': url, 'filename': filename}), 201
+
+
+@fitxes_bp.route('/fitxes/<int:fitxa_id>/imatges/<path:filename>', methods=['GET'])
+@login_required
+def servir_imatge(fitxa_id, filename):
+    """Serveix una imatge associada a una fitxa."""
+    fitxa = db.get_or_404(FitxaTecnica, fitxa_id)
+    img_dir = os.path.join(UPLOAD_DIR, fitxa.art_codi, 'img')
+    filepath = os.path.join(img_dir, secure_filename(filename))
+
+    if not os.path.exists(filepath):
+        return jsonify({'error': 'Imatge no trobada'}), 404
+
+    return send_file(filepath)
+
+
+@fitxes_bp.route('/fitxes/<int:fitxa_id>/imatges', methods=['GET'])
+@login_required
+def llistar_imatges(fitxa_id):
+    """Llista les imatges d'una fitxa."""
+    fitxa = db.get_or_404(FitxaTecnica, fitxa_id)
+    img_dir = os.path.join(UPLOAD_DIR, fitxa.art_codi, 'img')
+
+    if not os.path.exists(img_dir):
+        return jsonify([])
+
+    imatges = []
+    for f in os.listdir(img_dir):
+        ext = os.path.splitext(f)[1].lower()
+        if ext in {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'}:
+            imatges.append({
+                'filename': f,
+                'url': f'/api/fitxes/{fitxa_id}/imatges/{f}',
+            })
+
+    return jsonify(imatges)
+
+
 @fitxes_bp.route('/fitxes/<int:fitxa_id>/pdf', methods=['GET'])
 @login_required
 def descarregar_pdf(fitxa_id):

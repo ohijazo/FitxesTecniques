@@ -76,7 +76,7 @@ function EditarFitxa() {
       {error && <p style={{ color: 'var(--danger)' }}>{error}</p>}
       {dadesWord && <p style={{ color: 'var(--success)' }}>Dades actualitzades des del Word.</p>}
 
-      <FitxaForm initialData={initialData} onSubmit={handleSubmit} isNew={false} versio={ultimaVersio} />
+      <FitxaForm initialData={initialData} onSubmit={handleSubmit} isNew={false} versio={ultimaVersio} fitxaId={id} />
 
       {showDistModal && (
         <DistribuirModal

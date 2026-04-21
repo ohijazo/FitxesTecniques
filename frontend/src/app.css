@@ -1353,6 +1353,34 @@ textarea.pdf-field-input {
   margin: 0.2rem 0;
 }
 
+/* Imatges dins fitxa (certificacions, segells) */
+.pdf-image-container {
+  margin: 0.5rem 0;
+}
+.pdf-image {
+  max-width: 200px;
+  max-height: 150px;
+  border-radius: var(--radius);
+}
+.pdf-image-upload {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--gray-300);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  cursor: pointer;
+  color: var(--gray-500);
+  font-size: 0.88rem;
+  transition: var(--transition);
+  background: var(--gray-50);
+}
+.pdf-image-upload:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+  background: var(--brand-50);
+}
+
 /* Peu del document — replica PDF */
 .pdf-footer {
   text-align: center;

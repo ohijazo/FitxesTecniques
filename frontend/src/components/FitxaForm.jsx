@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import DOMPurify from 'dompurify';
 import RichEditor from './RichEditor';
+import { api } from '../api/client';
 
 function arrayMove(arr, from, to) {
   const next = [...arr];
@@ -248,6 +249,61 @@ function EditableTable({ label, rows, onChange, onRemove, readOnly, toolbar, tab
 }
 
 /* ============================================================
+   EDITABLE IMAGE
+   ============================================================ */
+function EditableImage({ label, value, onChange, readOnly, toolbar, fitxaId }) {
+  const [uploading, setUploading] = useState(false);
+
+  if (readOnly) {
+    if (!value) return null;
+    return (
+      <div className="pdf-field">
+        <div className="pdf-field-label">{label}</div>
+        <div className="pdf-image-container">
+          <img src={value} alt={label} className="pdf-image" />
+        </div>
+      </div>
+    );
+  }
+
+  const handleUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !fitxaId) return;
+    setUploading(true);
+    try {
+      const result = await api.pujarImatge(fitxaId, file);
+      onChange(result.url);
+    } catch (err) {
+      alert(`Error pujant imatge: ${err.message}`);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="pdf-field">
+      <div className="pdf-field-label">
+        {label}
+        {toolbar}
+      </div>
+      {value ? (
+        <div className="pdf-image-container">
+          <img src={value} alt={label} className="pdf-image" />
+          <button type="button" className="outline secondary btn-sm" style={{ marginTop: '0.5rem' }}
+            onClick={() => onChange('')}>Treure imatge</button>
+        </div>
+      ) : (
+        <label className="pdf-image-upload" aria-busy={uploading}>
+          {uploading ? 'Pujant...' : 'Fes clic per pujar una imatge'}
+          <input type="file" accept="image/*" onChange={handleUpload} disabled={uploading}
+            style={{ display: 'none' }} />
+        </label>
+      )}
+    </div>
+  );
+}
+
+/* ============================================================
    ADD ITEM INLINE
    ============================================================ */
 function AddItemInline({ onAdd }) {
@@ -258,17 +314,18 @@ function AddItemInline({ onAdd }) {
   const confirm = () => {
     if (!label.trim()) return;
     const key = label.trim().toLowerCase().replace(/[^a-z0-9\u00e0\u00e8\u00e9\u00ed\u00f2\u00f3\u00fa\u00ef\u00fc\u00e7 ]/g, '').replace(/\s+/g, '_');
-    onAdd(key, label.trim(), mode === 'table' ? 'table' : 'textarea');
+    onAdd(key, label.trim(), mode);
     setLabel(''); setMode(null); setOpen(false);
   };
 
   if (!open) return (
-    <button type="button" className="pdf-add-element-btn" onClick={() => setOpen(true)}>+ Afegir camp o taula</button>
+    <button type="button" className="pdf-add-element-btn" onClick={() => setOpen(true)}>+ Afegir camp, taula o imatge</button>
   );
   if (!mode) return (
     <div className="pdf-add-element-panel">
       <button type="button" className="outline btn-sm" onClick={() => setMode('textarea')}>Camp de text</button>
       <button type="button" className="outline btn-sm" onClick={() => setMode('table')}>Taula</button>
+      <button type="button" className="outline btn-sm" onClick={() => setMode('image')}>Imatge</button>
       <button type="button" className="outline secondary btn-sm" onClick={() => { setOpen(false); setMode(null); }}>Cancel\u00b7lar</button>
     </div>
   );
@@ -379,6 +436,8 @@ export function PdfDocumentView({ contingut, versio }) {
               <div key={it.key}>
                 {it.type === 'table'
                   ? <EditableTable label={it.label} rows={Array.isArray(v) ? v : []} readOnly tableKey={it.key} />
+                  : it.type === 'image'
+                  ? <EditableImage label={it.label} value={v} readOnly />
                   : <EditableField label={it.label} value={v} readOnly />
                 }
                 {TABLE_NOTES[it.key] && (
@@ -413,7 +472,7 @@ export function PdfDocumentView({ contingut, versio }) {
 /* ============================================================
    FITXA FORM (editor amb sidebar nav)
    ============================================================ */
-function FitxaForm({ initialData, onSubmit, isNew, versio }) {
+function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId }) {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [activeSection, setActiveSection] = useState(null);
@@ -642,12 +701,20 @@ function FitxaForm({ initialData, onSubmit, isNew, versio }) {
                   />
                 );
 
-                return it.type === 'table' ? (
+                if (it.type === 'table') return (
                   <EditableTable key={it.id} label={it.label}
                     rows={Array.isArray(contingut[it.key]) ? contingut[it.key] : []}
                     onChange={(v) => update(it.key, v)}
                     toolbar={tb} />
-                ) : (
+                );
+                if (it.type === 'image') return (
+                  <EditableImage key={it.id} label={it.label}
+                    value={contingut[it.key]}
+                    onChange={(v) => update(it.key, v)}
+                    fitxaId={fitxaId}
+                    toolbar={tb} />
+                );
+                return (
                   <EditableField key={it.id} label={it.label}
                     value={contingut[it.key]}
                     onChange={(v) => update(it.key, v)}
