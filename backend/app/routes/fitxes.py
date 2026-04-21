@@ -1,5 +1,6 @@
 import io
 import os
+import re
 import tempfile
 from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, send_file, current_app
@@ -423,25 +424,19 @@ def descarregar_docx(fitxa_id):
 def _build_control_revisions():
     """Construeix les dades de control de revisions per a fitxes que tenen PDF (del FTP).
     Optimitzat amb eager loading per evitar N+1 queries."""
-    from sqlalchemy.orm import joinedload
-
     # Només fitxes que tenen almenys una versió amb PDF
     fitxa_ids_amb_pdf = db.session.query(VersioFitxa.fitxa_id).filter(
         VersioFitxa.fitxer_pdf != None, VersioFitxa.fitxer_pdf != ''
     ).distinct().subquery()
 
-    # Carregar totes les fitxes amb les seves versions en una sola query
     fitxes = FitxaTecnica.query.filter(
         FitxaTecnica.id.in_(fitxa_ids_amb_pdf)
-    ).options(
-        joinedload(FitxaTecnica.versions)
     ).order_by(FitxaTecnica.art_codi).all()
 
     resultats = []
 
     for fitxa in fitxes:
-        # Versions ja carregades (no fa query extra)
-        versions_list = sorted(fitxa.versions.all() if hasattr(fitxa.versions, 'all') else list(fitxa.versions),
+        versions_list = sorted(fitxa.versions.all(),
                                key=lambda v: v.num_versio)
 
         activa = next((v for v in versions_list if v.activa), None)
@@ -479,9 +474,9 @@ def _build_control_revisions():
             'revisio': versio_ref.num_versio if versio_ref else 0,
             'data_revisio': versio_ref.created_at.strftime('%d/%m/%Y') if versio_ref and versio_ref.created_at else '',
             'data_comprovacio': versio_ref.data_comprovacio.strftime('%d/%m/%Y') if versio_ref and versio_ref.data_comprovacio else '',
-            'denominacio_juridica': contingut.get('denominacio_juridica', ''),
-            'composicio': contingut.get('ingredients', '') or contingut.get('composicio', ''),
-            'vida_util': contingut.get('vida_util', ''),
+            'denominacio_juridica': _clean_html(contingut.get('denominacio_juridica', '')),
+            'composicio': _clean_html(contingut.get('ingredients', '') or contingut.get('composicio', '')),
+            'vida_util': _clean_html(contingut.get('vida_util', '')),
             'w': trobar_param('reologiques', 'W'),
             'pl': trobar_param('reologiques', 'P/L'),
             'proteina': trobar_param('fisicoquimiques', 'Prote'),
@@ -496,11 +491,21 @@ def _build_control_revisions():
     return resultats
 
 
+def _clean_html(text):
+    """Neteja tags HTML d'un text."""
+    if not text:
+        return ''
+    return re.sub(r'<[^>]+>', '', str(text)).strip()
+
+
 @fitxes_bp.route('/fitxes/control-revisions', methods=['GET'])
 @login_required
 def control_revisions():
     """Retorna dades consolidades de control de revisions (com l'Excel PR09.02)."""
-    dades = _build_control_revisions()
+    try:
+        dades = _build_control_revisions()
+    except Exception as e:
+        return jsonify({'error': f'Error construint dades: {str(e)}'}), 500
 
     # Estadístiques
     from datetime import timedelta
