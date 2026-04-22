@@ -948,7 +948,7 @@ fieldset legend {
 
 /* Camps editables */
 .pdf-field {
-  margin-bottom: 0.6rem;
+  margin-bottom: 1rem;
 }
 .pdf-field-label {
   color: #2F5496;
@@ -957,6 +957,7 @@ fieldset legend {
   border-bottom: 1.5px solid #2F5496;
   padding-bottom: 1px;
   margin-bottom: 4px;
+  margin-top: 0.5rem;
   line-height: 1.2;
 }
 .pdf-field-input {
@@ -995,7 +996,7 @@ textarea.pdf-field-input {
   border-bottom: 1.5px solid #2F5496;
   padding-bottom: 1px;
   margin-bottom: 4px;
-  margin-top: 0.5rem;
+  margin-top: 1rem;
   line-height: 1.2;
 }
 

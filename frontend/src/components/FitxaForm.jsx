@@ -362,11 +362,11 @@ function PdfPageHeader({ rev, dataRevisio, dataComprovacio }) {
           <td className="pdf-header-logo" rowSpan={3}>
             <img src="/logo.png" alt="Farinera Coromina" className="pdf-logo-img" />
           </td>
-          <td className="pdf-header-title" rowSpan={3}>FITXA TÈCNICA</td>
+          <td className="pdf-header-title" rowSpan={3}>FICHA T&Eacute;CNICA / FITXA T&Egrave;CNICA</td>
           <td className="pdf-header-meta">Rev.: {rev ?? '-'}</td>
         </tr>
-        <tr><td className="pdf-header-meta">Data revisió: {dataRevisio || '-'}</td></tr>
-        <tr><td className="pdf-header-meta">Data comprovació: {dataComprovacio || '-'}</td></tr>
+        <tr><td className="pdf-header-meta">Fecha/Data Rev: {dataRevisio || '-'}</td></tr>
+        <tr><td className="pdf-header-meta">Fecha/Data Comprov.: {dataComprovacio || '-'}</td></tr>
       </tbody>
     </table>
   );
