@@ -5,7 +5,15 @@
 <style>
   @page {
     size: A4;
-    margin: 18mm 18mm 22mm 18mm;
+    margin: 18mm 18mm 25mm 18mm;
+
+    @frame footer {
+      -pdf-frame-content: page-footer;
+      bottom: 0mm;
+      margin-left: 18mm;
+      margin-right: 18mm;
+      height: 15mm;
+    }
   }
 
   body {
@@ -20,7 +28,7 @@
   .header-table {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 28px;
+    margin-bottom: 14px;
   }
   .header-table td {
     vertical-align: middle;
@@ -63,7 +71,7 @@
     text-align: justify;
   }
 
-  /* -- Títols de secció (blau + línia, mateixa apparença) -- */
+  /* -- Títols de secció -- */
   .section-title {
     color: #2F5496;
     font-size: 11pt;
@@ -130,46 +138,37 @@
     font-style: italic;
   }
 
-  /* -- Peu de pàgina -- */
-  .footer {
-    text-align: center;
-    font-size: 7pt;
-    color: #595959;
-    border-top: 1px solid #2F5496;
-    padding-top: 3px;
-    margin-top: 20px;
-    line-height: 1.3;
-  }
-
   .note {
     font-size: 8pt;
     color: #595959;
     font-style: italic;
     margin: 1px 0 6px 0;
   }
-
-  .page-break {
-    page-break-before: always;
-  }
 </style>
 </head>
 <body>
 
-<!-- ==================== PÀGINA 1 ==================== -->
+<!-- Peu de pàgina repetit a totes les pàgines -->
+<div id="page-footer" style="text-align: center; font-size: 7pt; color: #595959; border-top: 1px solid #2F5496; padding-top: 3px; line-height: 1.3;">
+  AGRI-ENERGIA, S.A.<br>
+  C/ Girona, 155 – 17820 Banyoles- GIRONA – Tel. 972 58 33 63<br>
+  www.farineracoromina.com
+</div>
 
+<!-- Capçalera (només una vegada) -->
 <table class="header-table">
   <tr>
     <td class="header-logo" rowspan="3">
       <img src="{{ logo_path }}" alt="Logo">
     </td>
-    <td class="header-title" rowspan="3">FICHA TÉCNICA</td>
+    <td class="header-title" rowspan="3">FICHA TÉCNICA / FITXA TÈCNICA</td>
     <td class="header-meta">Rev.: {{ rev }}</td>
   </tr>
   <tr>
-    <td class="header-meta">Fecha Revisión: {{ data_revisio }}</td>
+    <td class="header-meta">Fecha/Data Rev: {{ data_revisio }}</td>
   </tr>
   <tr>
-    <td class="header-meta">Fecha Comprovación: {{ data_comprovacio }}</td>
+    <td class="header-meta">Fecha/Data Comprov.: {{ data_comprovacio }}</td>
   </tr>
 </table>
 
@@ -185,146 +184,114 @@
 </table>
 {% endif %}
 
-<div class="field-label">Código de referencia</div>
+<!-- Identificació del producte -->
+<div class="field-label">Código de referencia / Codi de referència</div>
 <div class="field-value">{{ codi_referencia }}</div>
 
 {% if certificacio %}
-<div class="field-label">Certificación/ Certificació</div>
+<div class="field-label">Certificación / Certificació</div>
 <div class="field-value">{{ certificacio }}</div>
 {% endif %}
 
-<div class="field-label">Denominación comercial del Producto</div>
+<div class="field-label">Denominación comercial del Producto / Denominació comercial del producte</div>
 <div class="field-value">{{ denominacio_comercial }}</div>
 
-<div class="field-label">Denominación jurídica del producto</div>
+<div class="field-label">Denominación jurídica del producto / Denominació jurídica del producte</div>
 <div class="field-value">{{ denominacio_juridica }}</div>
 
 {% if codi_ean %}
-<div class="field-label">Código EAN</div>
+<div class="field-label">Código EAN / Codi EAN</div>
 <div class="field-value">{{ codi_ean }}</div>
 {% endif %}
 
-<div class="field-label">Descripción del producto</div>
+<div class="field-label">Descripción del producto / Descripció del producte</div>
 <div class="field-value">{{ descripcio }}</div>
 
-<div class="field-label">Origen del Producto y Procedencia del cereal</div>
+<div class="field-label">Origen del Producto y Procedencia del cereal / Origen del producte i procedència del cereal</div>
 <div class="field-value">{{ origen }}</div>
 
-<div class="field-label">Ingredientes</div>
+<div class="field-label">Ingredientes / Ingredients</div>
 <div class="field-value">{{ ingredients }}</div>
 
-<div class="field-label">Alérgenos</div>
+<div class="field-label">Alérgenos / Al·lèrgens</div>
 <div class="field-value">{{ alergens }}</div>
 
 <div class="field-label">OGM</div>
 <div class="field-value">{{ ogm }}</div>
 
-<div class="field-label">Irradiación – Ionización</div>
+<div class="field-label">Irradiación – Ionización / Irradiació – Ionització</div>
 <div class="field-value">{{ irradiacio }}</div>
 
-<div class="footer">
-  AGRI-ENERGIA, S.A.<br>
-  C/ Girona, 155 – 17820 Banyoles- GIRONA – Tel. 972 58 33 63<br>
-  www.farineracoromina.com
-</div>
-
-<!-- ==================== PÀGINA 2 ==================== -->
-<div class="page-break"></div>
-
-<table class="header-table">
-  <tr>
-    <td class="header-logo" rowspan="3"><img src="{{ logo_path }}" alt="Logo"></td>
-    <td class="header-title" rowspan="3">FICHA TÉCNICA</td>
-    <td class="header-meta">Rev.: {{ rev }}</td>
-  </tr>
-  <tr><td class="header-meta">Fecha Revisión: {{ data_revisio }}</td></tr>
-  <tr><td class="header-meta">Fecha Comprovación: {{ data_comprovacio }}</td></tr>
-</table>
-
-<div class="section-title">Características organolépticas</div>
+<!-- Característiques -->
+<div class="section-title">Características organolépticas / Característiques organolèptiques</div>
 <div class="field-value">{{ caract_organoleptiques }}</div>
 
-<div class="section-title">Características físico – químicas</div>
+<div class="section-title">Características físico-químicas / Característiques fisicoquímiques</div>
 <table class="param-table">
-  <tr><th>Parámetro</th><th>Valor</th></tr>
+  <tr><th>Parámetro / Paràmetre</th><th>Valor</th></tr>
   {% for row in fisicoquimiques %}
   <tr><td>{{ row.parametre }}</td><td>{{ row.valor }}</td></tr>
   {% endfor %}
 </table>
+<div class="note">Según RD 677/2016 / Segons RD 677/2016.</div>
 
-<div class="section-title">Características reológicas</div>
+<div class="section-title">Características reológicas / Característiques reològiques</div>
 <table class="param-table">
-  <tr><th>Parámetro</th><th>Valor</th></tr>
+  <tr><th>Parámetro / Paràmetre</th><th>Valor</th></tr>
   {% for row in reologiques %}
   <tr><td>{{ row.parametre }}</td><td>{{ row.valor }}</td></tr>
   {% endfor %}
 </table>
+<div class="note">Según RD 677/2016 / Segons RD 677/2016.</div>
 
-<div class="section-title">Características Microbiológicas</div>
+<div class="section-title">Características Microbiológicas / Característiques microbiològiques</div>
 <table class="param-table">
-  <tr><td colspan="2" class="table-subtitle">Parámetros microbiológicos</td></tr>
-  <tr><th>Parámetro</th><th>Valor</th></tr>
+  <tr><td colspan="2" class="table-subtitle">Parámetros microbiológicos / Paràmetres microbiològics</td></tr>
+  <tr><th>Parámetro / Paràmetre</th><th>Valor</th></tr>
   {% for row in microbiologiques %}
   <tr><td>{{ row.parametre }}</td><td>{{ row.valor }}</td></tr>
   {% endfor %}
 </table>
-<div class="note">Establecidos como criterio interno en base RD 1286/1984 actualmente derogado.</div>
+<div class="note">Establecidos como criterio interno en base RD 1286/1984 actualmente derogado. / Establerts com a criteri intern en base RD 1286/1984 actualment derogat.</div>
 
-<div class="footer">
-  AGRI-ENERGIA, S.A.<br>
-  C/ Girona, 155 – 17820 Banyoles- GIRONA – Tel. 972 58 33 63<br>
-  www.farineracoromina.com
-</div>
-
-<!-- ==================== PÀGINA 3 ==================== -->
-<div class="page-break"></div>
-
-<table class="header-table">
-  <tr>
-    <td class="header-logo" rowspan="3"><img src="{{ logo_path }}" alt="Logo"></td>
-    <td class="header-title" rowspan="3">FICHA TÉCNICA</td>
-    <td class="header-meta">Rev.: {{ rev }}</td>
-  </tr>
-  <tr><td class="header-meta">Fecha Revisión: {{ data_revisio }}</td></tr>
-  <tr><td class="header-meta">Fecha Comprovación: {{ data_comprovacio }}</td></tr>
-</table>
-
-<div class="section-title">Parámetros de Contaminantes</div>
+<!-- Contaminants -->
+<div class="section-title">Parámetros de Contaminantes / Paràmetres de contaminants</div>
 
 <table class="param-table">
-  <tr><td colspan="2" class="table-subtitle">Micotoxinas</td></tr>
-  <tr><th>Parámetro</th><th>Valor</th></tr>
+  <tr><td colspan="2" class="table-subtitle">Micotoxinas / Micotoxines</td></tr>
+  <tr><th>Parámetro / Paràmetre</th><th>Valor</th></tr>
   {% for row in micotoxines %}
   <tr><td>{{ row.parametre }}</td><td>{{ row.valor }}</td></tr>
   {% endfor %}
 </table>
-<div class="note">Según Reglamento 2023/915 relativo a los límites máximos de determinados contaminantes en los alimentos y posteriores modificaciones que pueda haber.</div>
+<div class="note">Según Reglamento 2023/915 relativo a los límites máximos de determinados contaminantes en los alimentos y posteriores modificaciones que pueda haber. / Segons Reglament 2023/915 relatiu als límits màxims de determinats contaminants en els aliments i posteriors modificacions que hi pugui haver.</div>
 
 <table class="param-table">
-  <tr><td colspan="2" class="table-subtitle">Alcaloides del cornezuelo</td></tr>
-  <tr><th>Parámetro</th><th>Valor</th></tr>
+  <tr><td colspan="2" class="table-subtitle">Alcaloides del cornezuelo / Alcaloides del sègol banyut</td></tr>
+  <tr><th>Parámetro / Paràmetre</th><th>Valor</th></tr>
   {% for row in alcaloides %}
   <tr><td>{{ row.parametre }}</td><td>{{ row.valor }}</td></tr>
   {% endfor %}
 </table>
-<div class="note">Según Reglamento 2023/915 relativo a los límites máximos de determinados contaminantes en los alimentos y posteriores modificaciones que pueda haber.</div>
+<div class="note">Según Reglamento 2023/915 / Segons Reglament 2023/915.</div>
 
 <table class="param-table">
-  <tr><td colspan="2" class="table-subtitle">Metales pesados</td></tr>
-  <tr><th>Parámetro</th><th>Valor</th></tr>
+  <tr><td colspan="2" class="table-subtitle">Metales pesados / Metalls pesants</td></tr>
+  <tr><th>Parámetro / Paràmetre</th><th>Valor</th></tr>
   {% for row in metalls_pesants %}
   <tr><td>{{ row.parametre }}</td><td>{{ row.valor }}</td></tr>
   {% endfor %}
 </table>
-<div class="note">Según Reglamento 2023/915 relativo a los límites máximos de determinados contaminantes en los alimentos y posteriores modificaciones que pueda haber.</div>
+<div class="note">Según Reglamento 2023/915 / Segons Reglament 2023/915.</div>
 
-<div class="section-title">Pesticidas</div>
+<div class="section-title">Pesticidas / Pesticides</div>
 <div class="field-value">{{ pesticidas }}</div>
 
-<div class="section-title">Valores nutricionales</div>
+<!-- Valors nutricionals -->
+<div class="section-title">Valores nutricionales / Valors nutricionals</div>
 <table class="nutri-table">
-  <tr><td colspan="2" class="table-subtitle">Valores nutricionales (por 100g)</td></tr>
-  <tr><th>Parámetro</th><th>Valor</th></tr>
+  <tr><td colspan="2" class="table-subtitle">Valores nutricionales (por 100g) / Valors nutricionals (per 100g)</td></tr>
+  <tr><th>Parámetro / Paràmetre</th><th>Valor</th></tr>
   {% for row in valors_nutricionals %}
   <tr>
     <td{% if row.sub %} class="sub"{% endif %}>{{ row.parametre }}</td>
@@ -332,58 +299,34 @@
   </tr>
   {% endfor %}
 </table>
-<div class="note">Los valores pueden variar al tratarse de producto natural.</div>
+<div class="note">Los valores pueden variar al tratarse de producto natural. / Els valors poden variar en tractar-se de producte natural.</div>
 
-<div class="footer">
-  AGRI-ENERGIA, S.A.<br>
-  C/ Girona, 155 – 17820 Banyoles- GIRONA – Tel. 972 58 33 63<br>
-  www.farineracoromina.com
-</div>
-
-<!-- ==================== PÀGINA 4 ==================== -->
-<div class="page-break"></div>
-
-<table class="header-table">
-  <tr>
-    <td class="header-logo" rowspan="3"><img src="{{ logo_path }}" alt="Logo"></td>
-    <td class="header-title" rowspan="3">FICHA TÉCNICA</td>
-    <td class="header-meta">Rev.: {{ rev }}</td>
-  </tr>
-  <tr><td class="header-meta">Fecha Revisión: {{ data_revisio }}</td></tr>
-  <tr><td class="header-meta">Fecha Comprovación: {{ data_comprovacio }}</td></tr>
-</table>
-
-<div class="section-title">Presentación – envase</div>
+<!-- Informació comercial -->
+<div class="section-title">Presentación – envase / Presentació – envàs</div>
 <div class="field-value">{{ presentacio_envase }}</div>
 
-<div class="section-title">Uso previsto</div>
+<div class="section-title">Uso previsto / Ús previst</div>
 <div class="field-value">{{ us_previst }}</div>
 
-<div class="section-title">Condiciones de almacenaje</div>
+<div class="section-title">Condiciones de almacenaje / Condicions d'emmagatzematge</div>
 <div class="field-value">{{ condicions_emmagatzematge }}</div>
 
-<div class="section-title">Condiciones de transporte</div>
+<div class="section-title">Condiciones de transporte / Condicions de transport</div>
 <div class="field-value">{{ condicions_transport }}</div>
 
-<div class="section-title">Vida útil del producto</div>
+<div class="section-title">Vida útil del producto / Vida útil del producte</div>
 <div class="field-value">{{ vida_util }}</div>
 
-<div class="section-title">Otra legislación aplicable</div>
+<div class="section-title">Otra legislación aplicable / Altra legislació aplicable</div>
 <div class="field-value">{{ legislacio_aplicable }}</div>
 
 {% if fabricat_per %}
-<div class="section-title">Producto fabricado para (Razón social)</div>
+<div class="section-title">Producto fabricado para / Producte fabricat per a</div>
 <div class="field-value">{{ fabricat_per }}</div>
 {% endif %}
 
-<div class="section-title">Vigencia del documento</div>
+<div class="section-title">Vigencia del documento / Vigència del document</div>
 <div class="field-value">{{ vigencia_document }}</div>
-
-<div class="footer">
-  AGRI-ENERGIA, S.A.<br>
-  C/ Girona, 155 – 17820 Banyoles- GIRONA – Tel. 972 58 33 63<br>
-  www.farineracoromina.com
-</div>
 
 </body>
 </html>
