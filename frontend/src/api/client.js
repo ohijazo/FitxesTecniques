@@ -57,7 +57,7 @@ export const api = {
   publicarVersio: (fitxaId, vid) => request(`/fitxes/${fitxaId}/versions/${vid}/publicar`, { method: 'POST' }),
   aprovarVersio: (fitxaId, vid) => request(`/fitxes/${fitxaId}/versions/${vid}/aprovar`, { method: 'POST' }),
   enviarRevisio: (fitxaId, vid) => request(`/fitxes/${fitxaId}/versions/${vid}/revisar`, { method: 'POST' }),
-  esborrarUltimaVersio: (fitxaId) => request(`/fitxes/${fitxaId}/versions/ultima`, { method: 'DELETE' }),
+  esborrarUltimaVersio: (fitxaId, data) => request(`/fitxes/${fitxaId}/versions/ultima`, { method: 'DELETE', body: JSON.stringify(data) }),
   diffVersions: (fitxaId, v1, v2) => request(`/fitxes/${fitxaId}/versions/diff?v1=${v1}&v2=${v2}`),
 
   // Distribucions

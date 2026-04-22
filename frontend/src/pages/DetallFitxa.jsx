@@ -301,33 +301,86 @@ function DiffView({ fitxaId, v1Id, v2Id, onClose }) {
   );
 }
 
+function EsborrarVersioModal({ fitxa, versio, fitxaId, onDone, onClose }) {
+  const [motiu, setMotiu] = useState('');
+  const [password, setPassword] = useState('');
+  const [esborrarFtp, setEsborrarFtp] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const toast = useToast();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!motiu.trim()) { setError('Cal indicar un motiu'); return; }
+    if (!password) { setError('Cal la contrasenya'); return; }
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await api.esborrarUltimaVersio(fitxaId, { motiu, password, esborrar_ftp: esborrarFtp });
+      toast.success(result.message);
+      onDone();
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3 style={{ margin: 0, color: 'var(--danger)' }}>Esborrar versió {versio.num_versio}</h3>
+          <button className="outline secondary btn-sm" onClick={onClose}>&times;</button>
+        </div>
+
+        <div style={{ background: 'var(--danger-bg)', padding: '0.75rem 1rem', borderRadius: 'var(--radius)', marginBottom: '1rem', fontSize: '0.88rem' }}>
+          Estàs a punt d'esborrar la <strong>Rev. {versio.num_versio}</strong> de la fitxa <strong>{fitxa.art_codi}</strong>.
+          S'activarà la versió anterior. Aquesta acció és irreversible.
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <label>
+            Motiu *
+            <textarea value={motiu} onChange={(e) => setMotiu(e.target.value)}
+              required placeholder="Ex: Error en les dades, versió duplicada..."
+              rows={2} />
+          </label>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+            <input type="checkbox" checked={esborrarFtp} onChange={(e) => setEsborrarFtp(e.target.checked)}
+              style={{ width: 'auto', margin: 0 }} />
+            Esborrar també del FTP (redistribuirà la versió anterior)
+          </label>
+
+          <label>
+            Confirma amb la teva contrasenya *
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+              required placeholder="Contrasenya" autoComplete="current-password" />
+          </label>
+
+          {error && <p style={{ color: 'var(--danger)', fontSize: '0.88rem', marginBottom: '0.5rem' }}>{error}</p>}
+
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+            <button type="button" className="outline secondary" onClick={onClose}>Cancel·lar</button>
+            <button type="submit" disabled={loading} aria-busy={loading}
+              style={{ background: 'var(--danger)', borderColor: 'var(--danger)' }}>
+              {loading ? 'Esborrant...' : 'Confirmar'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function VersionsSection({ fitxa, fitxaId, onPublicar, onVistaPrevia, onRefresh }) {
   const [diffPair, setDiffPair] = useState(null);
-  const [deleting, setDeleting] = useState(false);
-  const toast = useToast();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const versions = fitxa.versions || [];
 
   const mostrarDiff = (v, i) => {
     if (i < versions.length - 1) {
       setDiffPair({ v1Id: versions[i + 1].id, v2Id: v.id });
-    }
-  };
-
-  const esborrarUltima = async () => {
-    if (versions.length <= 1) {
-      toast.warning("No es pot esborrar l'única versió");
-      return;
-    }
-    if (!confirm(`Esborrar la versió ${versions[0].num_versio}? Aquesta acció és irreversible.`)) return;
-    setDeleting(true);
-    try {
-      const result = await api.esborrarUltimaVersio(fitxaId);
-      toast.success(result.message);
-      onRefresh();
-    } catch (err) {
-      toast.error(err.message);
-    } finally {
-      setDeleting(false);
     }
   };
 
@@ -340,10 +393,18 @@ function VersionsSection({ fitxa, fitxaId, onPublicar, onVistaPrevia, onRefresh 
       {versions.length > 1 && (
         <div style={{ marginBottom: '1rem' }}>
           <button className="outline" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
-            onClick={esborrarUltima} disabled={deleting} aria-busy={deleting}>
+            onClick={() => setShowDeleteModal(true)}>
             Esborrar última versió (Rev. {versions[0].num_versio})
           </button>
         </div>
+      )}
+
+      {showDeleteModal && (
+        <EsborrarVersioModal
+          fitxa={fitxa} versio={versions[0]} fitxaId={fitxaId}
+          onDone={() => { setShowDeleteModal(false); onRefresh(); }}
+          onClose={() => setShowDeleteModal(false)}
+        />
       )}
 
       {diffPair && (

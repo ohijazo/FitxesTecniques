@@ -165,9 +165,27 @@ def enviar_revisio(fitxa_id, vid):
 @versions_bp.route('/fitxes/<int:fitxa_id>/versions/ultima', methods=['DELETE'])
 @rol_requerit('admin', 'editor')
 def esborrar_ultima_versio(fitxa_id):
-    """Esborra l'última versió d'una fitxa (si no ha estat distribuïda)."""
-    from app.models import Distribucio
+    """Esborra l'última versió d'una fitxa amb motiu, contrasenya i opció FTP."""
+    from app.models import Distribucio, Usuari, DestiDistribucio, RegistreEliminacio
+
     fitxa = db.get_or_404(FitxaTecnica, fitxa_id)
+    data = request.get_json() or {}
+
+    # Validar motiu
+    motiu = (data.get('motiu') or '').strip()
+    if not motiu:
+        return jsonify({'error': "Cal indicar un motiu"}), 400
+
+    # Validar contrasenya
+    password = data.get('password', '')
+    if not password:
+        return jsonify({'error': "Cal confirmar amb la teva contrasenya"}), 400
+
+    usuari = Usuari.query.filter_by(email=request.usuari.get('email')).first()
+    if not usuari or not usuari.check_password(password):
+        return jsonify({'error': "Contrasenya incorrecta"}), 403
+
+    esborrar_ftp = data.get('esborrar_ftp', False)
 
     versions = VersioFitxa.query.filter_by(fitxa_id=fitxa_id)\
         .order_by(VersioFitxa.num_versio.desc()).all()
@@ -177,12 +195,29 @@ def esborrar_ultima_versio(fitxa_id):
 
     ultima = versions[0]
 
-    # Comprovar si té distribucions ok
-    dist_ok = Distribucio.query.filter_by(versio_id=ultima.id, estat='ok').count()
-    if dist_ok > 0:
-        return jsonify({'error': "No es pot esborrar: aquesta versió ja ha estat distribuïda"}), 409
+    # Esborrar del FTP si demanat i té distribucions ok
+    ftp_resultats = []
+    if esborrar_ftp:
+        destins = DestiDistribucio.query.filter_by(actiu=True, tipus='ftp').all()
+        for desti in destins:
+            from app.services.ftp_distributor import eliminar_ftp
+            config = desti.configuracio or {}
+            result = eliminar_ftp(fitxa.art_codi, config)
+            ftp_resultats.append({'desti': desti.nom, **result})
 
-    # Esborrar distribucions pendents/error d'aquesta versió
+    # Registrar l'eliminació
+    registre = RegistreEliminacio(
+        art_codi=fitxa.art_codi,
+        nom_producte=fitxa.nom_producte,
+        num_versions=1,
+        ultima_versio=ultima.num_versio,
+        motiu=f"Esborrada versió {ultima.num_versio}: {motiu}",
+        esborrat_ftp=esborrar_ftp,
+        eliminat_per=usuari.nom,
+    )
+    db.session.add(registre)
+
+    # Esborrar distribucions d'aquesta versió
     Distribucio.query.filter_by(versio_id=ultima.id).delete()
 
     # Si era la versió activa, activar l'anterior
@@ -201,7 +236,11 @@ def esborrar_ultima_versio(fitxa_id):
         except OSError:
             pass
 
-    return jsonify({'message': f"Versió {ultima.num_versio} esborrada", 'num_versio': ultima.num_versio})
+    return jsonify({
+        'message': f"Versió {ultima.num_versio} esborrada",
+        'num_versio': ultima.num_versio,
+        'ftp': ftp_resultats,
+    })
 
 
 @versions_bp.route('/fitxes/<int:fitxa_id>/versions/diff', methods=['GET'])
