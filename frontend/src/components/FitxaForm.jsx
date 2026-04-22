@@ -694,6 +694,21 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId }) {
             dataComprovacio={versio?.data_comprovacio ? formatDate(versio.data_comprovacio) : (contingut.data_comprovacio || '-')}
           />
 
+          {/* Imatges de certificacio */}
+          {(() => {
+            const imgs = Object.entries(contingut)
+              .filter(([k, v]) => k.startsWith('certificacio_img') && v && typeof v === 'string')
+              .map(([k, v]) => ({ key: k, url: v }));
+            if (imgs.length === 0) return null;
+            return (
+              <div className="pdf-cert-images">
+                {imgs.map((img) => (
+                  <img key={img.key} src={img.url} alt="Certificació" className="pdf-cert-img" />
+                ))}
+              </div>
+            );
+          })()}
+
           {/* Seccions */}
           {sections.map((section, si) => (
             <div key={section.id} id={`section-${section.id}`} className="pdf-section-block">
