@@ -372,12 +372,17 @@ function PdfPageHeader({ rev, dataRevisio, dataComprovacio }) {
   );
 }
 
-function PdfPageFooter() {
+function PdfPageFooter({ page, totalPages }) {
   return (
-    <div className="pdf-footer">
-      AGRI-ENERGIA, S.A.<br />
-      C/ Girona, 155 &ndash; 17820 Banyoles &ndash; GIRONA &ndash; Tel. 972 58 33 63<br />
-      www.farineracoromina.com
+    <div className="pdf-footer-wrapper">
+      <div className="pdf-footer">
+        AGRI-ENERGIA, S.A.<br />
+        C/ Girona, 155 &ndash; 17820 Banyoles &ndash; GIRONA &ndash; Tel. 972 58 33 63<br />
+        www.farineracoromina.com
+      </div>
+      {page != null && (
+        <div className="pdf-page-number">{page}</div>
+      )}
     </div>
   );
 }
@@ -428,6 +433,9 @@ export function PdfDocumentView({ contingut, versio }) {
     })
   );
 
+  const hasExtras = extraKeys.length > 0;
+  const totalPages = sectionsWithData.length + (hasExtras ? 1 : 0);
+
   return (
     <div className="pdf-document pdf-view-mode">
       {sectionsWithData.map((section, si) => (
@@ -468,8 +476,8 @@ export function PdfDocumentView({ contingut, versio }) {
             );
           })}
 
-          <PdfPageFooter />
-          {si < sectionsWithData.length - 1 && <div className="pdf-page-divider" />}
+          <PdfPageFooter page={si + 1} />
+          {si < totalPages - 1 && <div className="pdf-page-divider" />}
         </div>
       ))}
 
@@ -486,7 +494,7 @@ export function PdfDocumentView({ contingut, versio }) {
             if (v && String(v).trim()) return <EditableField key={key} label={key} value={v} readOnly />;
             return null;
           })}
-          <PdfPageFooter />
+          <PdfPageFooter page={totalPages} />
         </div>
       )}
     </div>

@@ -1495,14 +1495,26 @@ textarea.pdf-field-input {
 }
 
 /* Peu del document — replica PDF */
+.pdf-footer-wrapper {
+  position: absolute;
+  bottom: 60px;
+  left: 65px;
+  right: 65px;
+}
 .pdf-footer {
   text-align: center;
   font-size: 0.68rem;
   color: #595959;
   border-top: 1px solid #2F5496;
   padding-top: 4px;
-  margin-top: 1.5rem;
   line-height: 1.4;
+}
+.pdf-page-number {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  font-size: 0.75rem;
+  color: #595959;
 }
 
 /* Títol de secció en mode vista (com al PDF real) */
