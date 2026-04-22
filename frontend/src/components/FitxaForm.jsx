@@ -411,7 +411,7 @@ export function PdfDocumentView({ contingut, versio }) {
   const knownKeys = new Set();
   DEFAULT_SECTIONS.forEach((s) => s.items.forEach((it) => knownKeys.add(it.key)));
   const extraKeys = Object.keys(contingut).filter(
-    (k) => !knownKeys.has(k) && !['rev', 'data_revisio', 'data_comprovacio'].includes(k) && !k.startsWith('certificacio_img')
+    (k) => !knownKeys.has(k) && !['rev', 'data_revisio', 'data_comprovacio', '_cert_config'].includes(k) && !k.startsWith('certificacio_img')
   );
 
   // Recollir imatges de certificacio del contingut
@@ -434,14 +434,19 @@ export function PdfDocumentView({ contingut, versio }) {
         <div key={section.id} className="pdf-page">
           <PdfPageHeader rev={rev} dataRevisio={dataRevisio} dataComprovacio={dataComprovacio} />
 
-          {/* Imatges certificacio a la primera pagina, alineades a la dreta */}
-          {si === 0 && certImgs.length > 0 && (
-            <div className="pdf-cert-images">
-              {certImgs.map((img) => (
-                <img key={img.key} src={img.url} alt="Certificació" className="pdf-cert-img" />
-              ))}
-            </div>
-          )}
+          {/* Imatges certificacio a la primera pagina */}
+          {si === 0 && certImgs.length > 0 && (() => {
+            const cfg = contingut._cert_config || { align: 'right', size: 60 };
+            const justify = cfg.align === 'left' ? 'flex-start' : cfg.align === 'center' ? 'center' : 'flex-end';
+            return (
+              <div className="pdf-cert-images" style={{ justifyContent: justify }}>
+                {certImgs.map((img) => (
+                  <img key={img.key} src={img.url} alt="Certificació" className="pdf-cert-img"
+                    style={{ height: `${cfg.size}px` }} />
+                ))}
+              </div>
+            );
+          })()}
 
           {section.items.map((it) => {
             const v = contingut[it.key];
@@ -489,13 +494,17 @@ export function PdfDocumentView({ contingut, versio }) {
 }
 
 /* ============================================================
-   CERT IMAGE EDITOR (imatges de certificacio editables)
+   CERT IMAGE EDITOR (imatges de certificacio editables amb posicio i mida)
    ============================================================ */
 function CertImageEditor({ contingut, onChange, fitxaId }) {
   const [uploading, setUploading] = useState(false);
   const imgs = Object.entries(contingut)
     .filter(([k, v]) => k.startsWith('certificacio_img') && v && typeof v === 'string')
     .map(([k, v]) => ({ key: k, url: v }));
+
+  // Configuracio guardada al contingut: { align, size }
+  const config = contingut._cert_config || { align: 'right', size: 60 };
+  const setConfig = (newConf) => onChange('_cert_config', { ...config, ...newConf });
 
   const handleReplace = async (key, e) => {
     const file = e.target.files[0];
@@ -517,7 +526,6 @@ function CertImageEditor({ contingut, onChange, fitxaId }) {
     setUploading(true);
     try {
       const result = await api.pujarImatge(fitxaId, file);
-      // Trobar el següent index disponible
       const existing = Object.keys(contingut).filter((k) => k.startsWith('certificacio_img'));
       const nextIdx = existing.length + 1;
       const key = existing.length === 0 ? 'certificacio_img' : `certificacio_img_${nextIdx}`;
@@ -533,12 +541,46 @@ function CertImageEditor({ contingut, onChange, fitxaId }) {
     onChange(key, '');
   };
 
+  if (imgs.length === 0) {
+    return (
+      <div className="pdf-cert-editor">
+        <label className="pdf-cert-add-empty" aria-busy={uploading}>
+          {uploading ? 'Pujant...' : '+ Afegir imatge de certificació'}
+          <input type="file" accept="image/*" onChange={handleAdd}
+            style={{ display: 'none' }} disabled={uploading} />
+        </label>
+      </div>
+    );
+  }
+
   return (
     <div className="pdf-cert-editor">
-      <div className="pdf-cert-images">
+      {/* Controls de posicio i mida */}
+      <div className="pdf-cert-controls">
+        <div className="pdf-cert-control-group">
+          <span className="pdf-cert-control-label">Posició:</span>
+          {['left', 'center', 'right'].map((a) => (
+            <button key={a} type="button"
+              className={`pdf-cert-align-btn ${config.align === a ? 'active' : ''}`}
+              onClick={() => setConfig({ align: a })}>
+              {a === 'left' ? 'Esquerra' : a === 'center' ? 'Centre' : 'Dreta'}
+            </button>
+          ))}
+        </div>
+        <div className="pdf-cert-control-group">
+          <span className="pdf-cert-control-label">Mida: {config.size}px</span>
+          <input type="range" min="30" max="150" value={config.size}
+            onChange={(e) => setConfig({ size: parseInt(e.target.value) })}
+            style={{ width: '120px', margin: 0 }} />
+        </div>
+      </div>
+
+      {/* Imatges amb la posicio i mida configurades */}
+      <div className="pdf-cert-images" style={{ justifyContent: config.align === 'left' ? 'flex-start' : config.align === 'center' ? 'center' : 'flex-end' }}>
         {imgs.map((img) => (
           <div key={img.key} className="pdf-cert-item">
-            <img src={img.url} alt="Certificació" className="pdf-cert-img" />
+            <img src={img.url} alt="Certificació" className="pdf-cert-img"
+              style={{ height: `${config.size}px` }} />
             <div className="pdf-cert-actions">
               <label className="pdf-cert-action-btn" title="Substituir" aria-busy={uploading}>
                 &#8635;
@@ -550,7 +592,8 @@ function CertImageEditor({ contingut, onChange, fitxaId }) {
             </div>
           </div>
         ))}
-        <label className="pdf-cert-add" title="Afegir imatge de certificació" aria-busy={uploading}>
+        <label className="pdf-cert-add" title="Afegir imatge" aria-busy={uploading}
+          style={{ height: `${config.size}px` }}>
           {uploading ? '...' : '+'}
           <input type="file" accept="image/*" onChange={handleAdd}
             style={{ display: 'none' }} disabled={uploading} />

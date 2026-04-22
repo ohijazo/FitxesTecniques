@@ -162,6 +162,12 @@ def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
                     })
     ctx['imatges'] = imatges
 
+    # Configuracio de certificacio (posicio i mida)
+    cert_config = contingut.get('_cert_config', {'align': 'right', 'size': 60})
+    ctx['cert_align'] = cert_config.get('align', 'right')
+    # Convertir px a pt per xhtml2pdf (1px ≈ 0.75pt)
+    ctx['cert_height_pt'] = int(cert_config.get('size', 60) * 0.75)
+
     html_content = template.render(**ctx)
 
     result = io.BytesIO()
