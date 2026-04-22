@@ -489,6 +489,78 @@ export function PdfDocumentView({ contingut, versio }) {
 }
 
 /* ============================================================
+   CERT IMAGE EDITOR (imatges de certificacio editables)
+   ============================================================ */
+function CertImageEditor({ contingut, onChange, fitxaId }) {
+  const [uploading, setUploading] = useState(false);
+  const imgs = Object.entries(contingut)
+    .filter(([k, v]) => k.startsWith('certificacio_img') && v && typeof v === 'string')
+    .map(([k, v]) => ({ key: k, url: v }));
+
+  const handleReplace = async (key, e) => {
+    const file = e.target.files[0];
+    if (!file || !fitxaId) return;
+    setUploading(true);
+    try {
+      const result = await api.pujarImatge(fitxaId, file);
+      onChange(key, result.url);
+    } catch (err) {
+      alert(`Error pujant imatge: ${err.message}`);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleAdd = async (e) => {
+    const file = e.target.files[0];
+    if (!file || !fitxaId) return;
+    setUploading(true);
+    try {
+      const result = await api.pujarImatge(fitxaId, file);
+      // Trobar el següent index disponible
+      const existing = Object.keys(contingut).filter((k) => k.startsWith('certificacio_img'));
+      const nextIdx = existing.length + 1;
+      const key = existing.length === 0 ? 'certificacio_img' : `certificacio_img_${nextIdx}`;
+      onChange(key, result.url);
+    } catch (err) {
+      alert(`Error pujant imatge: ${err.message}`);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemove = (key) => {
+    onChange(key, '');
+  };
+
+  return (
+    <div className="pdf-cert-editor">
+      <div className="pdf-cert-images">
+        {imgs.map((img) => (
+          <div key={img.key} className="pdf-cert-item">
+            <img src={img.url} alt="Certificació" className="pdf-cert-img" />
+            <div className="pdf-cert-actions">
+              <label className="pdf-cert-action-btn" title="Substituir" aria-busy={uploading}>
+                &#8635;
+                <input type="file" accept="image/*" onChange={(e) => handleReplace(img.key, e)}
+                  style={{ display: 'none' }} disabled={uploading} />
+              </label>
+              <button type="button" className="pdf-cert-action-btn remove" title="Treure"
+                onClick={() => handleRemove(img.key)}>&times;</button>
+            </div>
+          </div>
+        ))}
+        <label className="pdf-cert-add" title="Afegir imatge de certificació" aria-busy={uploading}>
+          {uploading ? '...' : '+'}
+          <input type="file" accept="image/*" onChange={handleAdd}
+            style={{ display: 'none' }} disabled={uploading} />
+        </label>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
    FITXA FORM (editor amb sidebar nav)
    ============================================================ */
 function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId }) {
@@ -694,20 +766,8 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId }) {
             dataComprovacio={versio?.data_comprovacio ? formatDate(versio.data_comprovacio) : (contingut.data_comprovacio || '-')}
           />
 
-          {/* Imatges de certificacio */}
-          {(() => {
-            const imgs = Object.entries(contingut)
-              .filter(([k, v]) => k.startsWith('certificacio_img') && v && typeof v === 'string')
-              .map(([k, v]) => ({ key: k, url: v }));
-            if (imgs.length === 0) return null;
-            return (
-              <div className="pdf-cert-images">
-                {imgs.map((img) => (
-                  <img key={img.key} src={img.url} alt="Certificació" className="pdf-cert-img" />
-                ))}
-              </div>
-            );
-          })()}
+          {/* Imatges de certificacio (editables) */}
+          <CertImageEditor contingut={contingut} onChange={update} fitxaId={fitxaId} />
 
           {/* Seccions */}
           {sections.map((section, si) => (

@@ -1366,6 +1366,64 @@ textarea.pdf-field-input {
   object-fit: contain;
 }
 
+/* Editor imatges certificacio */
+.pdf-cert-editor {
+  margin-bottom: 0.75rem;
+}
+.pdf-cert-item {
+  position: relative;
+  display: inline-block;
+}
+.pdf-cert-item:hover .pdf-cert-actions {
+  opacity: 1;
+}
+.pdf-cert-actions {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.pdf-cert-action-btn {
+  background: rgba(255,255,255,0.9) !important;
+  border: 1px solid var(--gray-300) !important;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 1px 5px !important;
+  line-height: 1.2;
+  color: var(--gray-600) !important;
+}
+.pdf-cert-action-btn:hover {
+  background: var(--gray-100) !important;
+  color: var(--gray-800) !important;
+}
+.pdf-cert-action-btn.remove:hover {
+  background: var(--danger-bg) !important;
+  color: var(--danger) !important;
+}
+.pdf-cert-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 50px;
+  border: 2px dashed var(--gray-300);
+  border-radius: var(--radius);
+  cursor: pointer;
+  color: var(--gray-400);
+  font-size: 1.5rem;
+  transition: var(--transition);
+  vertical-align: top;
+}
+.pdf-cert-add:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+  background: var(--brand-50);
+}
+
 /* Imatges dins fitxa (camps genèrics) */
 .pdf-image-container {
   margin: 0.5rem 0;
