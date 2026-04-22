@@ -337,7 +337,6 @@ def pujar_imatge(fitxa_id):
 
 
 @fitxes_bp.route('/fitxes/<int:fitxa_id>/imatges/<path:filename>', methods=['GET'])
-@login_required
 def servir_imatge(fitxa_id, filename):
     """Serveix una imatge associada a una fitxa."""
     fitxa = db.get_or_404(FitxaTecnica, fitxa_id)

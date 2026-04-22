@@ -103,6 +103,7 @@ def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
         'data_revisio': data_revisio or '',
         'data_comprovacio': data_comprovacio or '',
         'codi_referencia': contingut.get('codi_referencia', ''),
+        'certificacio': contingut.get('certificacio', ''),
         'denominacio_comercial': contingut.get('denominacio_comercial', ''),
         'denominacio_juridica': contingut.get('denominacio_juridica', ''),
         'codi_ean': contingut.get('codi_ean', ''),
