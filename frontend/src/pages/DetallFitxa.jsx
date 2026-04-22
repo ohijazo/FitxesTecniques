@@ -402,7 +402,7 @@ function VersionsSection({ fitxa, fitxaId, onPublicar, onVistaPrevia, onRefresh 
       {showDeleteModal && (
         <EsborrarVersioModal
           fitxa={fitxa} versio={versions[0]} fitxaId={fitxaId}
-          onDone={() => { setShowDeleteModal(false); onRefresh(); }}
+          onDone={async () => { await onRefresh(); setShowDeleteModal(false); }}
           onClose={() => setShowDeleteModal(false)}
         />
       )}
