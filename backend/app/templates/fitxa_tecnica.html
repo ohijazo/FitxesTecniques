@@ -174,11 +174,11 @@
 </table>
 
 {% if imatges %}
-<table style="width: 100%; margin-bottom: 8px;">
+<table style="width: 100%; margin-bottom: 6px;">
   <tr>
     <td style="text-align: right; border: none; padding: 0;">
       {% for img in imatges %}
-      <img src="{{ img.data_uri }}" style="width: 2.2cm; margin-left: 3px;" alt="{{ img.key }}">
+      <img src="{{ img.data_uri }}" height="45" style="margin-left: 2px;" alt="{{ img.key }}">
       {% endfor %}
     </td>
   </tr>

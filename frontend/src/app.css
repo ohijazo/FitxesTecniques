@@ -1361,8 +1361,8 @@ textarea.pdf-field-input {
   margin-bottom: 0.75rem;
 }
 .pdf-cert-img {
-  max-width: 120px;
-  max-height: 80px;
+  height: 55px;
+  width: auto;
   object-fit: contain;
 }
 
