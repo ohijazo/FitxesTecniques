@@ -815,13 +815,11 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId }) {
           {/* Seccions */}
           {sections.map((section, si) => (
             <div key={section.id} id={`section-${section.id}`} className="pdf-section-block">
-              <div className="pdf-section-header">
-                <div className="pdf-section-header-label">{section.label}</div>
-                <div className="pdf-section-header-actions">
-                  <button type="button" disabled={si === 0} onClick={() => moveSectionUp(si)} title="Pujar secció">&#9650;</button>
-                  <button type="button" disabled={si === sections.length - 1} onClick={() => moveSectionDown(si)} title="Baixar secció">&#9660;</button>
-                  <button type="button" onClick={() => removeSection(section.id)} title="Eliminar secció" className="remove">&times;</button>
-                </div>
+              {/* Accions secció (només visibles al hover) */}
+              <div className="pdf-section-actions-bar">
+                <button type="button" disabled={si === 0} onClick={() => moveSectionUp(si)} title="Pujar secció">&#9650;</button>
+                <button type="button" disabled={si === sections.length - 1} onClick={() => moveSectionDown(si)} title="Baixar secció">&#9660;</button>
+                <button type="button" onClick={() => removeSection(section.id)} title="Eliminar secció" className="remove">&times;</button>
               </div>
 
               {section.items.map((it, ii) => {

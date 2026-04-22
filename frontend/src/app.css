@@ -1089,33 +1089,20 @@ textarea.pdf-field-input {
   letter-spacing: 0.1em;
 }
 
-/* Capçalera secció editable */
-.pdf-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 2px solid var(--brand);
-  padding: 0.5rem 0;
-  margin-bottom: 1rem;
-  margin-top: 1.5rem;
-}
-.pdf-section-header-label {
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--brand);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-.pdf-section-header-actions {
+/* Accions secció (sense títol, només botons al hover) */
+.pdf-section-actions-bar {
   display: flex;
   gap: 2px;
+  justify-content: flex-end;
   opacity: 0;
   transition: opacity 0.15s;
+  margin-top: 1rem;
+  margin-bottom: 0.25rem;
 }
-.pdf-section-block:hover .pdf-section-header-actions {
+.pdf-section-block:hover .pdf-section-actions-bar {
   opacity: 1;
 }
-.pdf-section-header-actions button {
+.pdf-section-actions-bar button {
   background: none !important;
   border: 1px solid var(--gray-200) !important;
   color: var(--gray-400) !important;
@@ -1125,16 +1112,16 @@ textarea.pdf-field-input {
   border-radius: 3px;
   line-height: 1;
 }
-.pdf-section-header-actions button:hover {
+.pdf-section-actions-bar button:hover {
   background: var(--gray-100) !important;
   color: var(--gray-700) !important;
 }
-.pdf-section-header-actions button.remove:hover {
+.pdf-section-actions-bar button.remove:hover {
   background: var(--danger-bg) !important;
   color: var(--danger) !important;
   border-color: var(--danger) !important;
 }
-.pdf-section-header-actions button:disabled {
+.pdf-section-actions-bar button:disabled {
   opacity: 0.3;
   cursor: default;
 }
