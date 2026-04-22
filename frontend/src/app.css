@@ -876,20 +876,24 @@ fieldset legend {
   font-family: Calibri, 'Segoe UI', Arial, sans-serif;
 }
 
-/* Mode vista (lectura) — simula pagines A4 */
+/* Mode vista (lectura) — simula pagines DIN A4 */
 .pdf-view-mode {
-  padding: 0;
+  padding: 1.5rem 0;
   border: none;
   box-shadow: none;
-  background: transparent;
+  background: var(--gray-200);
+  border-radius: var(--radius-lg);
 }
 .pdf-page {
   background: #fff;
-  border: 1px solid var(--gray-200);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-  padding: 2.5rem 3rem 1.5rem 3rem;
-  margin-bottom: 0;
+  border: 1px solid var(--gray-300);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  /* Proporcio A4: 210x297mm. Amb max-width 794px (210mm a 96dpi) */
+  max-width: 794px;
+  min-height: 1123px; /* 297mm a 96dpi */
+  margin: 0 auto;
+  padding: 60px 65px 80px 65px; /* Marges similars a 18mm */
+  position: relative;
 }
 .pdf-page-divider {
   height: 1.5rem;
