@@ -191,17 +191,28 @@ class Distribucio(db.Model):
     executat_by = db.Column(db.String(100))
 
     def to_dict(self):
+        # Obtenir num_versio de la relació
+        num_versio = None
+        if self.versio:
+            num_versio = self.versio.num_versio
         return {
             'id': self.id,
             'versio_id': self.versio_id,
+            'num_versio': num_versio,
             'desti_id': self.desti_id,
             'desti': self.desti,
             'estat': self.estat,
             'intents': self.intents,
             'missatge_error': self.missatge_error,
             'executat_at': self.executat_at.isoformat() if self.executat_at else None,
-            'executat_by': self.executat_by,
+            'executat_by': self._resolve_nom(self.executat_by),
         }
+
+    def _resolve_nom(self, email):
+        if not email:
+            return None
+        u = Usuari.query.filter_by(email=email).first()
+        return u.nom if u else email
 
 
 class SeccioFitxa(db.Model):

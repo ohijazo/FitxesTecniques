@@ -301,13 +301,33 @@ function DiffView({ fitxaId, v1Id, v2Id, onClose }) {
   );
 }
 
-function VersionsSection({ fitxa, fitxaId, onPublicar, onVistaPrevia, onRefresh, setMsg }) {
+function VersionsSection({ fitxa, fitxaId, onPublicar, onVistaPrevia, onRefresh }) {
   const [diffPair, setDiffPair] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const toast = useToast();
   const versions = fitxa.versions || [];
 
   const mostrarDiff = (v, i) => {
     if (i < versions.length - 1) {
       setDiffPair({ v1Id: versions[i + 1].id, v2Id: v.id });
+    }
+  };
+
+  const esborrarUltima = async () => {
+    if (versions.length <= 1) {
+      toast.warning("No es pot esborrar l'única versió");
+      return;
+    }
+    if (!confirm(`Esborrar la versió ${versions[0].num_versio}? Aquesta acció és irreversible.`)) return;
+    setDeleting(true);
+    try {
+      const result = await api.esborrarUltimaVersio(fitxaId);
+      toast.success(result.message);
+      onRefresh();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -317,6 +337,15 @@ function VersionsSection({ fitxa, fitxaId, onPublicar, onVistaPrevia, onRefresh,
 
   return (
     <>
+      {versions.length > 1 && (
+        <div style={{ marginBottom: '1rem' }}>
+          <button className="outline" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
+            onClick={esborrarUltima} disabled={deleting} aria-busy={deleting}>
+            Esborrar última versió (Rev. {versions[0].num_versio})
+          </button>
+        </div>
+      )}
+
       {diffPair && (
         <DiffView fitxaId={fitxaId} v1Id={diffPair.v1Id} v2Id={diffPair.v2Id}
           onClose={() => setDiffPair(null)} />
@@ -691,6 +720,7 @@ function DetallFitxa() {
                   <thead>
                     <tr>
                       <th>Desti</th>
+                      <th>Rev.</th>
                       <th>Estat</th>
                       <th>Data</th>
                       <th>Usuari</th>
@@ -701,6 +731,7 @@ function DetallFitxa() {
                     {distribucions.map((d) => (
                       <tr key={d.id}>
                         <td style={{ fontWeight: 500 }}>{d.desti}</td>
+                        <td style={{ textAlign: 'center', fontWeight: 600 }}>{d.num_versio != null ? d.num_versio : '-'}</td>
                         <td><span className={`badge ${d.estat}`}>{d.estat}</span></td>
                         <td style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>
                           {d.executat_at ? new Date(d.executat_at).toLocaleString('ca') : 'Pendent'}

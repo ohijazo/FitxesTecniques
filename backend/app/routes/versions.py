@@ -162,6 +162,48 @@ def enviar_revisio(fitxa_id, vid):
     return jsonify(versio.to_dict())
 
 
+@versions_bp.route('/fitxes/<int:fitxa_id>/versions/ultima', methods=['DELETE'])
+@rol_requerit('admin', 'editor')
+def esborrar_ultima_versio(fitxa_id):
+    """Esborra l'última versió d'una fitxa (si no ha estat distribuïda)."""
+    from app.models import Distribucio
+    fitxa = db.get_or_404(FitxaTecnica, fitxa_id)
+
+    versions = VersioFitxa.query.filter_by(fitxa_id=fitxa_id)\
+        .order_by(VersioFitxa.num_versio.desc()).all()
+
+    if len(versions) <= 1:
+        return jsonify({'error': "No es pot esborrar l'única versió de la fitxa"}), 400
+
+    ultima = versions[0]
+
+    # Comprovar si té distribucions ok
+    dist_ok = Distribucio.query.filter_by(versio_id=ultima.id, estat='ok').count()
+    if dist_ok > 0:
+        return jsonify({'error': "No es pot esborrar: aquesta versió ja ha estat distribuïda"}), 409
+
+    # Esborrar distribucions pendents/error d'aquesta versió
+    Distribucio.query.filter_by(versio_id=ultima.id).delete()
+
+    # Si era la versió activa, activar l'anterior
+    if ultima.activa:
+        anterior = versions[1]
+        anterior.activa = True
+        anterior.estat_versio = 'publicada'
+
+    db.session.delete(ultima)
+    db.session.commit()
+
+    # Invalidar cache PDF
+    for cached in glob.glob(os.path.join(UPLOAD_DIR, fitxa.art_codi, '**', '*_generat.pdf'), recursive=True):
+        try:
+            os.remove(cached)
+        except OSError:
+            pass
+
+    return jsonify({'message': f"Versió {ultima.num_versio} esborrada", 'num_versio': ultima.num_versio})
+
+
 @versions_bp.route('/fitxes/<int:fitxa_id>/versions/diff', methods=['GET'])
 @login_required
 def diff_versions(fitxa_id):
