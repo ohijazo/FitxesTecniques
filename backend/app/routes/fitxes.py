@@ -241,31 +241,40 @@ def eliminar_fitxa(fitxa_id):
     if not usuari or not usuari.check_password(password):
         return jsonify({'error': "Contrasenya incorrecta"}), 403
 
-    esborrar_ftp = data.get('esborrar_ftp', False)
+    esborrar_destins = data.get('esborrar_destins', [])  # llista de desti_ids
 
     # Info per al registre (abans d'eliminar)
     versions_list = fitxa.versions.all()
     num_versions = len(versions_list)
     ultima_versio = max((v.num_versio for v in versions_list), default=0)
 
-    # Esborrar del FTP si demanat
-    ftp_resultats = []
-    if esborrar_ftp:
-        destins = DestiDistribucio.query.filter_by(actiu=True, tipus='ftp').all()
-        for desti in destins:
-            from app.services.ftp_distributor import eliminar_ftp
+    # Esborrar dels destins seleccionats
+    dest_resultats = []
+    if esborrar_destins:
+        for desti_id in esborrar_destins:
+            desti = DestiDistribucio.query.get(desti_id)
+            if not desti:
+                continue
             config = desti.configuracio or {}
-            result = eliminar_ftp(fitxa.art_codi, config)
-            ftp_resultats.append({'desti': desti.nom, **result})
+            if desti.tipus == 'ftp':
+                from app.services.ftp_distributor import eliminar_ftp
+                result = eliminar_ftp(fitxa.art_codi, config)
+            elif desti.tipus == 'xarxa':
+                from app.services.smb_distributor import eliminar_xarxa
+                result = eliminar_xarxa(fitxa.art_codi, config)
+            else:
+                result = {'ok': False, 'error': f"Tipus {desti.tipus} no suportat"}
+            dest_resultats.append({'desti': desti.nom, **result})
 
     # Registrar l'eliminacio
+    destins_noms = ', '.join(r['desti'] for r in dest_resultats) if dest_resultats else 'Cap'
     registre = RegistreEliminacio(
         art_codi=fitxa.art_codi,
         nom_producte=fitxa.nom_producte,
         num_versions=num_versions,
         ultima_versio=ultima_versio,
         motiu=motiu,
-        esborrat_ftp=esborrar_ftp,
+        esborrat_ftp=len(esborrar_destins) > 0,
         eliminat_per=usuari.nom,
     )
     db.session.add(registre)
@@ -284,7 +293,7 @@ def eliminar_fitxa(fitxa_id):
 
     return jsonify({
         'message': 'Fitxa eliminada',
-        'ftp': ftp_resultats,
+        'destins': dest_resultats,
     }), 200
 
 

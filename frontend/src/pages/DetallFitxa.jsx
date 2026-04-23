@@ -304,19 +304,33 @@ function DiffView({ fitxaId, v1Id, v2Id, onClose }) {
 function EsborrarVersioModal({ fitxa, versio, fitxaId, onDone, onClose }) {
   const [motiu, setMotiu] = useState('');
   const [password, setPassword] = useState('');
-  const [esborrarFtp, setEsborrarFtp] = useState(false);
+  const [destins, setDestins] = useState([]);
+  const [selectedDestins, setSelectedDestins] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const toast = useToast();
+
+  useEffect(() => {
+    api.llistarDestins().then((data) => {
+      const actius = data.filter((d) => d.actiu);
+      setDestins(actius);
+    }).catch(() => {});
+  }, []);
+
+  const toggleDesti = (id) => setSelectedDestins((prev) => ({ ...prev, [id]: !prev[id] }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!motiu.trim()) { setError('Cal indicar un motiu'); return; }
     if (!password) { setError('Cal la contrasenya'); return; }
+
+    const esborrar_destins = Object.entries(selectedDestins)
+      .filter(([, v]) => v).map(([k]) => parseInt(k));
+
     setLoading(true);
     setError(null);
     try {
-      const result = await api.esborrarUltimaVersio(fitxaId, { motiu, password, esborrar_ftp: esborrarFtp });
+      const result = await api.esborrarUltimaVersio(fitxaId, { motiu, password, esborrar_destins });
       toast.success(result.message);
       onDone();
     } catch (err) {
@@ -346,11 +360,18 @@ function EsborrarVersioModal({ fitxa, versio, fitxaId, onDone, onClose }) {
               rows={2} />
           </label>
 
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-            <input type="checkbox" checked={esborrarFtp} onChange={(e) => setEsborrarFtp(e.target.checked)}
-              style={{ width: 'auto', margin: 0 }} />
-            Esborrar també del FTP (redistribuirà la versió anterior)
-          </label>
+          {destins.length > 0 && (
+            <fieldset style={{ marginBottom: '1rem' }}>
+              <legend style={{ fontSize: '0.85rem', fontWeight: 600 }}>Esborrar també dels destins:</legend>
+              {destins.map((d) => (
+                <label key={d.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', margin: '0.3rem 0' }}>
+                  <input type="checkbox" checked={selectedDestins[d.id] || false}
+                    onChange={() => toggleDesti(d.id)} style={{ width: 'auto', margin: 0 }} />
+                  {d.nom} <span style={{ color: 'var(--gray-400)', fontSize: '0.8rem' }}>({d.tipus.toUpperCase()})</span>
+                </label>
+              ))}
+            </fieldset>
+          )}
 
           <label>
             Confirma amb la teva contrasenya *
@@ -456,20 +477,36 @@ function VersionsSection({ fitxa, fitxaId, onPublicar, onVistaPrevia, onRefresh 
 function EliminarModal({ fitxa, onDone, onClose }) {
   const [motiu, setMotiu] = useState('');
   const [password, setPassword] = useState('');
-  const [esborrarFtp, setEsborrarFtp] = useState(true);
+  const [destins, setDestins] = useState([]);
+  const [selectedDestins, setSelectedDestins] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const toast = useToast();
+
+  useEffect(() => {
+    api.llistarDestins().then((data) => {
+      const actius = data.filter((d) => d.actiu);
+      setDestins(actius);
+      const sel = {};
+      actius.forEach((d) => { sel[d.id] = true; });
+      setSelectedDestins(sel);
+    }).catch(() => {});
+  }, []);
+
+  const toggleDesti = (id) => setSelectedDestins((prev) => ({ ...prev, [id]: !prev[id] }));
 
   const handleEliminar = async (e) => {
     e.preventDefault();
     if (!motiu.trim()) { setError('Cal indicar un motiu'); return; }
     if (!password) { setError('Cal la contrasenya'); return; }
 
+    const esborrar_destins = Object.entries(selectedDestins)
+      .filter(([, v]) => v).map(([k]) => parseInt(k));
+
     setLoading(true);
     setError(null);
     try {
-      await api.eliminarFitxa(fitxa.id, { motiu, password, esborrar_ftp: esborrarFtp });
+      await api.eliminarFitxa(fitxa.id, { motiu, password, esborrar_destins });
       toast.success(`Fitxa ${fitxa.art_codi} eliminada correctament`);
       onDone();
     } catch (err) {
@@ -499,11 +536,18 @@ function EliminarModal({ fitxa, onDone, onClose }) {
               rows={2} />
           </label>
 
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-            <input type="checkbox" checked={esborrarFtp} onChange={(e) => setEsborrarFtp(e.target.checked)}
-              style={{ width: 'auto', margin: 0 }} />
-            Esborrar també del FTP
-          </label>
+          {destins.length > 0 && (
+            <fieldset style={{ marginBottom: '1rem' }}>
+              <legend style={{ fontSize: '0.85rem', fontWeight: 600 }}>Esborrar també dels destins:</legend>
+              {destins.map((d) => (
+                <label key={d.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', margin: '0.3rem 0' }}>
+                  <input type="checkbox" checked={selectedDestins[d.id] || false}
+                    onChange={() => toggleDesti(d.id)} style={{ width: 'auto', margin: 0 }} />
+                  {d.nom} <span style={{ color: 'var(--gray-400)', fontSize: '0.8rem' }}>({d.tipus.toUpperCase()})</span>
+                </label>
+              ))}
+            </fieldset>
+          )}
 
           <label>
             Confirma amb la teva contrasenya *

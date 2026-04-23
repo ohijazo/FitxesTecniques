@@ -185,7 +185,7 @@ def esborrar_ultima_versio(fitxa_id):
     if not usuari or not usuari.check_password(password):
         return jsonify({'error': "Contrasenya incorrecta"}), 403
 
-    esborrar_ftp = data.get('esborrar_ftp', False)
+    esborrar_destins = data.get('esborrar_destins', [])
 
     versions = VersioFitxa.query.filter_by(fitxa_id=fitxa_id)\
         .order_by(VersioFitxa.num_versio.desc()).all()
@@ -195,15 +195,23 @@ def esborrar_ultima_versio(fitxa_id):
 
     ultima = versions[0]
 
-    # Esborrar del FTP si demanat i té distribucions ok
-    ftp_resultats = []
-    if esborrar_ftp:
-        destins = DestiDistribucio.query.filter_by(actiu=True, tipus='ftp').all()
-        for desti in destins:
-            from app.services.ftp_distributor import eliminar_ftp
+    # Esborrar dels destins seleccionats
+    dest_resultats = []
+    if esborrar_destins:
+        for desti_id in esborrar_destins:
+            desti = DestiDistribucio.query.get(desti_id)
+            if not desti:
+                continue
             config = desti.configuracio or {}
-            result = eliminar_ftp(fitxa.art_codi, config)
-            ftp_resultats.append({'desti': desti.nom, **result})
+            if desti.tipus == 'ftp':
+                from app.services.ftp_distributor import eliminar_ftp
+                result = eliminar_ftp(fitxa.art_codi, config)
+            elif desti.tipus == 'xarxa':
+                from app.services.smb_distributor import eliminar_xarxa
+                result = eliminar_xarxa(fitxa.art_codi, config)
+            else:
+                result = {'ok': False, 'error': f"Tipus {desti.tipus} no suportat"}
+            dest_resultats.append({'desti': desti.nom, **result})
 
     # Registrar l'eliminació
     registre = RegistreEliminacio(
@@ -212,7 +220,7 @@ def esborrar_ultima_versio(fitxa_id):
         num_versions=1,
         ultima_versio=ultima.num_versio,
         motiu=f"Esborrada versió {ultima.num_versio}: {motiu}",
-        esborrat_ftp=esborrar_ftp,
+        esborrat_ftp=len(esborrar_destins) > 0,
         eliminat_per=usuari.nom,
     )
     db.session.add(registre)
@@ -239,7 +247,7 @@ def esborrar_ultima_versio(fitxa_id):
     return jsonify({
         'message': f"Versió {ultima.num_versio} esborrada",
         'num_versio': ultima.num_versio,
-        'ftp': ftp_resultats,
+        'destins': dest_resultats,
     })
 
 
