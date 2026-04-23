@@ -218,6 +218,63 @@ def editar_fitxa(fitxa_id):
     return jsonify(fitxa.to_dict())
 
 
+@fitxes_bp.route('/fitxes/<int:fitxa_id>/duplicar', methods=['POST'])
+@rol_requerit('admin', 'editor')
+def duplicar_fitxa(fitxa_id):
+    """Duplica una fitxa amb un nou codi d'article. Només copia contingut, no versions ni distribucions."""
+    fitxa = db.get_or_404(FitxaTecnica, fitxa_id)
+    data = request.get_json() or {}
+
+    nou_codi = (data.get('art_codi') or '').strip()
+    if not nou_codi:
+        return jsonify({'error': "Cal indicar el nou codi d'article"}), 400
+
+    if FitxaTecnica.query.filter_by(art_codi=nou_codi).first():
+        return jsonify({'error': f"Ja existeix una fitxa amb codi {nou_codi}"}), 409
+
+    # Obtenir contingut de la versió activa
+    versio_activa = VersioFitxa.query.filter_by(fitxa_id=fitxa_id, activa=True).first()
+    contingut = dict(versio_activa.contingut) if versio_activa and versio_activa.contingut else {}
+    contingut['codi_referencia'] = nou_codi
+
+    nova_fitxa = FitxaTecnica(
+        art_codi=nou_codi,
+        nom_producte=data.get('nom_producte', fitxa.nom_producte),
+        categoria=fitxa.categoria,
+        estat='publicada',
+        es_client=fitxa.es_client,
+        observacions=fitxa.observacions or '',
+        created_by=request.usuari.get('email', ''),
+    )
+    db.session.add(nova_fitxa)
+    db.session.flush()
+
+    nova_versio = VersioFitxa(
+        fitxa_id=nova_fitxa.id,
+        num_versio=1,
+        descripcio_canvi=f"Duplicada de {fitxa.art_codi}",
+        contingut=contingut,
+        created_by=request.usuari.get('email', ''),
+        activa=True,
+        estat_versio='publicada',
+    )
+    db.session.add(nova_versio)
+    db.session.commit()
+
+    return jsonify(nova_fitxa.to_dict(include_versions=True)), 201
+
+
+@fitxes_bp.route('/fitxes/<int:fitxa_id>/observacions', methods=['PUT'])
+@rol_requerit('admin', 'editor')
+def actualitzar_observacions(fitxa_id):
+    """Actualitza les observacions d'una fitxa."""
+    fitxa = db.get_or_404(FitxaTecnica, fitxa_id)
+    data = request.get_json() or {}
+    fitxa.observacions = data.get('observacions', '')
+    db.session.commit()
+    return jsonify({'message': 'Observacions actualitzades', 'observacions': fitxa.observacions})
+
+
 @fitxes_bp.route('/fitxes/<int:fitxa_id>', methods=['DELETE'])
 @rol_requerit('admin')
 def eliminar_fitxa(fitxa_id):

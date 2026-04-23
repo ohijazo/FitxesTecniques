@@ -49,6 +49,8 @@ export const api = {
   detallFitxa: (id) => request(`/fitxes/${id}`),
   crearFitxa: (data) => request('/fitxes', { method: 'POST', body: JSON.stringify(data) }),
   editarFitxa: (id, data) => request(`/fitxes/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  duplicarFitxa: (id, data) => request(`/fitxes/${id}/duplicar`, { method: 'POST', body: JSON.stringify(data) }),
+  actualitzarObservacions: (id, observacions) => request(`/fitxes/${id}/observacions`, { method: 'PUT', body: JSON.stringify({ observacions }) }),
   eliminarFitxa: (id, data) => request(`/fitxes/${id}`, { method: 'DELETE', body: JSON.stringify(data) }),
 
   // Versions

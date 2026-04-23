@@ -3,6 +3,8 @@ import { useParams, useLocation, Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useToast } from '../components/Toast';
 import { PdfDocumentView } from '../components/FitxaForm';
+import RichEditor from '../components/RichEditor';
+import DOMPurify from 'dompurify';
 
 
 function VerificarPanel({ fitxaId, onClose }) {
@@ -474,6 +476,68 @@ function VersionsSection({ fitxa, fitxaId, onPublicar, onVistaPrevia, onRefresh 
   );
 }
 
+function DuplicarModal({ fitxa, onClose }) {
+  const [artCodi, setArtCodi] = useState('');
+  const [nomProducte, setNomProducte] = useState(fitxa.nom_producte || '');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const toast = useToast();
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!artCodi.trim()) { setError("Cal indicar el nou codi d'article"); return; }
+    setLoading(true);
+    setError(null);
+    try {
+      const nova = await api.duplicarFitxa(fitxa.id, { art_codi: artCodi.trim(), nom_producte: nomProducte });
+      toast.success(`Fitxa duplicada: ${artCodi}`);
+      navigate(`/fitxes/${nova.id}`);
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3 style={{ margin: 0, color: 'var(--brand)' }}>Duplicar fitxa</h3>
+          <button className="outline secondary btn-sm" onClick={onClose}>&times;</button>
+        </div>
+
+        <div style={{ background: 'var(--brand-50)', padding: '0.75rem 1rem', borderRadius: 'var(--radius)', marginBottom: '1rem', fontSize: '0.88rem' }}>
+          Es crearà una còpia de <strong>{fitxa.art_codi} - {fitxa.nom_producte}</strong> amb un nou codi d'article.
+          No es copiaran les versions ni les distribucions.
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <label>
+            Nou codi d'article *
+            <input type="text" value={artCodi} onChange={(e) => setArtCodi(e.target.value)}
+              required placeholder="Ex: 99999" autoFocus />
+          </label>
+          <label>
+            Nom del producte
+            <input type="text" value={nomProducte} onChange={(e) => setNomProducte(e.target.value)}
+              placeholder="Nom del producte" />
+          </label>
+
+          {error && <p style={{ color: 'var(--danger)', fontSize: '0.88rem', marginBottom: '0.5rem' }}>{error}</p>}
+
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+            <button type="button" className="outline secondary" onClick={onClose}>Cancel·lar</button>
+            <button type="submit" disabled={loading} aria-busy={loading}>
+              {loading ? 'Duplicant...' : 'Duplicar'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function EliminarModal({ fitxa, onDone, onClose }) {
   const [motiu, setMotiu] = useState('');
   const [password, setPassword] = useState('');
@@ -637,12 +701,26 @@ function DetallFitxa() {
     }
   };
 
+  const guardarObservacions = async (html) => {
+    try {
+      await api.actualitzarObservacions(id, html);
+      toast.success('Observacions guardades');
+      carregarDades();
+      setEditingObs(false);
+    } catch (err) {
+      toast.error(`Error: ${err.message}`);
+    }
+  };
+
   const obrirDistribuir = () => {
     setShowDistribuir(true);
     setSection('distribucions');
   };
 
   const [showEliminar, setShowEliminar] = useState(false);
+  const [showDuplicar, setShowDuplicar] = useState(false);
+  const [editingObs, setEditingObs] = useState(false);
+  const [obsText, setObsText] = useState('');
 
   const descarregarPdf = (versioId) => {
     const token = localStorage.getItem('token');
@@ -736,6 +814,9 @@ function DetallFitxa() {
               Distribuir
             </button>
           )}
+          <button className="outline secondary" onClick={() => setShowDuplicar(true)}>
+            Duplicar
+          </button>
           {usuari.rol === 'admin' && (
             <button className="outline" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
               onClick={() => setShowEliminar(true)}>
@@ -744,12 +825,6 @@ function DetallFitxa() {
           )}
         </div>
       </div>
-
-      {fitxa.observacions && (
-        <div className="detail-obs">
-          <strong>Observacions:</strong> {fitxa.observacions}
-        </div>
-      )}
 
       {/* Vista prèvia PDF */}
       {pdfLoading && <p aria-busy="true">Carregant vista prèvia...</p>}
@@ -775,6 +850,9 @@ function DetallFitxa() {
             <button type="button" className={section === 'contingut' ? 'active' : ''} onClick={() => setSection('contingut')}>
               Contingut
             </button>
+            <button type="button" className={section === 'observacions' ? 'active' : ''} onClick={() => setSection('observacions')}>
+              Observacions
+            </button>
             <button type="button" className={section === 'versions' ? 'active' : ''} onClick={() => setSection('versions')}>
               Versions ({fitxa.versions?.length || 0})
             </button>
@@ -790,6 +868,33 @@ function DetallFitxa() {
               )}
               <PdfDocumentView contingut={contingut} versio={versioActiva} />
             </>
+          )}
+
+          {section === 'observacions' && (
+            <div className="card">
+              {editingObs ? (
+                <>
+                  <RichEditor value={obsText} onChange={setObsText} />
+                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+                    <button onClick={() => guardarObservacions(obsText)}>Guardar</button>
+                    <button className="outline secondary" onClick={() => setEditingObs(false)}>Cancel·lar</button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {fitxa.observacions ? (
+                    <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(fitxa.observacions) }}
+                      style={{ fontSize: '0.92rem', lineHeight: 1.6, color: 'var(--gray-700)' }} />
+                  ) : (
+                    <p style={{ color: 'var(--gray-400)', fontStyle: 'italic' }}>Sense observacions.</p>
+                  )}
+                  <button className="outline btn-sm" style={{ marginTop: '0.75rem' }}
+                    onClick={() => { setObsText(fitxa.observacions || ''); setEditingObs(true); }}>
+                    Editar observacions
+                  </button>
+                </>
+              )}
+            </div>
           )}
 
           {section === 'versions' && (
@@ -872,6 +977,13 @@ function DetallFitxa() {
           fitxa={fitxa}
           onDone={() => navigate('/')}
           onClose={() => setShowEliminar(false)}
+        />
+      )}
+
+      {showDuplicar && (
+        <DuplicarModal
+          fitxa={fitxa}
+          onClose={() => setShowDuplicar(false)}
         />
       )}
     </>
