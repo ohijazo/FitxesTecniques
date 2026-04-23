@@ -86,22 +86,19 @@ HTML = """
   Fitxes T&egrave;cniques &mdash; Guia de Desplegament v1.0 &mdash; <pdf:pagenumber> / <pdf:pagecount>
 </div>
 
-<!-- ============ PORTADA ============ -->
-<div style="text-align: center; padding-top: 70px;">
-  <h1 style="border: none; font-size: 24pt; text-align: center;">Fitxes T&egrave;cniques</h1>
-  <p style="font-size: 15pt; color: #2F5496; margin: 8px 0 25px 0;">Guia de Desplegament a Producci&oacute;</p>
-  <p class="subtitle">Instruccions per a l'equip de sistemes</p>
-  <p class="subtitle">Ubuntu Server + Apache + Gunicorn + PostgreSQL</p>
-  <br/><br/><br/>
-  <p style="font-size: 9pt; color: #2F5496;"><b>Versi&oacute;:</b> 1.0</p>
-  <p style="font-size: 9pt; color: #2F5496;"><b>Data:</b> Abril 2026</p>
-  <p style="font-size: 9pt; color: #2F5496;"><b>Repositori:</b> github.com/ohijazo/FitxesTecniques</p>
-  <p style="font-size: 9pt; color: #2F5496;"><b>Port backend:</b> 50002</p>
-  <p style="font-size: 9pt; color: #2F5496;"><b>DNS intern:</b> fitxesfc.agrienergia.local</p>
-</div>
-
-<!-- ============ CONTINGUT ============ -->
-<div class="page-break"></div>
+<!-- ============ PORTADA + CONTINGUT (mateixa p&agrave;gina) ============ -->
+<h1 style="border: none; font-size: 22pt; text-align: center; margin-top: 30px;">Fitxes T&egrave;cniques</h1>
+<p style="font-size: 14pt; color: #2F5496; text-align: center; margin: 5px 0 15px 0;">Guia de Desplegament a Producci&oacute;</p>
+<p style="text-align: center; color: #6b7280; font-size: 9.5pt;">Instruccions per a l'equip de sistemes &mdash; Ubuntu Server + Apache + Gunicorn + PostgreSQL</p>
+<p style="text-align: center; font-size: 8.5pt; color: #2F5496; margin-top: 10px;">
+  <b>Versi&oacute;:</b> 1.0 &nbsp;&nbsp;|&nbsp;&nbsp;
+  <b>Data:</b> Abril 2026 &nbsp;&nbsp;|&nbsp;&nbsp;
+  <b>Port:</b> 50002 &nbsp;&nbsp;|&nbsp;&nbsp;
+  <b>DNS:</b> fitxesfc.agrienergia.local
+</p>
+<p style="text-align: center; font-size: 8.5pt; color: #2F5496;">
+  <b>Repositori:</b> github.com/ohijazo/FitxesTecniques
+</p>
 <h2>Contingut</h2>
 <ol>
   <li>Requisits de la m&agrave;quina</li>
