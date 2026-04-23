@@ -85,7 +85,7 @@ def _connectar_ftp(config):
     return ftp
 
 
-def eliminar_ftp(art_codi, config):
+def eliminar_ftp(art_codi, config, filename=None):
     """Elimina un PDF del servidor FTP.
 
     Args:
@@ -103,7 +103,8 @@ def eliminar_ftp(art_codi, config):
 
     try:
         ftp = _connectar_ftp(config)
-        filename = f'{art_codi}.pdf'
+        if not filename:
+            filename = f'{art_codi}.pdf'
         ftp.delete(filename)
         ftp.quit()
         return {'ok': True, 'error': None}

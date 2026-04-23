@@ -251,20 +251,42 @@ def eliminar_fitxa(fitxa_id):
     # Esborrar dels destins seleccionats
     dest_resultats = []
     if esborrar_destins:
+        # Buscar distribucions ok per saber els noms de fitxer reals
+        from app.models import Distribucio as Dist2
         for desti_id in esborrar_destins:
             desti = DestiDistribucio.query.get(desti_id)
             if not desti:
                 continue
             config = desti.configuracio or {}
-            if desti.tipus == 'ftp':
-                from app.services.ftp_distributor import eliminar_ftp
-                result = eliminar_ftp(fitxa.art_codi, config)
-            elif desti.tipus == 'xarxa':
-                from app.services.smb_distributor import eliminar_xarxa
-                result = eliminar_xarxa(fitxa.art_codi, config)
-            else:
-                result = {'ok': False, 'error': f"Tipus {desti.tipus} no suportat"}
-            dest_resultats.append({'desti': desti.nom, **result})
+
+            # Buscar noms de fitxer distribuïts a aquest destí
+            dist_ok = Dist2.query.join(VersioFitxa).filter(
+                VersioFitxa.fitxa_id == fitxa_id,
+                Dist2.desti_id == desti_id,
+                Dist2.estat == 'ok'
+            ).all()
+            # Extreure noms de fitxer de les rutes/URLs guardades
+            filenames = set()
+            for d in dist_ok:
+                if d.missatge_error:
+                    # El camp missatge_error guarda la ruta/URL quan estat=ok
+                    name = d.missatge_error.split('/')[-1].split('\\')[-1]
+                    if name:
+                        filenames.add(name)
+            # Fallback: nom per defecte
+            if not filenames:
+                filenames.add(f'{fitxa.art_codi}.pdf')
+
+            for fname in filenames:
+                if desti.tipus == 'ftp':
+                    from app.services.ftp_distributor import eliminar_ftp
+                    result = eliminar_ftp(fitxa.art_codi, config, fname)
+                elif desti.tipus == 'xarxa':
+                    from app.services.smb_distributor import eliminar_xarxa
+                    result = eliminar_xarxa(fitxa.art_codi, config, fname)
+                else:
+                    result = {'ok': False, 'error': f"Tipus {desti.tipus} no suportat"}
+                dest_resultats.append({'desti': desti.nom, 'fitxer': fname, **result})
 
     # Registrar l'eliminacio
     destins_noms = ', '.join(r['desti'] for r in dest_resultats) if dest_resultats else 'Cap'

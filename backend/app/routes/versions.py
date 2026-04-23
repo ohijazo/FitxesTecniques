@@ -198,20 +198,35 @@ def esborrar_ultima_versio(fitxa_id):
     # Esborrar dels destins seleccionats
     dest_resultats = []
     if esborrar_destins:
+        # Buscar distribucions ok d'aquesta versió per saber noms de fitxer
         for desti_id in esborrar_destins:
             desti = DestiDistribucio.query.get(desti_id)
             if not desti:
                 continue
             config = desti.configuracio or {}
-            if desti.tipus == 'ftp':
-                from app.services.ftp_distributor import eliminar_ftp
-                result = eliminar_ftp(fitxa.art_codi, config)
-            elif desti.tipus == 'xarxa':
-                from app.services.smb_distributor import eliminar_xarxa
-                result = eliminar_xarxa(fitxa.art_codi, config)
-            else:
-                result = {'ok': False, 'error': f"Tipus {desti.tipus} no suportat"}
-            dest_resultats.append({'desti': desti.nom, **result})
+
+            dist_ok = Distribucio.query.filter_by(
+                versio_id=ultima.id, desti_id=desti_id, estat='ok'
+            ).all()
+            filenames = set()
+            for d in dist_ok:
+                if d.missatge_error:
+                    name = d.missatge_error.split('/')[-1].split('\\')[-1]
+                    if name:
+                        filenames.add(name)
+            if not filenames:
+                filenames.add(f'{fitxa.art_codi}.pdf')
+
+            for fname in filenames:
+                if desti.tipus == 'ftp':
+                    from app.services.ftp_distributor import eliminar_ftp
+                    result = eliminar_ftp(fitxa.art_codi, config, fname)
+                elif desti.tipus == 'xarxa':
+                    from app.services.smb_distributor import eliminar_xarxa
+                    result = eliminar_xarxa(fitxa.art_codi, config, fname)
+                else:
+                    result = {'ok': False, 'error': f"Tipus {desti.tipus} no suportat"}
+                dest_resultats.append({'desti': desti.nom, 'fitxer': fname, **result})
 
     # Registrar l'eliminació
     registre = RegistreEliminacio(

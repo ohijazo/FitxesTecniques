@@ -111,7 +111,7 @@ def distribuir_xarxa(pdf_path, art_codi, config, filename=None):
     return {'ok': False, 'error': f"No es pot accedir a {dest_dir}"}
 
 
-def eliminar_xarxa(art_codi, config):
+def eliminar_xarxa(art_codi, config, filename=None):
     """Elimina un PDF de la carpeta de xarxa."""
     ruta_base = config.get('ruta_base', '').strip()
     subcarpeta = config.get('subcarpeta', '').strip()
@@ -130,7 +130,9 @@ def eliminar_xarxa(art_codi, config):
         if user and password:
             _connect_share(ruta_base, user, password, domain)
 
-        filepath = os.path.join(dest_dir, f'{art_codi}.pdf')
+        if not filename:
+            filename = f'{art_codi}.pdf'
+        filepath = os.path.join(dest_dir, filename)
         if os.path.exists(filepath):
             os.remove(filepath)
 
