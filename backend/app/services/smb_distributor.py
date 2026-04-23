@@ -47,7 +47,7 @@ def _disconnect_share(share_path):
         pass
 
 
-def distribuir_xarxa(pdf_path, art_codi, config):
+def distribuir_xarxa(pdf_path, art_codi, config, filename=None):
     """Copia un PDF a una carpeta de xarxa.
 
     Args:
@@ -77,7 +77,8 @@ def distribuir_xarxa(pdf_path, art_codi, config):
     if subcarpeta:
         dest_dir = os.path.join(ruta_base, subcarpeta)
 
-    filename = f'{art_codi}.pdf'
+    if not filename:
+        filename = f'{art_codi}.pdf'
     dest_path = os.path.join(dest_dir, filename)
 
     # Intent 1: copiar directament (funciona si ja estem autenticats a la xarxa)

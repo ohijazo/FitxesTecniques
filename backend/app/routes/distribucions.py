@@ -8,6 +8,20 @@ from app.auth import login_required, rol_requerit
 distribucions_bp = Blueprint('distribucions', __name__)
 
 
+def _generar_nom_fitxer(patro, fitxa, versio):
+    """Genera el nom del fitxer a partir del patró configurat."""
+    if not patro:
+        return f'{fitxa.art_codi}.pdf'
+    nom = patro.replace('{art_codi}', fitxa.art_codi)
+    nom = nom.replace('{nom_producte}', fitxa.nom_producte or '')
+    nom = nom.replace('{versio}', str(versio.num_versio) if versio else '0')
+    nom = nom.replace('{data}', datetime.now(timezone.utc).strftime('%Y%m%d'))
+    # Netejar caràcters no vàlids per noms de fitxer
+    for char in ['\\', '/', ':', '*', '?', '"', '<', '>', '|']:
+        nom = nom.replace(char, '_')
+    return nom
+
+
 def _executar_distribucio(dist, fitxa, versio, desti):
     """Executa la distribució segons el tipus de destí."""
     dist.intents += 1
@@ -42,7 +56,8 @@ def _executar_distribucio(dist, fitxa, versio, desti):
             versio.fitxer_pdf = pdf_path
 
         config = desti.configuracio or {}
-        result = distribuir_ftp(pdf_path, fitxa.art_codi, config)
+        filename = _generar_nom_fitxer(desti.patro_nom_fitxer, fitxa, versio)
+        result = distribuir_ftp(pdf_path, fitxa.art_codi, config, filename)
 
         if result['ok']:
             dist.estat = 'ok'
@@ -76,7 +91,8 @@ def _executar_distribucio(dist, fitxa, versio, desti):
             versio.fitxer_pdf = pdf_path
 
         config = desti.configuracio or {}
-        result = distribuir_xarxa(pdf_path, fitxa.art_codi, config)
+        filename = _generar_nom_fitxer(desti.patro_nom_fitxer, fitxa, versio)
+        result = distribuir_xarxa(pdf_path, fitxa.art_codi, config, filename)
 
         if result['ok']:
             dist.estat = 'ok'

@@ -4,13 +4,14 @@ import ftplib
 import os
 
 
-def distribuir_ftp(pdf_path, art_codi, config):
+def distribuir_ftp(pdf_path, art_codi, config, filename=None):
     """Puja un PDF al servidor FTP (amb TLS si disponible).
 
     Args:
         pdf_path: ruta local del fitxer PDF
-        art_codi: codi article (nom del fitxer al FTP)
+        art_codi: codi article (fallback per nom del fitxer)
         config: dict amb host, port, user, password, path, tls
+        filename: nom del fitxer al FTP (si None, usa {art_codi}.pdf)
 
     Returns:
         dict amb 'ok' (bool) i 'error' (str si ha fallat)
@@ -42,7 +43,8 @@ def distribuir_ftp(pdf_path, art_codi, config):
         if ftp_path and ftp_path != '/':
             ftp.cwd(ftp_path)
 
-        filename = f'{art_codi}.pdf'
+        if not filename:
+            filename = f'{art_codi}.pdf'
         with open(pdf_path, 'rb') as f:
             ftp.storbinary(f'STOR {filename}', f)
 
