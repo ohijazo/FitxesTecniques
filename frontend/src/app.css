@@ -1025,6 +1025,51 @@ textarea.pdf-field-input {
   padding: 3px 8px;
   border: 1px solid #B4C6E7;
 }
+/* Input subtítol i nota de taula (editor) */
+.table-subtitle-input {
+  width: 100%;
+  border: 1px dashed var(--gray-300) !important;
+  background: #D6E0F0;
+  padding: 4px 8px !important;
+  font-size: 0.82rem !important;
+  font-weight: 600;
+  color: #2F5496;
+  text-align: center;
+  margin: 0 0 2px 0 !important;
+  border-radius: 0;
+}
+.table-subtitle-input:focus {
+  border-color: var(--brand) !important;
+  background: #cdd8ec;
+  outline: none;
+  box-shadow: none;
+}
+.table-subtitle-input::placeholder {
+  color: #8fa4c8;
+  font-weight: 400;
+  font-style: italic;
+}
+.table-note-input {
+  width: 100%;
+  border: 1px dashed var(--gray-300) !important;
+  background: var(--gray-50);
+  padding: 3px 8px !important;
+  font-size: 0.75rem !important;
+  font-style: italic;
+  color: #595959;
+  margin: 4px 0 0 0 !important;
+  border-radius: 0;
+}
+.table-note-input:focus {
+  border-color: var(--brand) !important;
+  background: #fff;
+  outline: none;
+  box-shadow: none;
+}
+.table-note-input::placeholder {
+  color: #aaa;
+}
+
 /* Contingut rich text dins cel·la paràmetre (vista) */
 .param-rich-content p {
   margin: 0;

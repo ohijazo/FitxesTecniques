@@ -188,21 +188,24 @@ const TABLE_SUBTITLES = {
   valors_nutricionals: 'Valores nutricionales (por 100g) / Valors nutricionals (per 100g)',
 };
 
-function EditableTable({ label, rows, onChange, onRemove, readOnly, toolbar, tableKey }) {
+function EditableTable({ label, rows, onChange, onRemove, readOnly, toolbar, tableKey, subtitle, note, onSubtitleChange, onNoteChange }) {
+  // Fallback a subtítols per defecte si no n'hi ha de personalitzat
+  const displaySubtitle = subtitle || (tableKey && TABLE_SUBTITLES[tableKey]) || '';
+  const displayNote = note || (tableKey && TABLE_NOTES[tableKey]) || '';
+
   if (readOnly) {
     if (!rows || rows.length === 0) return null;
-    const subtitle = tableKey && TABLE_SUBTITLES[tableKey];
     return (
       <div className="pdf-field">
         <div className="pdf-section-title">{label}</div>
         <table className="pdf-param-table">
-          {subtitle && (
+          {displaySubtitle && (
             <thead>
-              <tr><td colSpan={2} className="pdf-table-subtitle">{subtitle}</td></tr>
+              <tr><td colSpan={2} className="pdf-table-subtitle">{displaySubtitle}</td></tr>
               <tr><th>Parámetro / Paràmetre</th><th>Valor</th></tr>
             </thead>
           )}
-          {!subtitle && (
+          {!displaySubtitle && (
             <thead><tr><th>Parámetro / Paràmetre</th><th>Valor</th></tr></thead>
           )}
           <tbody>
@@ -225,6 +228,7 @@ function EditableTable({ label, rows, onChange, onRemove, readOnly, toolbar, tab
             })}
           </tbody>
         </table>
+        {displayNote && <div className="pdf-table-note">{displayNote}</div>}
       </div>
     );
   }
@@ -243,6 +247,9 @@ function EditableTable({ label, rows, onChange, onRemove, readOnly, toolbar, tab
         {label}
         {toolbar}
       </div>
+      {/* Subtítol editable */}
+      <input className="table-subtitle-input" value={subtitle || ''} onChange={(e) => onSubtitleChange && onSubtitleChange(e.target.value)}
+        placeholder="Subtítol de taula (opcional, ex: Parámetros microbiológicos / Paràmetres microbiològics)" />
       <table className="pdf-param-table">
         <thead><tr><th>Parámetro / Paràmetre</th><th>Valor</th><th style={{ width: '36px' }}></th></tr></thead>
         <tbody>
@@ -258,6 +265,9 @@ function EditableTable({ label, rows, onChange, onRemove, readOnly, toolbar, tab
         </tbody>
       </table>
       <button type="button" className="pdf-add-row" onClick={addRow}>+ Afegir fila</button>
+      {/* Nota al peu editable */}
+      <input className="table-note-input" value={note || ''} onChange={(e) => onNoteChange && onNoteChange(e.target.value)}
+        placeholder="Nota al peu (opcional, ex: Según RD 677/2016 / Segons RD 677/2016)" />
     </div>
   );
 }
@@ -429,7 +439,8 @@ export function PdfDocumentView({ contingut, versio }) {
   const knownKeys = new Set();
   DEFAULT_SECTIONS.forEach((s) => s.items.forEach((it) => knownKeys.add(it.key)));
   const extraKeys = Object.keys(contingut).filter(
-    (k) => !knownKeys.has(k) && !['rev', 'data_revisio', 'data_comprovacio', '_cert_config'].includes(k) && !k.startsWith('certificacio_img')
+    (k) => !knownKeys.has(k) && !['rev', 'data_revisio', 'data_comprovacio', '_cert_config'].includes(k)
+         && !k.startsWith('certificacio_img') && !k.endsWith('_subtitle') && !k.endsWith('_note')
   );
 
   // Recollir imatges de certificacio del contingut
@@ -477,14 +488,13 @@ export function PdfDocumentView({ contingut, versio }) {
             return (
               <div key={it.key}>
                 {it.type === 'table'
-                  ? <EditableTable label={it.label} rows={Array.isArray(v) ? v : []} readOnly tableKey={it.key} />
+                  ? <EditableTable label={it.label} rows={Array.isArray(v) ? v : []} readOnly tableKey={it.key}
+                      subtitle={contingut[`${it.key}_subtitle`]}
+                      note={contingut[`${it.key}_note`]} />
                   : it.type === 'image'
                   ? <EditableImage label={it.label} value={v} readOnly />
                   : <EditableField label={it.label} value={v} readOnly />
                 }
-                {TABLE_NOTES[it.key] && (
-                  <div className="pdf-table-note">{TABLE_NOTES[it.key]}</div>
-                )}
               </div>
             );
           })}
@@ -861,6 +871,10 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId }) {
                   <EditableTable key={it.id} label={it.label}
                     rows={Array.isArray(contingut[it.key]) ? contingut[it.key] : []}
                     onChange={(v) => update(it.key, v)}
+                    subtitle={contingut[`${it.key}_subtitle`] || ''}
+                    note={contingut[`${it.key}_note`] || ''}
+                    onSubtitleChange={(v) => update(`${it.key}_subtitle`, v)}
+                    onNoteChange={(v) => update(`${it.key}_note`, v)}
                     toolbar={tb} />
                 );
                 if (it.type === 'image') return (
