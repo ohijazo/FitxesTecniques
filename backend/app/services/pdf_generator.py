@@ -61,9 +61,16 @@ def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
 
     # Filtre per renderitzar paràmetres amb notes en cursiva
     def param_html(text):
+        """Renderitza un paràmetre: si conté HTML el passa directament,
+        si és text pla amb \\n mostra sublínies en cursiva."""
         if not text:
             return Markup('')
-        lines = str(text).split('\n')
+        text = str(text)
+        # Si ja conté HTML (del RichEditor), passar-lo directament
+        if '<' in text and '>' in text:
+            return Markup(text)
+        # Text pla amb salts de línia: sublínies en cursiva
+        lines = text.split('\n')
         result = lines[0]
         for line in lines[1:]:
             if line.strip():

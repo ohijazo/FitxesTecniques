@@ -1025,31 +1025,42 @@ textarea.pdf-field-input {
   padding: 3px 8px;
   border: 1px solid #B4C6E7;
 }
-/* Nota dins cel·la paràmetre (2a línia en cursiva) */
-.param-note {
-  font-size: 0.78rem;
-  font-style: italic;
-  color: #595959;
-  margin-top: 1px;
+/* Contingut rich text dins cel·la paràmetre (vista) */
+.param-rich-content p {
+  margin: 0;
 }
-/* Textarea dins taula editor */
-.param-textarea {
-  width: 100%;
-  border: none !important;
-  background: transparent;
-  padding: 4px 8px !important;
-  font-size: 0.85rem !important;
-  margin: 0 !important;
+/* Cel·la paràmetre en mode edició */
+.param-cell-edit {
+  padding: 0 !important;
+}
+.param-cell-edit .rich-editor {
+  border: none;
   border-radius: 0;
-  resize: none;
-  font-family: inherit;
-  line-height: 1.4;
-  min-height: 26px;
+  margin: 0;
+  background: transparent;
 }
-.param-textarea:focus {
-  background: var(--brand-50);
-  outline: none;
+.param-cell-edit .rich-editor:focus-within {
   box-shadow: none;
+  background: var(--brand-50);
+}
+
+/* RichEditor compacte (per taules) */
+.rich-editor-compact .rich-toolbar {
+  padding: 2px 4px;
+}
+.rich-editor-compact .rich-tb-btn {
+  padding: 1px 5px !important;
+  font-size: 0.75rem;
+  min-width: 22px;
+}
+.rich-editor-compact .rich-content .tiptap {
+  padding: 3px 6px;
+  font-size: 0.85rem;
+  min-height: 28px;
+  line-height: 1.4;
+}
+.rich-editor-compact .rich-content .tiptap p {
+  margin: 0;
 }
 .pdf-table-subtitle {
   background: #D6E0F0;

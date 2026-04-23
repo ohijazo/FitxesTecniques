@@ -16,7 +16,7 @@ function ToolbarButton({ active, onClick, title, children }) {
   );
 }
 
-export default function RichEditor({ value, onChange }) {
+export default function RichEditor({ value, onChange, compact }) {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -44,7 +44,7 @@ export default function RichEditor({ value, onChange }) {
   if (!editor) return null;
 
   return (
-    <div className="rich-editor">
+    <div className={`rich-editor ${compact ? 'rich-editor-compact' : ''}`}>
       <div className="rich-toolbar">
         <ToolbarButton active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()} title="Negreta (Ctrl+B)">
           <strong>N</strong>
@@ -55,13 +55,17 @@ export default function RichEditor({ value, onChange }) {
         <ToolbarButton active={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()} title="Subratllat (Ctrl+U)">
           <span style={{ textDecoration: 'underline' }}>S</span>
         </ToolbarButton>
-        <span className="rich-tb-sep" />
-        <ToolbarButton active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()} title="Llista">
-          &#8226;
-        </ToolbarButton>
-        <ToolbarButton active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()} title="Llista numerada">
-          1.
-        </ToolbarButton>
+        {!compact && (
+          <>
+            <span className="rich-tb-sep" />
+            <ToolbarButton active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()} title="Llista">
+              &#8226;
+            </ToolbarButton>
+            <ToolbarButton active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()} title="Llista numerada">
+              1.
+            </ToolbarButton>
+          </>
+        )}
         <span className="rich-tb-sep" />
         <ToolbarButton onClick={() => editor.chain().focus().clearNodes().unsetAllMarks().run()} title="Netejar format">
           Tx

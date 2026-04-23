@@ -207,14 +207,17 @@ function EditableTable({ label, rows, onChange, onRemove, readOnly, toolbar, tab
           )}
           <tbody>
             {rows.map((row, i) => {
-              const lines = (row.parametre || '').split('\n');
+              const paramHtml = (row.parametre || '').includes('<')
+                ? DOMPurify.sanitize(row.parametre)
+                : row.parametre || '';
+              const hasHtml = (row.parametre || '').includes('<');
               return (
                 <tr key={i}>
                   <td className={row.sub ? 'sub-param' : ''} style={{ padding: '5px 10px' }}>
-                    {lines[0]}
-                    {lines.slice(1).map((line, li) => (
-                      <div key={li} className="param-note">{line}</div>
-                    ))}
+                    {hasHtml
+                      ? <div dangerouslySetInnerHTML={{ __html: paramHtml }} className="param-rich-content" />
+                      : row.parametre
+                    }
                   </td>
                   <td style={{ padding: '5px 10px' }}>{row.valor}</td>
                 </tr>
@@ -245,11 +248,8 @@ function EditableTable({ label, rows, onChange, onRemove, readOnly, toolbar, tab
         <tbody>
           {rows.map((row, i) => (
             <tr key={i}>
-              <td>
-                <textarea className="param-textarea" value={row.parametre || ''}
-                  onChange={(e) => updateRow(i, 'parametre', e.target.value)}
-                  placeholder="Paràmetre&#10;Nota en cursiva (opcional)"
-                  rows={row.parametre && row.parametre.includes('\n') ? 2 : 1} />
+              <td className="param-cell-edit">
+                <RichEditor value={row.parametre || ''} onChange={(v) => updateRow(i, 'parametre', v)} compact />
               </td>
               <td><input value={row.valor || ''} onChange={(e) => updateRow(i, 'valor', e.target.value)} placeholder="Valor" /></td>
               <td><button type="button" className="pdf-row-remove" onClick={() => removeRow(i)}>&times;</button></td>
