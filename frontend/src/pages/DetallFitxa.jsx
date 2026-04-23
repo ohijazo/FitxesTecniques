@@ -476,9 +476,9 @@ function VersionsSection({ fitxa, fitxaId, onPublicar, onVistaPrevia, onRefresh 
   );
 }
 
-function DuplicarModal({ fitxa, onClose }) {
+function DuplicarModal({ fitxaId, fitxaArtCodi, fitxaNom, onClose }) {
   const [artCodi, setArtCodi] = useState('');
-  const [nomProducte, setNomProducte] = useState(fitxa.nom_producte || '');
+  const [nomProducte, setNomProducte] = useState(fitxaNom || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const toast = useToast();
@@ -490,9 +490,10 @@ function DuplicarModal({ fitxa, onClose }) {
     setLoading(true);
     setError(null);
     try {
-      const nova = await api.duplicarFitxa(fitxa.id, { art_codi: artCodi.trim(), nom_producte: nomProducte });
+      const nova = await api.duplicarFitxa(fitxaId, { art_codi: artCodi.trim(), nom_producte: nomProducte });
       toast.success(`Fitxa duplicada: ${artCodi}`);
-      navigate(`/fitxes/${nova.id}`);
+      onClose();
+      setTimeout(() => navigate(`/fitxes/${nova.id}`), 100);
     } catch (err) {
       setError(err.message);
       setLoading(false);
@@ -500,7 +501,7 @@ function DuplicarModal({ fitxa, onClose }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay">
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <h3 style={{ margin: 0, color: 'var(--brand)' }}>Duplicar fitxa</h3>
@@ -508,7 +509,7 @@ function DuplicarModal({ fitxa, onClose }) {
         </div>
 
         <div style={{ background: 'var(--brand-50)', padding: '0.75rem 1rem', borderRadius: 'var(--radius)', marginBottom: '1rem', fontSize: '0.88rem' }}>
-          Es crearà una còpia de <strong>{fitxa.art_codi} - {fitxa.nom_producte}</strong> amb un nou codi d'article.
+          Es crearà una còpia de <strong>{fitxaArtCodi} - {fitxaNom}</strong> amb un nou codi d'article.
           No es copiaran les versions ni les distribucions.
         </div>
 
@@ -1013,7 +1014,9 @@ function DetallFitxa() {
 
       {showDuplicar && (
         <DuplicarModal
-          fitxa={fitxa}
+          fitxaId={fitxa.id}
+          fitxaArtCodi={fitxa.art_codi}
+          fitxaNom={fitxa.nom_producte}
           onClose={() => setShowDuplicar(false)}
         />
       )}
