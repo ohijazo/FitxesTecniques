@@ -11,7 +11,11 @@ const CONFIG_FIELDS = {
     { nom: 'tls', label: 'Usar TLS (FTPS)', type: 'checkbox' },
   ],
   xarxa: [
-    { nom: 'ruta_base', label: 'Ruta carpeta de xarxa', type: 'text', placeholder: '\\\\servidor\\compartit\\fitxes' },
+    { nom: 'ruta_base', label: 'Ruta carpeta de xarxa (UNC)', type: 'text', placeholder: '\\\\servidor\\compartit' },
+    { nom: 'subcarpeta', label: 'Subcarpeta (opcional)', type: 'text', placeholder: 'FitxesTecniques' },
+    { nom: 'domain', label: 'Domini', type: 'text', placeholder: 'agrienergia.local' },
+    { nom: 'user', label: 'Usuari de xarxa', type: 'text', placeholder: 'ohijazo' },
+    { nom: 'password', label: 'Contrasenya', type: 'password' },
   ],
   sap: [
     { nom: 'endpoint', label: 'Endpoint Service Layer', type: 'text' },

@@ -52,9 +52,38 @@ def _executar_distribucio(dist, fitxa, versio, desti):
             dist.missatge_error = result['error']
 
     elif desti.tipus == 'xarxa':
-        # TODO: Implementar distribució a carpeta de xarxa
-        dist.estat = 'error'
-        dist.missatge_error = 'Distribució a xarxa no implementada'
+        from app.services.smb_distributor import distribuir_xarxa
+
+        pdf_path = versio.fitxer_pdf
+        if not pdf_path or not os.path.exists(pdf_path):
+            from app.services.pdf_generator import generar_pdf
+            contingut = versio.contingut or {}
+            if 'codi_referencia' not in contingut:
+                contingut['codi_referencia'] = fitxa.art_codi
+            if 'denominacio_comercial' not in contingut:
+                contingut['denominacio_comercial'] = fitxa.nom_producte
+            data_rev = versio.created_at.strftime('%d/%m/%Y') if versio.created_at else ''
+            data_comp = versio.data_comprovacio.strftime('%d/%m/%Y') if versio.data_comprovacio else data_rev
+
+            pdf_bytes = generar_pdf(contingut, versio.num_versio, data_rev, data_comp)
+
+            upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'uploads',
+                                       fitxa.art_codi, f'v{versio.num_versio}')
+            os.makedirs(upload_dir, exist_ok=True)
+            pdf_path = os.path.join(upload_dir, f'{fitxa.art_codi}.pdf')
+            with open(pdf_path, 'wb') as f:
+                f.write(pdf_bytes)
+            versio.fitxer_pdf = pdf_path
+
+        config = desti.configuracio or {}
+        result = distribuir_xarxa(pdf_path, fitxa.art_codi, config)
+
+        if result['ok']:
+            dist.estat = 'ok'
+            dist.missatge_error = result.get('path', '')
+        else:
+            dist.estat = 'error'
+            dist.missatge_error = result['error']
 
     elif desti.tipus == 'sap':
         # TODO: Implementar integració SAP
