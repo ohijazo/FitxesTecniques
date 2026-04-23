@@ -16,43 +16,68 @@ def _clean(text):
 
 
 def _extract_bilingual(text):
-    """Extreu la part castellana d'un text bilingüe 'castellà / català'.
-    Si no té separador, retorna el text complet."""
+    """Retorna el text complet (bilingüe). Per identificar etiquetes,
+    retorna la part castellana per fer match."""
+    return text.strip()
+
+
+def _extract_bilingual_for_match(text):
+    """Extreu la part castellana per fer match amb etiquetes."""
     if ' / ' in text:
         return text.split(' / ')[0].strip()
     return text.strip()
 
 
 def _parse_header(doc):
-    """Extreu rev, data_revisio, data_comprovacio de la capçalera."""
+    """Extreu rev, data_revisio, data_comprovacio de la capçalera.
+    Busca tant al header de Word com a les taules del body."""
     info = {'rev': '', 'data_revisio': '', 'data_comprovacio': ''}
 
+    def _check_cell(text):
+        if 'Rev.:' in text or 'Rev:' in text:
+            import re
+            m = re.search(r'Rev\.?:\s*(\d+)', text)
+            if m:
+                info['rev'] = m.group(1)
+        if ('Fecha' in text or 'Data' in text) and ('rev' in text.lower() or 'Rev' in text) and 'comprov' not in text.lower():
+            parts = text.split(':')
+            if len(parts) >= 2:
+                val = parts[-1].strip()
+                if val and len(val) >= 6:
+                    info['data_revisio'] = val
+        if 'comprov' in text.lower() or 'Comprov' in text:
+            parts = text.split(':')
+            if len(parts) >= 2:
+                val = parts[-1].strip()
+                if val and len(val) >= 6:
+                    info['data_comprovacio'] = val
+
+    # Buscar al header de Word
     for section in doc.sections:
         header = section.header
         if not header or not header.tables:
             continue
-
         for table in header.tables:
             for row in table.rows:
                 for cell in row.cells:
-                    text = cell.text.strip()
-                    if text.startswith('Rev.:'):
-                        info['rev'] = text.replace('Rev.:', '').strip()
-                    elif 'Fecha' in text and 'rev' in text.lower() and 'comprov' not in text.lower():
-                        parts = text.split(':')
-                        if len(parts) >= 2:
-                            info['data_revisio'] = parts[-1].strip()
-                    elif 'comprov' in text.lower():
-                        parts = text.split(':')
-                        if len(parts) >= 2:
-                            info['data_comprovacio'] = parts[-1].strip()
-        break  # Només mirem la primera secció
+                    _check_cell(cell.text.strip())
+        break
+
+    # Si no s'ha trobat, buscar a les primeres taules del body
+    if not info['rev']:
+        for table in doc.tables[:3]:
+            for row in table.rows:
+                for cell in row.cells:
+                    _check_cell(cell.text.strip())
+            if info['rev']:
+                break
 
     return info
 
 
 def _parse_param_table(table):
-    """Extreu files parametre/valor d'una taula estàndard."""
+    """Extreu files parametre/valor d'una taula estàndard.
+    Manté el text complet bilingüe dels paràmetres i notes."""
     rows = []
     for row in table.rows:
         cells = [cell.text.strip() for cell in row.cells]
@@ -70,18 +95,19 @@ def _parse_param_table(table):
         param = deduped[0]
         valor = deduped[1]
 
-        # Saltar capçaleres
-        if param.lower() in ('parámetro', 'parámetro / paràmetre', 'valor'):
+        # Saltar capçaleres de taula
+        param_lower = param.lower().strip()
+        skip = ['parámetro', 'parámetro / paràmetre', 'valor', 'valor límite']
+        if param_lower in skip:
             continue
         if not param or param == valor:
             continue
 
-        # Netejar bilingüe del paràmetre
-        param = _extract_bilingual(param)
-        # Netejar salts de línia dins el paràmetre
-        param = ' '.join(param.split('\n')[0:1])  # Primera línia del paràmetre
+        # Mantenir text complet (bilingüe + notes com Según RD...)
+        # Netejar espais excessius però conservar salts de línia significatius
+        param_clean = '\n'.join(line.strip() for line in param.split('\n') if line.strip())
 
-        rows.append({'parametre': param, 'valor': valor})
+        rows.append({'parametre': param_clean, 'valor': valor})
 
     return rows
 
@@ -89,24 +115,48 @@ def _parse_param_table(table):
 # Mapeig d'etiquetes de paràgrafs a camps del contingut
 FIELD_MAP = {
     'código de referencia': 'codi_referencia',
+    'codi de referència': 'codi_referencia',
+    'certificación': 'certificacio',
+    'certificació': 'certificacio',
     'denominación comercial del producto': 'denominacio_comercial',
+    'denominació comercial del producte': 'denominacio_comercial',
     'denominación jurídica del producto': 'denominacio_juridica',
+    'denominació jurídica del producte': 'denominacio_juridica',
     'código ean': 'codi_ean',
+    'codi ean': 'codi_ean',
     'descripción del producto': 'descripcio',
+    'descripció del producte': 'descripcio',
     'origen del producto y procedencia del cereal': 'origen',
+    'origen del producte i procedència del cereal': 'origen',
     'ingredientes': 'ingredients',
+    'ingredients': 'ingredients',
     'alérgenos': 'alergens',
+    'al·lèrgens': 'alergens',
     'ogm': 'ogm',
     'irradiación – ionización': 'irradiacio',
+    'irradiación': 'irradiacio',
+    'irradiació': 'irradiacio',
     'características organolépticas': 'caract_organoleptiques',
+    'característiques organolèptiques': 'caract_organoleptiques',
     'presentación – envase': 'presentacio_envase',
+    'presentació': 'presentacio_envase',
     'uso previsto': 'us_previst',
+    'ús previst': 'us_previst',
     'condiciones de almacenaje': 'condicions_emmagatzematge',
+    "condicions d'emmagatzematge": 'condicions_emmagatzematge',
     'condiciones de transporte': 'condicions_transport',
+    'condicions de transport': 'condicions_transport',
     'vida útil del producto': 'vida_util',
+    'vida útil del producte': 'vida_util',
     'otra legislación aplicable': 'legislacio_aplicable',
+    'altra legislació aplicable': 'legislacio_aplicable',
     'producto fabricado para (razón social)': 'fabricat_per',
+    'producto fabricado para': 'fabricat_per',
+    'producte fabricat per a': 'fabricat_per',
     'vigencia del documento': 'vigencia_document',
+    'vigència del document': 'vigencia_document',
+    'pesticidas': 'pesticidas',
+    'pesticides': 'pesticidas',
 }
 
 # Títols de seccions a ignorar (no són camps de text)
@@ -144,9 +194,9 @@ def _identify_table(table):
     for row in table.rows:
         for cell in row.cells:
             text = cell.text.strip().lower()
-            text_clean = _extract_bilingual(text).lower()
+            text_clean = _extract_bilingual_for_match(text).lower()
             for key, field in TABLE_MAP.items():
-                if key in text_clean:
+                if key in text_clean or key in text:
                     return field
     return None
 
@@ -177,11 +227,11 @@ def parse_docx(file_path):
             current_field = None
             continue
 
-        # Comprovar si és una etiqueta
-        text_lower = _extract_bilingual(text).lower().rstrip('.')
+        # Comprovar si és una etiqueta (fer match amb part castellana)
+        text_for_match = _extract_bilingual_for_match(text).lower().rstrip('.')
         matched = False
         for label, field_name in FIELD_MAP.items():
-            if text_lower.startswith(label) or label.startswith(text_lower):
+            if text_for_match.startswith(label) or label.startswith(text_for_match):
                 current_field = field_name
                 matched = True
                 break
@@ -190,7 +240,7 @@ def parse_docx(file_path):
             continue
 
         # Comprovar si és un títol de secció a ignorar
-        if text_lower in SECTION_TITLES:
+        if text_for_match in SECTION_TITLES:
             current_field = None
             continue
 
