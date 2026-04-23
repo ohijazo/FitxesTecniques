@@ -77,31 +77,37 @@ def distribuir_xarxa(pdf_path, art_codi, config):
     if subcarpeta:
         dest_dir = os.path.join(ruta_base, subcarpeta)
 
-    try:
-        # Connectar amb credencials si proporcionades
-        share_root = ruta_base
-        if user and password:
-            conn = _connect_share(share_root, user, password, domain)
-            if not conn['ok']:
-                return conn
+    filename = f'{art_codi}.pdf'
+    dest_path = os.path.join(dest_dir, filename)
 
-        # Crear subcarpeta si no existeix
+    # Intent 1: copiar directament (funciona si ja estem autenticats a la xarxa)
+    try:
         if not os.path.exists(dest_dir):
             os.makedirs(dest_dir, exist_ok=True)
-
-        # Copiar fitxer
-        filename = f'{art_codi}.pdf'
-        dest_path = os.path.join(dest_dir, filename)
         shutil.copy2(pdf_path, dest_path)
-
         return {'ok': True, 'error': None, 'path': dest_path}
+    except (PermissionError, FileNotFoundError, OSError):
+        pass
 
-    except PermissionError as e:
-        return {'ok': False, 'error': f"Sense permisos: {e}"}
-    except FileNotFoundError as e:
-        return {'ok': False, 'error': f"Ruta no trobada: {e}"}
-    except Exception as e:
-        return {'ok': False, 'error': str(e)}
+    # Intent 2: connectar amb credencials i reintentar
+    if user and password:
+        conn = _connect_share(ruta_base, user, password, domain)
+        if not conn['ok']:
+            return conn
+
+        try:
+            if not os.path.exists(dest_dir):
+                os.makedirs(dest_dir, exist_ok=True)
+            shutil.copy2(pdf_path, dest_path)
+            return {'ok': True, 'error': None, 'path': dest_path}
+        except PermissionError as e:
+            return {'ok': False, 'error': f"Sense permisos: {e}"}
+        except FileNotFoundError as e:
+            return {'ok': False, 'error': f"Ruta no trobada: {e}"}
+        except Exception as e:
+            return {'ok': False, 'error': str(e)}
+
+    return {'ok': False, 'error': f"No es pot accedir a {dest_dir}"}
 
 
 def eliminar_xarxa(art_codi, config):
