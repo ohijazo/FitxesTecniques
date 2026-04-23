@@ -11,6 +11,17 @@ from app.auth import login_required, rol_requerit
 
 fitxes_bp = Blueprint('fitxes', __name__)
 
+
+def _validar_art_codi(art_codi):
+    """Valida que art_codi només conté caràcters segurs (lletres, números, guions)."""
+    if not art_codi:
+        return False
+    if not re.match(r'^[A-Za-z0-9_\-\.]+$', art_codi):
+        return False
+    if '..' in art_codi:
+        return False
+    return True
+
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'uploads')
 
 
@@ -90,6 +101,9 @@ def crear_fitxa():
 
     if not data or not data.get('art_codi') or not data.get('nom_producte'):
         return jsonify({'error': "Camps obligatoris: art_codi, nom_producte"}), 400
+
+    if not _validar_art_codi(data['art_codi']):
+        return jsonify({'error': "Codi d'article invàlid. Només lletres, números, guions i guions baixos."}), 400
 
     if FitxaTecnica.query.filter_by(art_codi=data['art_codi']).first():
         return jsonify({'error': f"Ja existeix una fitxa amb codi {data['art_codi']}"}), 409
@@ -228,6 +242,9 @@ def duplicar_fitxa(fitxa_id):
     nou_codi = (data.get('art_codi') or '').strip()
     if not nou_codi:
         return jsonify({'error': "Cal indicar el nou codi d'article"}), 400
+
+    if not _validar_art_codi(nou_codi):
+        return jsonify({'error': "Codi d'article invàlid. Només lletres, números, guions i guions baixos."}), 400
 
     if FitxaTecnica.query.filter_by(art_codi=nou_codi).first():
         return jsonify({'error': f"Ja existeix una fitxa amb codi {nou_codi}"}), 409
