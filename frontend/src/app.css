@@ -313,6 +313,7 @@ tbody tr:hover { background: var(--gray-50); }
 .badge.esborrany { background: #fef3c7; color: #92400e; }
 .badge.publicada { background: #d1fae5; color: #065f46; }
 .badge.obsoleta { background: #fee2e2; color: #991b1b; }
+.badge.inactiva { background: #e5e7eb; color: #374151; }
 .badge.pendent { background: #fef3c7; color: #92400e; }
 .badge.ok { background: #d1fae5; color: #065f46; }
 .badge.error { background: #fee2e2; color: #991b1b; }

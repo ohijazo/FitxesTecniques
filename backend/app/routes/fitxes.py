@@ -298,9 +298,10 @@ def eliminar_fitxa(fitxa_id):
     if not usuari or not usuari.check_password(password):
         return jsonify({'error': "Contrasenya incorrecta"}), 403
 
-    esborrar_destins = data.get('esborrar_destins', [])  # llista de desti_ids
+    esborrar_destins = data.get('esborrar_destins', [])
+    nomes_inactivar = data.get('nomes_inactivar', False)
 
-    # Info per al registre (abans d'eliminar)
+    # Info per al registre
     versions_list = fitxa.versions.all()
     num_versions = len(versions_list)
     ultima_versio = max((v.num_versio for v in versions_list), default=0)
@@ -345,35 +346,44 @@ def eliminar_fitxa(fitxa_id):
                     result = {'ok': False, 'error': f"Tipus {desti.tipus} no suportat"}
                 dest_resultats.append({'desti': desti.nom, 'fitxer': fname, **result})
 
-    # Registrar l'eliminacio
-    destins_noms = ', '.join(r['desti'] for r in dest_resultats) if dest_resultats else 'Cap'
+    # Registrar l'acció
+    accio_text = 'Inactivada' if nomes_inactivar else 'Eliminada'
     registre = RegistreEliminacio(
         art_codi=fitxa.art_codi,
         nom_producte=fitxa.nom_producte,
         num_versions=num_versions,
         ultima_versio=ultima_versio,
-        motiu=motiu,
+        motiu=f"{accio_text}: {motiu}",
         esborrat_ftp=len(esborrar_destins) > 0,
         eliminat_per=usuari.nom,
     )
     db.session.add(registre)
 
-    # Eliminar distribucions, versions i fitxa
-    for versio in versions_list:
-        Distribucio.query.filter_by(versio_id=versio.id).delete()
-    VersioFitxa.query.filter_by(fitxa_id=fitxa_id).delete()
-    db.session.delete(fitxa)
-    db.session.commit()
+    if nomes_inactivar:
+        # Només canviar l'estat a 'inactiva', no eliminar res
+        fitxa.estat = 'inactiva'
+        db.session.commit()
+        return jsonify({
+            'message': f'Fitxa {fitxa.art_codi} marcada com a inactiva',
+            'destins': dest_resultats,
+        }), 200
+    else:
+        # Eliminar distribucions, versions i fitxa
+        for versio in versions_list:
+            Distribucio.query.filter_by(versio_id=versio.id).delete()
+        VersioFitxa.query.filter_by(fitxa_id=fitxa_id).delete()
+        db.session.delete(fitxa)
+        db.session.commit()
 
-    # Eliminar fitxers locals (uploads)
-    upload_path = os.path.join(UPLOAD_DIR, fitxa.art_codi)
-    if os.path.exists(upload_path):
-        shutil.rmtree(upload_path, ignore_errors=True)
+        # Eliminar fitxers locals (uploads)
+        upload_path = os.path.join(UPLOAD_DIR, fitxa.art_codi)
+        if os.path.exists(upload_path):
+            shutil.rmtree(upload_path, ignore_errors=True)
 
-    return jsonify({
-        'message': 'Fitxa eliminada',
-        'destins': dest_resultats,
-    }), 200
+        return jsonify({
+            'message': 'Fitxa eliminada',
+            'destins': dest_resultats,
+        }), 200
 
 
 @fitxes_bp.route('/fitxes/eliminacions', methods=['GET'])

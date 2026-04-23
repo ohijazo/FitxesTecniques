@@ -538,9 +538,10 @@ function DuplicarModal({ fitxa, onClose }) {
   );
 }
 
-function EliminarModal({ fitxa, onDone, onClose }) {
+function EliminarModal({ fitxa, onDone, onClose, onRefresh }) {
   const [motiu, setMotiu] = useState('');
   const [password, setPassword] = useState('');
+  const [accio, setAccio] = useState('inactivar'); // 'inactivar' | 'eliminar'
   const [destins, setDestins] = useState([]);
   const [selectedDestins, setSelectedDestins] = useState({});
   const [loading, setLoading] = useState(false);
@@ -570,9 +571,18 @@ function EliminarModal({ fitxa, onDone, onClose }) {
     setLoading(true);
     setError(null);
     try {
-      await api.eliminarFitxa(fitxa.id, { motiu, password, esborrar_destins });
-      toast.success(`Fitxa ${fitxa.art_codi} eliminada correctament`);
-      onDone();
+      await api.eliminarFitxa(fitxa.id, {
+        motiu, password, esborrar_destins,
+        nomes_inactivar: accio === 'inactivar',
+      });
+      if (accio === 'inactivar') {
+        toast.success(`Fitxa ${fitxa.art_codi} marcada com a inactiva`);
+        onRefresh();
+        onClose();
+      } else {
+        toast.success(`Fitxa ${fitxa.art_codi} eliminada`);
+        onDone();
+      }
     } catch (err) {
       setError(err.message);
       setLoading(false);
@@ -587,14 +597,34 @@ function EliminarModal({ fitxa, onDone, onClose }) {
           <button className="outline secondary btn-sm" onClick={onClose}>&times;</button>
         </div>
 
-        <div style={{ background: 'var(--danger-bg)', padding: '0.75rem 1rem', borderRadius: 'var(--radius)', marginBottom: '1rem', fontSize: '0.88rem' }}>
-          Estàs a punt d'eliminar la fitxa <strong>{fitxa.art_codi} - {fitxa.nom_producte}</strong>.
-          Aquesta acció és irreversible.
-        </div>
-
         <form onSubmit={handleEliminar}>
+          {/* Tipus d'acció */}
+          <fieldset style={{ marginBottom: '1rem' }}>
+            <legend style={{ fontSize: '0.85rem', fontWeight: 600 }}>Què vols fer?</legend>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', cursor: 'pointer', margin: '0.4rem 0' }}>
+              <input type="radio" name="accio" checked={accio === 'inactivar'} onChange={() => setAccio('inactivar')}
+                style={{ width: 'auto', margin: '4px 0 0 0' }} />
+              <div>
+                <strong>Inactivar</strong>
+                <div style={{ fontSize: '0.82rem', color: 'var(--gray-500)' }}>
+                  La fitxa es manté a l'aplicació amb estat "inactiva" però s'esborra dels destins seleccionats.
+                </div>
+              </div>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', cursor: 'pointer', margin: '0.4rem 0' }}>
+              <input type="radio" name="accio" checked={accio === 'eliminar'} onChange={() => setAccio('eliminar')}
+                style={{ width: 'auto', margin: '4px 0 0 0' }} />
+              <div>
+                <strong style={{ color: 'var(--danger)' }}>Eliminar definitivament</strong>
+                <div style={{ fontSize: '0.82rem', color: 'var(--gray-500)' }}>
+                  La fitxa, versions i distribucions s'esborren completament. Irreversible.
+                </div>
+              </div>
+            </label>
+          </fieldset>
+
           <label>
-            Motiu de l'eliminació *
+            Motiu *
             <textarea value={motiu} onChange={(e) => setMotiu(e.target.value)}
               required placeholder="Ex: Fitxa duplicada, producte descatalogat..."
               rows={2} />
@@ -602,7 +632,7 @@ function EliminarModal({ fitxa, onDone, onClose }) {
 
           {destins.length > 0 && (
             <fieldset style={{ marginBottom: '1rem' }}>
-              <legend style={{ fontSize: '0.85rem', fontWeight: 600 }}>Esborrar també dels destins:</legend>
+              <legend style={{ fontSize: '0.85rem', fontWeight: 600 }}>Esborrar dels destins:</legend>
               {destins.map((d) => (
                 <label key={d.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', margin: '0.3rem 0' }}>
                   <input type="checkbox" checked={selectedDestins[d.id] || false}
@@ -624,8 +654,8 @@ function EliminarModal({ fitxa, onDone, onClose }) {
           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
             <button type="button" className="outline secondary" onClick={onClose}>Cancel·lar</button>
             <button type="submit" disabled={loading} aria-busy={loading}
-              style={{ background: 'var(--danger)', borderColor: 'var(--danger)' }}>
-              {loading ? 'Eliminant...' : 'Confirmar eliminació'}
+              style={accio === 'eliminar' ? { background: 'var(--danger)', borderColor: 'var(--danger)' } : {}}>
+              {loading ? 'Processant...' : accio === 'inactivar' ? 'Inactivar fitxa' : 'Eliminar definitivament'}
             </button>
           </div>
         </form>
@@ -976,6 +1006,7 @@ function DetallFitxa() {
         <EliminarModal
           fitxa={fitxa}
           onDone={() => navigate('/')}
+          onRefresh={carregarDades}
           onClose={() => setShowEliminar(false)}
         />
       )}

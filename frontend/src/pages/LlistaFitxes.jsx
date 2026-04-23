@@ -115,6 +115,7 @@ function LlistaFitxes() {
             <option value="">Tots els estats</option>
             <option value="publicada">Publicada</option>
             <option value="obsoleta">Obsoleta</option>
+            <option value="inactiva">Inactiva</option>
           </select>
         </label>
         <button type="submit" style={{ whiteSpace: 'nowrap', marginBottom: 0 }}>Cercar</button>
