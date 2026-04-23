@@ -120,7 +120,6 @@ HTML = """
 </ol>
 
 <!-- ============ 1. REQUISITS ============ -->
-<div class="page-break"></div>
 <h2>1. Requisits de la Maquina</h2>
 <p>L'aplicacio es desplegara a la mateixa m&agrave;quina Ubuntu on ja hi ha Lab FC i Comandes de Venda.</p>
 
@@ -180,7 +179,6 @@ PostgreSQL (BD: fitxes_tecniques)<br/>
 </table>
 
 <!-- ============ 3. PAQUETS ============ -->
-<div class="page-break"></div>
 <h2>3. Instal&middot;lacio de Paquets</h2>
 <div class="note">Si Lab FC ja esta instal&middot;lat, tots els paquets ja hi son. Nom&eacute;s cal verificar.</div>
 
@@ -200,7 +198,6 @@ PostgreSQL (BD: fitxes_tecniques)<br/>
 <div class="warning">IMPORTANT: Canviar CONTRASENYA_SEGURA per una contrasenya real. Anotar-la per al fitxer .env.</div>
 
 <!-- ============ 5. CONFIGURAR APP ============ -->
-<div class="page-break"></div>
 <h2>5. Descarregar i Configurar l'Aplicacio</h2>
 
 <h3>5.1 Clonar el repositori</h3>
@@ -242,7 +239,6 @@ PostgreSQL (BD: fitxes_tecniques)<br/>
 <div class="note">Genera frontend/dist/. Node.js nom&eacute;s cal durant la compilacio, no en execucio permanent.</div>
 
 <!-- ============ 7. SYSTEMD ============ -->
-<div class="page-break"></div>
 <h2>7. Backend com a Servei (systemd)</h2>
 
 <h3>7.1 Crear servei</h3>
@@ -266,7 +262,6 @@ PostgreSQL (BD: fitxes_tecniques)<br/>
 </table>
 
 <!-- ============ 8. APACHE ============ -->
-<div class="page-break"></div>
 <h2>8. Configurar Apache</h2>
 
 <h3>8.1 Activar moduls</h3>
@@ -299,7 +294,6 @@ PostgreSQL (BD: fitxes_tecniques)<br/>
 <div class="cmd">sudo apt install -y cifs-utils smbclient</div>
 
 <!-- ============ 10. VERIFICACIO ============ -->
-<div class="page-break"></div>
 <h2>10. Verificaci&oacute; Final</h2>
 <table>
   <tr><th>#</th><th>Verificaci&oacute;</th><th>Comanda</th><th>Esperat</th></tr>
@@ -344,7 +338,6 @@ PostgreSQL (BD: fitxes_tecniques)<br/>
 <div class="conf">/var/log/fitxes-tecniques/*.log {<br/>&nbsp;&nbsp;daily<br/>&nbsp;&nbsp;missingok<br/>&nbsp;&nbsp;rotate 14<br/>&nbsp;&nbsp;compress<br/>&nbsp;&nbsp;delaycompress<br/>&nbsp;&nbsp;notifempty<br/>&nbsp;&nbsp;copytruncate<br/>}</div>
 
 <!-- ============ 13. PROBLEMES ============ -->
-<div class="page-break"></div>
 <h2>13. Resoluci&oacute; de Problemes</h2>
 <table>
   <tr><th>Problema</th><th>Causa</th><th>Soluci&oacute;</th></tr>
