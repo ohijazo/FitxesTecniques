@@ -211,22 +211,118 @@ const SECTIONS = [
     ),
   },
   {
-    id: 'eliminar',
-    titol: 'Eliminar fitxes',
+    id: 'duplicar',
+    titol: 'Duplicar fitxes',
     contingut: (
       <>
-        <p>Només els administradors poden eliminar fitxes. El procés requereix:</p>
+        <p>Pots duplicar una fitxa existent per crear-ne una de nova basada en les mateixes dades.</p>
+        <ol>
+          <li>Obre la fitxa que vols duplicar</li>
+          <li>Prem el botó <strong>Duplicar</strong></li>
+          <li>Indica el <strong>nou codi d'article</strong> (obligatori, ha de ser únic)</li>
+          <li>Opcionalment, modifica el <strong>nom del producte</strong></li>
+          <li>Prem <strong>Duplicar</strong></li>
+        </ol>
+        <div className="help-tip">
+          <strong>Què es copia:</strong> Tot el contingut de la versió activa (camps, taules, imatges).
+          <strong> Què NO es copia:</strong> Versions anteriors, distribucions ni historial.
+          La nova fitxa comença amb la versió 1.
+        </div>
+      </>
+    ),
+  },
+  {
+    id: 'observacions',
+    titol: 'Observacions',
+    contingut: (
+      <>
+        <p>
+          Cada fitxa té una pestanya <strong>Observacions</strong> (entre Contingut i Versions)
+          on pots afegir notes internes amb format de text enriquit.
+        </p>
+        <ol>
+          <li>Obre la fitxa i ves a la pestanya <strong>Observacions</strong></li>
+          <li>Prem <strong>Editar observacions</strong></li>
+          <li>Escriu el text amb format (negreta, cursiva, subratllat, llistes)</li>
+          <li>Prem <strong>Guardar</strong></li>
+        </ol>
+        <div className="help-tip">
+          Les observacions són internes — no apareixen al PDF generat ni es distribueixen.
+          Serveixen per anotar informació rellevant sobre la fitxa per al departament.
+        </div>
+      </>
+    ),
+  },
+  {
+    id: 'eliminar',
+    titol: 'Eliminar i inactivar fitxes',
+    contingut: (
+      <>
+        <p>Només els administradors poden eliminar o inactivar fitxes. El procés requereix motiu i contrasenya.</p>
+
+        <h4>Inactivar (recomanat)</h4>
+        <p>
+          La fitxa es manté a l'aplicació amb estat <span className="badge inactiva" style={{ display: 'inline' }}>inactiva</span> però
+          s'esborra dels destins seleccionats (FTP, carpeta de xarxa). Es pot reactivar en el futur.
+        </p>
+
+        <h4>Eliminar definitivament</h4>
+        <p>
+          La fitxa, totes les versions i distribucions s'esborren completament. Aquesta acció és <strong>irreversible</strong>.
+        </p>
+
+        <h4>Procés</h4>
         <ol>
           <li>Prem el botó vermell <strong>Eliminar</strong> al detall de la fitxa</li>
-          <li>Indica el <strong>motiu</strong> de l'eliminació (obligatori)</li>
-          <li>Marca si vols <strong>esborrar també del FTP</strong></li>
+          <li>Tria entre <strong>Inactivar</strong> o <strong>Eliminar definitivament</strong></li>
+          <li>Indica el <strong>motiu</strong> (obligatori)</li>
+          <li>Selecciona de quins <strong>destins</strong> vols esborrar (FTP, xarxa...)</li>
           <li>Confirma amb la teva <strong>contrasenya</strong></li>
         </ol>
-        <HelpImg src="/help/eliminar.png" alt="Modal d'eliminació amb motiu, opció FTP i confirmació amb contrasenya" />
+        <HelpImg src="/help/eliminar.png" alt="Modal d'eliminació amb opcions d'inactivar o eliminar" />
+
+        <h4>Esborrar última versió</h4>
+        <p>
+          A la pestanya <strong>Versions</strong> pots esborrar l'última versió si t'has equivocat.
+          Segueix el mateix procés (motiu + contrasenya + destins). S'activarà la versió anterior automàticament.
+        </p>
+
         <div className="help-tip">
-          <strong>Registre d'audit:</strong> Totes les eliminacions queden registrades a
-          <strong> Admin &gt; Eliminacions</strong> amb el codi, producte, motiu, qui i quan.
+          <strong>Registre d'audit:</strong> Totes les eliminacions i inactivacions queden registrades a
+          <strong> Configuració &gt; Eliminacions</strong> amb el codi, producte, motiu, qui i quan.
         </div>
+      </>
+    ),
+  },
+  {
+    id: 'imatges',
+    titol: 'Imatges de certificació',
+    contingut: (
+      <>
+        <p>
+          Algunes fitxes inclouen imatges de certificació (CCPAE, ecològic, etc.)
+          que es mostren a la capçalera del document.
+        </p>
+
+        <h4>Afegir imatges</h4>
+        <ol>
+          <li>Edita la fitxa</li>
+          <li>A la capçalera, prem el botó <strong>+</strong></li>
+          <li>Selecciona la imatge (PNG, JPG...)</li>
+        </ol>
+
+        <h4>Modificar imatges</h4>
+        <ul>
+          <li>Passa el ratolí sobre la imatge per veure els botons</li>
+          <li><strong>&#8635;</strong> — substituir per una altra imatge</li>
+          <li><strong>&times;</strong> — treure la imatge</li>
+        </ul>
+
+        <h4>Posició i mida</h4>
+        <p>
+          Pots ajustar la posició (esquerra, centre, dreta) i la mida amb el control
+          que apareix sobre les imatges a l'editor.
+        </p>
       </>
     ),
   },
@@ -240,17 +336,6 @@ const SECTIONS = [
           (només visible per administradors). Inclou:
         </p>
 
-        <h4>Control revisions</h4>
-        <p>
-          Vista global de totes les fitxes amb dades tècniques clau. També accessible des del menú Configuració.
-        </p>
-
-        <h4>Destins</h4>
-        <p>
-          Configura on es distribueixen les fitxes (FTP, carpeta de xarxa, SAP).
-          Per a FTP cal indicar host, usuari, contrasenya i si usa TLS.
-        </p>
-
         <h4>Usuaris</h4>
         <p>Gestiona els usuaris de l'aplicació. Hi ha tres rols:</p>
         <ul>
@@ -259,14 +344,34 @@ const SECTIONS = [
           <li><strong>Visualitzador</strong> — només lectura</li>
         </ul>
 
+        <h4>Destins</h4>
+        <p>
+          Configura on es distribueixen les fitxes. Tipus suportats:
+        </p>
+        <ul>
+          <li><strong>FTP</strong> — amb suport TLS. Cal indicar host, usuari, contrasenya.</li>
+          <li><strong>Carpeta de xarxa</strong> — ruta UNC amb credencials de domini.</li>
+          <li><strong>SAP</strong> — pendent d'implementació.</li>
+        </ul>
+        <p>
+          Cada destí té un <strong>patró de nom de fitxer</strong> configurable amb variables:
+          <code>{'{art_codi}'}</code>, <code>{'{nom_producte}'}</code>, <code>{'{versio}'}</code>, <code>{'{data}'}</code>.
+        </p>
+
         <h4>Camps (Seccions)</h4>
         <p>
           Defineix l'estructura de les fitxes: quines seccions i camps apareixen al formulari.
           Pots afegir, editar, reordenar i eliminar camps.
         </p>
 
+        <h4>Control revisions</h4>
+        <p>
+          Vista global de totes les fitxes amb dades tècniques clau, estadístiques i filtres.
+          Exportable a Excel.
+        </p>
+
         <h4>Eliminacions</h4>
-        <p>Historial de totes les fitxes que s'han eliminat, amb motiu i responsable.</p>
+        <p>Historial de totes les fitxes eliminades o inactivades, amb motiu i responsable.</p>
       </>
     ),
   },
@@ -277,12 +382,15 @@ const SECTIONS = [
       <>
         <ul>
           <li>Pots <strong>cercar</strong> fitxes per codi o nom a la pàgina principal</li>
-          <li>Els <strong>filtres d'estat</strong> es recorden entre sessions</li>
+          <li>Els <strong>filtres d'estat</strong> es recorden entre sessions (publicada, obsoleta, inactiva)</li>
           <li>Si tanques el navegador amb <strong>canvis sense desar</strong>, rebràs un avís</li>
-          <li>Les <strong>taules de paràmetres</strong> (fisicoquímiques, microbiològiques...) permeten afegir i eliminar files dinàmicament</li>
+          <li>Les <strong>taules de paràmetres</strong> permeten afegir/eliminar files i formatar text (negreta, cursiva)</li>
+          <li>Cada taula té camps opcionals de <strong>subtítol</strong> i <strong>nota al peu</strong></li>
           <li>Pots <strong>moure camps entre seccions</strong> amb el botó &#8644; que apareix al passar el ratolí</li>
           <li>Pots <strong>reordenar seccions</strong> amb les fletxes &#9650;&#9660;</li>
+          <li>Pots <strong>duplicar</strong> una fitxa per crear-ne una de nova basada en les mateixes dades</li>
           <li>La <strong>verificació automàtica</strong> compara les dades de l'app amb el PDF original del FTP</li>
+          <li>La <strong>vista de la fitxa</strong> simula fulls DIN A4 amb número de pàgina</li>
         </ul>
       </>
     ),
