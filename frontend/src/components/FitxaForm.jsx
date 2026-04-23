@@ -233,7 +233,7 @@ function EditableTable({ label, rows, onChange, onRemove, readOnly, toolbar, tab
         {toolbar}
       </div>
       <table className="pdf-param-table">
-        <thead><tr><th>Paràmetre</th><th>Valor</th><th style={{ width: '36px' }}></th></tr></thead>
+        <thead><tr><th>Parámetro / Paràmetre</th><th>Valor</th><th style={{ width: '36px' }}></th></tr></thead>
         <tbody>
           {rows.map((row, i) => (
             <tr key={i}>

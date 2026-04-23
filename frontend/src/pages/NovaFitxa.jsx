@@ -41,7 +41,12 @@ function NovaFitxa() {
       if (data.existent) {
         if (confirm(data.message)) {
           navigate(`/fitxes/${data.fitxa.id}/editar`, {
-            state: { dadesWord: data.dades_extretes },
+            state: { dadesWord: {
+              ...data.dades_extretes,
+              rev: data.rev || '',
+              data_revisio: data.data_revisio || '',
+              data_comprovacio: data.data_comprovacio || '',
+            }},
           });
         }
       } else {
@@ -120,7 +125,12 @@ function NovaFitxa() {
         nom_producte: wordResult.nom_producte || '',
         categoria: '',
         descripcio_canvi: 'Creació inicial',
-        contingut: wordResult.dades_extretes || {},
+        contingut: {
+          ...(wordResult.dades_extretes || {}),
+          rev: wordResult.rev || '',
+          data_revisio: wordResult.data_revisio || '',
+          data_comprovacio: wordResult.data_comprovacio || '',
+        },
       }
     : {
         art_codi: '',
