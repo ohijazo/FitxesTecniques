@@ -1025,6 +1025,32 @@ textarea.pdf-field-input {
   padding: 3px 8px;
   border: 1px solid #B4C6E7;
 }
+/* Nota dins cel·la paràmetre (2a línia en cursiva) */
+.param-note {
+  font-size: 0.78rem;
+  font-style: italic;
+  color: #595959;
+  margin-top: 1px;
+}
+/* Textarea dins taula editor */
+.param-textarea {
+  width: 100%;
+  border: none !important;
+  background: transparent;
+  padding: 4px 8px !important;
+  font-size: 0.85rem !important;
+  margin: 0 !important;
+  border-radius: 0;
+  resize: none;
+  font-family: inherit;
+  line-height: 1.4;
+  min-height: 26px;
+}
+.param-textarea:focus {
+  background: var(--brand-50);
+  outline: none;
+  box-shadow: none;
+}
 .pdf-table-subtitle {
   background: #D6E0F0;
   font-weight: 700;

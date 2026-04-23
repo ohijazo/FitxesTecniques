@@ -235,7 +235,7 @@
 <table class="param-table">
   <tr><th>Parámetro / Paràmetre</th><th>Valor</th></tr>
   {% for row in fisicoquimiques %}
-  <tr><td>{{ row.parametre }}</td><td>{{ row.valor }}</td></tr>
+  <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor }}</td></tr>
   {% endfor %}
 </table>
 <div class="note">Según RD 677/2016 / Segons RD 677/2016.</div>
@@ -244,7 +244,7 @@
 <table class="param-table">
   <tr><th>Parámetro / Paràmetre</th><th>Valor</th></tr>
   {% for row in reologiques %}
-  <tr><td>{{ row.parametre }}</td><td>{{ row.valor }}</td></tr>
+  <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor }}</td></tr>
   {% endfor %}
 </table>
 <div class="note">Según RD 677/2016 / Segons RD 677/2016.</div>
@@ -254,7 +254,7 @@
   <tr><td colspan="2" class="table-subtitle">Parámetros microbiológicos / Paràmetres microbiològics</td></tr>
   <tr><th>Parámetro / Paràmetre</th><th>Valor</th></tr>
   {% for row in microbiologiques %}
-  <tr><td>{{ row.parametre }}</td><td>{{ row.valor }}</td></tr>
+  <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor }}</td></tr>
   {% endfor %}
 </table>
 <div class="note">Establecidos como criterio interno en base RD 1286/1984 actualmente derogado. / Establerts com a criteri intern en base RD 1286/1984 actualment derogat.</div>
@@ -266,7 +266,7 @@
   <tr><td colspan="2" class="table-subtitle">Micotoxinas / Micotoxines</td></tr>
   <tr><th>Parámetro / Paràmetre</th><th>Valor</th></tr>
   {% for row in micotoxines %}
-  <tr><td>{{ row.parametre }}</td><td>{{ row.valor }}</td></tr>
+  <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor }}</td></tr>
   {% endfor %}
 </table>
 <div class="note">Según Reglamento 2023/915 relativo a los límites máximos de determinados contaminantes en los alimentos y posteriores modificaciones que pueda haber. / Segons Reglament 2023/915 relatiu als límits màxims de determinats contaminants en els aliments i posteriors modificacions que hi pugui haver.</div>
@@ -275,7 +275,7 @@
   <tr><td colspan="2" class="table-subtitle">Alcaloides del cornezuelo / Alcaloides del sègol banyut</td></tr>
   <tr><th>Parámetro / Paràmetre</th><th>Valor</th></tr>
   {% for row in alcaloides %}
-  <tr><td>{{ row.parametre }}</td><td>{{ row.valor }}</td></tr>
+  <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor }}</td></tr>
   {% endfor %}
 </table>
 <div class="note">Según Reglamento 2023/915 / Segons Reglament 2023/915.</div>
@@ -284,7 +284,7 @@
   <tr><td colspan="2" class="table-subtitle">Metales pesados / Metalls pesants</td></tr>
   <tr><th>Parámetro / Paràmetre</th><th>Valor</th></tr>
   {% for row in metalls_pesants %}
-  <tr><td>{{ row.parametre }}</td><td>{{ row.valor }}</td></tr>
+  <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor }}</td></tr>
   {% endfor %}
 </table>
 <div class="note">Según Reglamento 2023/915 / Segons Reglament 2023/915.</div>
@@ -299,7 +299,7 @@
   <tr><th>Parámetro / Paràmetre</th><th>Valor</th></tr>
   {% for row in valors_nutricionals %}
   <tr>
-    <td{% if row.sub %} class="sub"{% endif %}>{{ row.parametre }}</td>
+    <td{% if row.sub %} class="sub"{% endif %}>{{ row.parametre|param_html }}</td>
     <td>{{ row.valor }}</td>
   </tr>
   {% endfor %}

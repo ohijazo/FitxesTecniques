@@ -4,6 +4,7 @@ import re
 import base64
 from flask import current_app
 from jinja2 import Environment, FileSystemLoader
+from markupsafe import Markup
 from xhtml2pdf import pisa
 
 
@@ -57,6 +58,19 @@ def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
     """
     template_dir = os.path.join(current_app.root_path, 'templates')
     env = Environment(loader=FileSystemLoader(template_dir))
+
+    # Filtre per renderitzar paràmetres amb notes en cursiva
+    def param_html(text):
+        if not text:
+            return Markup('')
+        lines = str(text).split('\n')
+        result = lines[0]
+        for line in lines[1:]:
+            if line.strip():
+                result += f'<br><i style="font-size: 8pt; color: #595959;">{line.strip()}</i>'
+        return Markup(result)
+    env.filters['param_html'] = param_html
+
     template = env.get_template('fitxa_tecnica.html')
 
     # Convertir logo a base64 per embedir-lo al HTML
