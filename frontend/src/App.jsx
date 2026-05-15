@@ -53,6 +53,9 @@ function NavBar({ usuari, onLogout }) {
             )}
           </li>
         )}
+        {usuari.rol === 'distribuidor' && (
+          <li><Link to="/admin/destins">Destins</Link></li>
+        )}
         {usuari.rol !== 'admin' && (
           <li><Link to="/control-revisions">Control revisions</Link></li>
         )}
@@ -166,7 +169,7 @@ function App() {
               <ProtectedRoute usuari={usuari} rolsPermesos={['admin']}><AdminUsuaris /></ProtectedRoute>
             } />
             <Route path="/admin/destins" element={
-              <ProtectedRoute usuari={usuari} rolsPermesos={['admin']}><AdminDestins /></ProtectedRoute>
+              <ProtectedRoute usuari={usuari} rolsPermesos={['admin', 'distribuidor']}><AdminDestins /></ProtectedRoute>
             } />
             <Route path="/admin/eliminacions" element={
               <ProtectedRoute usuari={usuari} rolsPermesos={['admin']}><AdminEliminacions /></ProtectedRoute>

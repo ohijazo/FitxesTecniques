@@ -77,8 +77,8 @@ def crear_usuari():
     if not data or not data.get('email') or not data.get('nom') or not data.get('password'):
         return jsonify({'error': "Camps obligatoris: email, nom, password"}), 400
 
-    if data.get('rol') not in ('admin', 'editor', 'visualitzador'):
-        return jsonify({'error': "Rol no vàlid. Opcions: admin, editor, visualitzador"}), 400
+    if data.get('rol') not in ('admin', 'editor', 'distribuidor', 'visualitzador'):
+        return jsonify({'error': "Rol no vàlid. Opcions: admin, editor, distribuidor, visualitzador"}), 400
 
     if Usuari.query.filter_by(email=data['email']).first():
         return jsonify({'error': "Ja existeix un usuari amb aquest email"}), 409
@@ -109,7 +109,7 @@ def editar_usuari(uid):
             return jsonify({'error': "Ja existeix un usuari amb aquest email"}), 409
         usuari.email = data['email']
     if 'rol' in data:
-        if data['rol'] not in ('admin', 'editor', 'visualitzador'):
+        if data['rol'] not in ('admin', 'editor', 'distribuidor', 'visualitzador'):
             return jsonify({'error': "Rol no vàlid"}), 400
         usuari.rol = data['rol']
     if 'actiu' in data:

@@ -278,14 +278,14 @@ def reordenar_camps(sid):
 # --- Destins de distribucio ---
 
 @admin_bp.route('/admin/destins', methods=['GET'])
-@rol_requerit('admin')
+@rol_requerit('admin', 'distribuidor')
 def llistar_destins():
     destins = DestiDistribucio.query.order_by(DestiDistribucio.nom).all()
     return jsonify([d.to_dict(include_config=True) for d in destins])
 
 
 @admin_bp.route('/admin/destins', methods=['POST'])
-@rol_requerit('admin')
+@rol_requerit('admin', 'distribuidor')
 def crear_desti():
     data = request.get_json()
     if not data or not data.get('nom') or not data.get('tipus'):
@@ -308,14 +308,14 @@ def crear_desti():
 
 
 @admin_bp.route('/admin/destins/<int:did>', methods=['GET'])
-@rol_requerit('admin')
+@rol_requerit('admin', 'distribuidor')
 def detall_desti(did):
     desti = db.get_or_404(DestiDistribucio, did)
     return jsonify(desti.to_dict(include_config=True))
 
 
 @admin_bp.route('/admin/destins/<int:did>', methods=['PUT'])
-@rol_requerit('admin')
+@rol_requerit('admin', 'distribuidor')
 def editar_desti(did):
     desti = db.get_or_404(DestiDistribucio, did)
     data = request.get_json()
@@ -341,7 +341,7 @@ def editar_desti(did):
 
 
 @admin_bp.route('/admin/destins/<int:did>', methods=['DELETE'])
-@rol_requerit('admin')
+@rol_requerit('admin', 'distribuidor')
 def eliminar_desti(did):
     desti = db.get_or_404(DestiDistribucio, did)
     db.session.delete(desti)

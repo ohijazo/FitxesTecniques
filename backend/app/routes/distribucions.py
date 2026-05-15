@@ -122,7 +122,7 @@ def llistar_distribucions(fitxa_id):
 
 
 @distribucions_bp.route('/fitxes/<int:fitxa_id>/distribuir', methods=['POST'])
-@rol_requerit('admin', 'editor')
+@rol_requerit('admin', 'editor', 'distribuidor')
 def distribuir_tots(fitxa_id):
     fitxa = db.get_or_404(FitxaTecnica, fitxa_id)
     versio_activa = VersioFitxa.query.filter_by(
@@ -160,7 +160,7 @@ def distribuir_tots(fitxa_id):
 
 
 @distribucions_bp.route('/fitxes/<int:fitxa_id>/distribuir/<int:desti_id>', methods=['POST'])
-@rol_requerit('admin', 'editor')
+@rol_requerit('admin', 'editor', 'distribuidor')
 def distribuir_desti(fitxa_id, desti_id):
     fitxa = db.get_or_404(FitxaTecnica, fitxa_id)
     desti = db.get_or_404(DestiDistribucio, desti_id)

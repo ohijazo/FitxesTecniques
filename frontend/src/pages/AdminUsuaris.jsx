@@ -100,6 +100,7 @@ function AdminUsuaris() {
               <select value={form.rol} onChange={(e) => setForm({ ...form, rol: e.target.value })}>
                 <option value="admin">Administrador</option>
                 <option value="editor">Editor</option>
+                <option value="distribuidor">Distribuïdor</option>
                 <option value="visualitzador">Visualitzador</option>
               </select>
             </label>

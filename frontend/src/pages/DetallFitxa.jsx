@@ -831,9 +831,11 @@ function DetallFitxa() {
           </div>
         </div>
         <div className="detail-actions">
-          <Link to={`/fitxes/${id}/editar`} role="button" className="outline">
-            Editar / Nova versió
-          </Link>
+          {(usuari.rol === 'admin' || usuari.rol === 'editor') && (
+            <Link to={`/fitxes/${id}/editar`} role="button" className="outline">
+              Editar / Nova versió
+            </Link>
+          )}
           <button onClick={() => vistaPrevia()} className="outline">
             Vista prèvia PDF
           </button>
@@ -845,9 +847,11 @@ function DetallFitxa() {
               Distribuir
             </button>
           )}
-          <button className="outline secondary" onClick={() => setShowDuplicar(true)}>
-            Duplicar
-          </button>
+          {(usuari.rol === 'admin' || usuari.rol === 'editor') && (
+            <button className="outline secondary" onClick={() => setShowDuplicar(true)}>
+              Duplicar
+            </button>
+          )}
           {usuari.rol === 'admin' && (
             <button className="outline" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
               onClick={() => setShowEliminar(true)}>
