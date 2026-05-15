@@ -54,7 +54,18 @@ function NavBar({ usuari, onLogout }) {
           </li>
         )}
         {usuari.rol === 'distribuidor' && (
-          <li><Link to="/admin/destins">Destins</Link></li>
+          <li className="nav-dropdown-wrapper"
+            onMouseEnter={() => setShowConfig(true)}
+            onMouseLeave={() => setShowConfig(false)}>
+            <a href="#" onClick={(e) => e.preventDefault()} className="nav-dropdown-trigger">
+              Configuració &#9662;
+            </a>
+            {showConfig && (
+              <div className="nav-dropdown">
+                <Link to="/admin/destins" onClick={() => setShowConfig(false)}>Destins</Link>
+              </div>
+            )}
+          </li>
         )}
         {usuari.rol !== 'admin' && (
           <li><Link to="/control-revisions">Control revisions</Link></li>
