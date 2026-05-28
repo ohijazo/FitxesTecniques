@@ -36,7 +36,7 @@ class DestiDistribucio(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     nom = db.Column(db.String(100), nullable=False)
-    tipus = db.Column(db.String(20), nullable=False)  # 'ftp' | 'xarxa' | 'sap'
+    tipus = db.Column(db.String(20), nullable=False)  # 'ftp' | 'xarxa' | 'sap' | 'sharepoint'
     configuracio = db.Column(db.JSON, nullable=False, default={})
     patro_nom_fitxer = db.Column(db.String(200), nullable=False, default='{art_codi}.pdf')
     actiu = db.Column(db.Boolean, default=True)
@@ -54,10 +54,11 @@ class DestiDistribucio(db.Model):
             'created_by': self.created_by,
         }
         if include_config:
-            # No exposar passwords al frontend
+            # No exposar secrets al frontend
             config = dict(self.configuracio) if self.configuracio else {}
-            if 'password' in config:
-                config['password'] = '********'
+            for sensitive_key in ('password', 'client_secret'):
+                if config.get(sensitive_key):
+                    config[sensitive_key] = '********'
             data['configuracio'] = config
         return data
 

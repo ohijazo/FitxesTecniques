@@ -291,8 +291,8 @@ def crear_desti():
     if not data or not data.get('nom') or not data.get('tipus'):
         return jsonify({'error': "Camps obligatoris: nom, tipus"}), 400
 
-    if data['tipus'] not in ('ftp', 'xarxa', 'sap'):
-        return jsonify({'error': "Tipus no valid. Opcions: ftp, xarxa, sap"}), 400
+    if data['tipus'] not in ('ftp', 'xarxa', 'sap', 'sharepoint'):
+        return jsonify({'error': "Tipus no valid. Opcions: ftp, xarxa, sap, sharepoint"}), 400
 
     desti = DestiDistribucio(
         nom=data['nom'],
@@ -323,13 +323,15 @@ def editar_desti(did):
     if 'nom' in data:
         desti.nom = data['nom']
     if 'tipus' in data:
-        if data['tipus'] not in ('ftp', 'xarxa', 'sap'):
+        if data['tipus'] not in ('ftp', 'xarxa', 'sap', 'sharepoint'):
             return jsonify({'error': "Tipus no valid"}), 400
         desti.tipus = data['tipus']
     if 'configuracio' in data:
         new_config = data['configuracio']
-        if desti.configuracio and new_config.get('password') == '********':
-            new_config['password'] = desti.configuracio.get('password', '')
+        if desti.configuracio:
+            for sensitive_key in ('password', 'client_secret'):
+                if new_config.get(sensitive_key) == '********':
+                    new_config[sensitive_key] = desti.configuracio.get(sensitive_key, '')
         desti.configuracio = new_config
     if 'patro_nom_fitxer' in data:
         desti.patro_nom_fitxer = data['patro_nom_fitxer']

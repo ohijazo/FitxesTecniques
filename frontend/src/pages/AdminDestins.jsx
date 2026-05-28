@@ -22,6 +22,14 @@ const CONFIG_FIELDS = {
     { nom: 'user', label: 'Usuari SAP', type: 'text' },
     { nom: 'password', label: 'Contrasenya SAP', type: 'password' },
   ],
+  sharepoint: [
+    { nom: 'tenant_id', label: 'Tenant ID (Azure AD)', type: 'text', placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' },
+    { nom: 'client_id', label: 'Client ID (App Registration)', type: 'text', placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx' },
+    { nom: 'client_secret', label: 'Client Secret', type: 'password' },
+    { nom: 'site_url', label: 'URL del site SharePoint', type: 'text', placeholder: 'https://agrienergia.sharepoint.com/sites/qualitat' },
+    { nom: 'drive_name', label: 'Llibreria de documents (opcional)', type: 'text', placeholder: 'Documents' },
+    { nom: 'folder_path', label: 'Carpeta interna (opcional)', type: 'text', placeholder: 'FitxesTecniques/Aprovades' },
+  ],
 };
 
 function AdminDestins() {
@@ -139,6 +147,9 @@ function AdminDestins() {
                   {d.configuracio?.ruta_base && (
                     <span style={{ marginLeft: '1.5rem' }}><strong>Ruta:</strong> {d.configuracio.ruta_base}</span>
                   )}
+                  {d.configuracio?.site_url && (
+                    <span style={{ marginLeft: '1.5rem' }}><strong>Site:</strong> {d.configuracio.site_url}</span>
+                  )}
                 </div>
               </div>
             ))}
@@ -171,6 +182,7 @@ function AdminDestins() {
               <select value={form.tipus} onChange={(e) => setForm({ ...form, tipus: e.target.value, configuracio: {} })}>
                 <option value="ftp">FTP</option>
                 <option value="xarxa">Carpeta de xarxa</option>
+                <option value="sharepoint">SharePoint Online</option>
                 <option value="sap">SAP Business One</option>
               </select>
             </label>
