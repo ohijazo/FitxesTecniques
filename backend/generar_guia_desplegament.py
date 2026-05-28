@@ -191,8 +191,10 @@ PostgreSQL (BD: fitxes_tecniques)<br/>
 <!-- ============ 4. POSTGRESQL ============ -->
 <h2>4. Configurar PostgreSQL</h2>
 <div class="cmd">sudo -u postgres psql</div>
-<div class="cmd">CREATE DATABASE fitxes_tecniques;<br/>CREATE USER fitxes_user WITH PASSWORD '<b>CONTRASENYA_SEGURA</b>';<br/>GRANT ALL PRIVILEGES ON DATABASE fitxes_tecniques TO fitxes_user;<br/><br/>\\c fitxes_tecniques<br/>GRANT ALL ON SCHEMA public TO fitxes_user;<br/>\\q</div>
+<div class="cmd">CREATE DATABASE fitxes_tecniques;<br/>CREATE USER fitxes_user WITH PASSWORD '<b>CONTRASENYA_SEGURA</b>';<br/>GRANT ALL PRIVILEGES ON DATABASE fitxes_tecniques TO fitxes_user;<br/><br/>\\c fitxes_tecniques<br/>ALTER DATABASE fitxes_tecniques OWNER TO fitxes_user;<br/>ALTER SCHEMA public OWNER TO fitxes_user;<br/>GRANT ALL ON SCHEMA public TO fitxes_user;<br/>GRANT CREATE ON SCHEMA public TO fitxes_user;<br/>\\q</div>
+<div class="warning">IMPORTANT: A PostgreSQL 15+ l'esquema <code>public</code> no &eacute;s escrivible per defecte encara que tinguis <code>ALL PRIVILEGES</code> sobre la BD. Cal canviar el propietari de l'esquema (<code>ALTER SCHEMA public OWNER</code>) i donar <code>CREATE</code>. Si no, la migraci&oacute; <code>flask db upgrade</code> fallar&agrave; amb <code>permission denied for schema public</code>.</div>
 <div class="warning">IMPORTANT: Canviar CONTRASENYA_SEGURA per una contrasenya real. Anotar-la per al fitxer .env.</div>
+<div class="warning">CONTRASENYA: evitar caracters que trenquen la URL del <code>DATABASE_URL</code>: <code>#</code> (delimitador de fragment), <code>@</code>, <code>:</code>, <code>/</code>, <code>?</code>, <code>;</code>, <code>)</code>. Si la contrasenya els cont&eacute;, cal codificar-la (<code>#</code>&rarr;<code>%23</code>, <code>@</code>&rarr;<code>%40</code>, <code>:</code>&rarr;<code>%3A</code>, etc.) o triar-ne una nom&eacute;s amb lletres, n&uacute;meros i s&iacute;mbols segurs (<code>-_.~</code>).</div>
 
 <!-- ============ 5. CONFIGURAR APP ============ -->
 <h2>5. Descarregar i Configurar l'Aplicacio</h2>
@@ -306,18 +308,37 @@ PostgreSQL (BD: fitxes_tecniques)<br/>
 
 <!-- ============ 11. MIGRAR DADES ============ -->
 <h2>11. Migrar Dades de Desenvolupament</h2>
-<p>Per pujar les dades locals (fitxes, versions, imatges) al servidor de produccio:</p>
+<p>Les dades de desenvolupament (fitxes, versions, imatges, usuaris) s'han de migrar al servidor de producci&oacute;. Hi ha dos fitxers a transferir:</p>
+<ul>
+  <li><b>fitxes_backup.dump</b> &mdash; Backup de la base de dades PostgreSQL</li>
+  <li><b>fitxes_uploads.tar.gz</b> &mdash; Carpeta uploads amb PDFs i imatges de certificaci&oacute;</li>
+</ul>
 
-<h3>11.1 Exportar BD local (des del PC Windows)</h3>
-<div class="cmd"># Al PC de desenvolupament (Windows):<br/>cd P:\\fitxestecniques\\backend<br/>pg_dump -U postgres -F c fitxes_tecniques > fitxes_backup.dump</div>
+<h3>11.1 Exportar BD local (PC Windows, PowerShell)</h3>
+<div class="cmd">cd P:\fitxestecniques\backend<br/>&amp; "C:\Program Files\PostgreSQL\17\bin\pg_dump.exe" -U postgres -F c fitxes_tecniques &gt; fitxes_backup.dump</div>
+<div class="note">Demanar&agrave; la contrasenya de l'usuari postgres de PostgreSQL local.</div>
 
-<h3>11.2 Copiar fitxers al servidor</h3>
-<div class="cmd"># Copiar backup BD i uploads al servidor via SCP:<br/>scp fitxes_backup.dump usuari@IP_SERVIDOR:/tmp/<br/>scp -r uploads/ usuari@IP_SERVIDOR:/tmp/fitxes_uploads/</div>
+<h3>11.2 Comprimir uploads (PC Windows, PowerShell)</h3>
+<div class="cmd">cd P:\fitxestecniques\backend<br/>tar czf fitxes_uploads.tar.gz uploads/</div>
 
-<h3>11.3 Restaurar al servidor</h3>
-<div class="cmd"># Al servidor Ubuntu:<br/>sudo -u postgres pg_restore -c -d fitxes_tecniques /tmp/fitxes_backup.dump<br/><br/># Copiar uploads<br/>sudo cp -r /tmp/fitxes_uploads/* /var/www/fitxes-tecniques/backend/uploads/<br/>sudo chown -R www-data:www-data /var/www/fitxes-tecniques/backend/uploads/<br/><br/># Reiniciar<br/>sudo systemctl restart fitxes-tecniques</div>
+<h3>11.3 Copiar fitxers al servidor Ubuntu</h3>
+<p>Amb SCP des del PC Windows (cal tenir acces SSH al servidor):</p>
+<div class="cmd">scp P:\fitxestecniques\backend\fitxes_backup.dump usuari@IP_SERVIDOR:/tmp/<br/>scp P:\fitxestecniques\backend\fitxes_uploads.tar.gz usuari@IP_SERVIDOR:/tmp/</div>
+<div class="note">Alternativa: copiar els fitxers a una carpeta de xarxa compartida i descarregar-los des del servidor.</div>
 
-<div class="note">Despr&eacute;s de restaurar, verificar que les fitxes apareixen al navegador i que les imatges de certificacio es mostren correctament.</div>
+<h3>11.4 Restaurar al servidor Ubuntu (SSH)</h3>
+<div class="cmd"># Restaurar base de dades<br/>sudo -u postgres pg_restore --clean --if-exists \\<br/>&nbsp;&nbsp;-d fitxes_tecniques /tmp/fitxes_backup.dump<br/><br/># Restaurar uploads (PDFs + imatges)<br/>cd /var/www/fitxes-tecniques/backend<br/>sudo tar xzf /tmp/fitxes_uploads.tar.gz<br/><br/># Corregir permisos<br/>sudo chown -R www-data:www-data uploads/<br/><br/># Reiniciar el servei<br/>sudo systemctl restart fitxes-tecniques</div>
+
+<h3>11.5 Verificar la migraci&oacute;</h3>
+<ul>
+  <li>Obrir <code>http://fitxesfc.agrienergia.local</code> al navegador</li>
+  <li>Verificar que totes les fitxes apareixen a la llista</li>
+  <li>Obrir una fitxa i comprovar que el contingut, imatges i versions es mostren</li>
+  <li>Provar la vista pr&egrave;via PDF</li>
+  <li>Provar la distribuci&oacute; a FTP (si el servidor t&eacute; acces)</li>
+</ul>
+
+<div class="warning">IMPORTANT: Despr&eacute;s de migrar, els usuaris han d'entrar amb les credencials que tenien en desenvolupament. Si cal canviar contrasenyes, fer-ho des de Configuraci&oacute; &gt; Usuaris.</div>
 
 <!-- ============ 12. BACKUPS ============ -->
 <h2>12. Backups i Manteniment</h2>
@@ -393,7 +414,7 @@ PostgreSQL (BD: fitxes_tecniques)<br/>
 
 
 def main():
-    output_path = '../Fitxes_Tecniques_Guia_Desplegament.pdf'
+    output_path = '../Fitxes_Tecniques_Guia_Desplegament_v3.pdf'
     result = io.BytesIO()
     pdf = pisa.pisaDocument(io.StringIO(HTML), result, encoding='utf-8')
 
