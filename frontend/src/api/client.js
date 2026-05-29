@@ -25,8 +25,14 @@ async function request(path, options = {}) {
   }
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Error desconegut' }));
-    throw new Error(error.error || `Error ${response.status}`);
+    const raw = await response.text().catch(() => '');
+    let parsed = null;
+    try { parsed = raw ? JSON.parse(raw) : null; } catch { /* no JSON */ }
+    if (parsed && parsed.error) {
+      throw new Error(parsed.error);
+    }
+    const body = raw ? raw.slice(0, 300) : '(resposta buida)';
+    throw new Error(`HTTP ${response.status}: ${body}`);
   }
 
   return response.json();

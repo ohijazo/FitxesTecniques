@@ -9,6 +9,8 @@ Permisos minims requerits a Azure AD (Application permissions):
 
 import os
 import time
+import logging
+from urllib.parse import quote
 import requests
 
 try:
@@ -16,6 +18,17 @@ try:
     MSAL_AVAILABLE = True
 except ImportError:
     MSAL_AVAILABLE = False
+
+LOG = logging.getLogger(__name__)
+
+
+def _quote_path(p):
+    """URL-encode un path conservant els separadors '/'.
+
+    Graph API requereix paths percent-encoded quan contenen espais, accents,
+    parèntesi, comes, etc. (ex.: 'Documentació Comercial(FT, fotos,...)').
+    """
+    return quote(p or '', safe='/')
 
 
 GRAPH_BASE = 'https://graph.microsoft.com/v1.0'
@@ -93,7 +106,7 @@ def _resolve_site_drive(token, config):
     site_id = (config.get('site_id') or '').strip()
     if not site_id:
         hostname, site_path = _parse_site_url(site_url)
-        url = f"{GRAPH_BASE}/sites/{hostname}:{site_path}"
+        url = f"{GRAPH_BASE}/sites/{hostname}:{_quote_path(site_path)}"
         try:
             r = requests.get(url, headers=headers, timeout=30)
         except requests.RequestException as e:
@@ -155,7 +168,7 @@ def _ensure_folder(token, site_id, drive_id, folder_path):
     headers = {'Authorization': f'Bearer {token}'}
 
     # Comprovar si ja existeix
-    url = f"{GRAPH_BASE}/sites/{site_id}/drives/{drive_id}/root:/{folder}"
+    url = f"{GRAPH_BASE}/sites/{site_id}/drives/{drive_id}/root:/{_quote_path(folder)}"
     try:
         r = requests.get(url, headers=headers, timeout=30)
     except requests.RequestException as e:
@@ -163,6 +176,7 @@ def _ensure_folder(token, site_id, drive_id, folder_path):
     if r.status_code == 200:
         return True, None
     if r.status_code != 404:
+        LOG.warning('[SharePoint] GET carpeta %s -> %s: %s', folder, r.status_code, r.text[:300])
         return False, f"Error comprovant carpeta ({r.status_code}): {r.text[:200]}"
 
     # Crear segment a segment
@@ -170,7 +184,7 @@ def _ensure_folder(token, site_id, drive_id, folder_path):
     parent = ''
     for seg in segments:
         if parent:
-            create_url = f"{GRAPH_BASE}/sites/{site_id}/drives/{drive_id}/root:/{parent}:/children"
+            create_url = f"{GRAPH_BASE}/sites/{site_id}/drives/{drive_id}/root:/{_quote_path(parent)}:/children"
         else:
             create_url = f"{GRAPH_BASE}/sites/{site_id}/drives/{drive_id}/root/children"
         body = {
@@ -187,6 +201,7 @@ def _ensure_folder(token, site_id, drive_id, folder_path):
         except requests.RequestException as e:
             return False, f"Error creant carpeta '{seg}': {e}"
         if r.status_code not in (200, 201, 409):
+            LOG.warning('[SharePoint] CREATE carpeta %s -> %s: %s', seg, r.status_code, r.text[:300])
             return False, f"No s'ha pogut crear '{seg}' ({r.status_code}): {r.text[:200]}"
         parent = f"{parent}/{seg}" if parent else seg
 
@@ -195,7 +210,7 @@ def _ensure_folder(token, site_id, drive_id, folder_path):
 
 def _simple_upload(token, site_id, drive_id, item_path, pdf_path):
     """Upload simple per fitxers < 4 MB."""
-    url = f"{GRAPH_BASE}/sites/{site_id}/drives/{drive_id}/root:{item_path}:/content"
+    url = f"{GRAPH_BASE}/sites/{site_id}/drives/{drive_id}/root:{_quote_path(item_path)}:/content"
     headers = {
         'Authorization': f'Bearer {token}',
         'Content-Type': 'application/pdf',
@@ -207,13 +222,14 @@ def _simple_upload(token, site_id, drive_id, item_path, pdf_path):
     except requests.RequestException as e:
         return None, f"Error pujant (simple): {e}"
     if r.status_code not in (200, 201):
+        LOG.warning('[SharePoint] PUT %s -> %s: %s', item_path, r.status_code, r.text[:300])
         return None, f"Pujada simple fallida ({r.status_code}): {r.text[:300]}"
     return r.json(), None
 
 
 def _session_upload(token, site_id, drive_id, item_path, pdf_path):
     """Upload session per fitxers >= 4 MB (chunked)."""
-    create_url = f"{GRAPH_BASE}/sites/{site_id}/drives/{drive_id}/root:{item_path}:/createUploadSession"
+    create_url = f"{GRAPH_BASE}/sites/{site_id}/drives/{drive_id}/root:{_quote_path(item_path)}:/createUploadSession"
     headers = {
         'Authorization': f'Bearer {token}',
         'Content-Type': 'application/json',
@@ -339,7 +355,7 @@ def eliminar_sharepoint(art_codi, config, filename=None):
     folder_path = config.get('folder_path') or ''
     item_path = _build_item_path(folder_path, filename)
 
-    url = f"{GRAPH_BASE}/sites/{site_id}/drives/{drive_id}/root:{item_path}"
+    url = f"{GRAPH_BASE}/sites/{site_id}/drives/{drive_id}/root:{_quote_path(item_path)}"
     headers = {'Authorization': f'Bearer {token}'}
     try:
         r = requests.delete(url, headers=headers, timeout=30)
