@@ -22,11 +22,20 @@ def _generar_nom_fitxer(patro, fitxa, versio):
     return nom
 
 
-def _executar_distribucio(dist, fitxa, versio, desti):
-    """Executa la distribució segons el tipus de destí."""
+def _executar_distribucio(dist, fitxa, versio, desti, executat_by=None):
+    """Executa la distribució segons el tipus de destí.
+
+    executat_by: email de l'usuari (si None, intenta llegir-lo de request.usuari
+    per compatibilitat amb endpoints HTTP; el worker resident l'ha de passar explícit).
+    """
     dist.intents += 1
     dist.executat_at = datetime.now(timezone.utc)
-    dist.executat_by = request.usuari.get('email', '')
+    if executat_by is None:
+        try:
+            executat_by = request.usuari.get('email', '')
+        except (RuntimeError, AttributeError):
+            executat_by = ''
+    dist.executat_by = executat_by
 
     if desti.tipus == 'ftp':
         from app.services.ftp_distributor import distribuir_ftp

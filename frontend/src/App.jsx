@@ -12,6 +12,10 @@ import AdminDestins from './pages/AdminDestins';
 import AdminSeccions from './pages/AdminSeccions';
 import ControlRevisions from './pages/ControlRevisions';
 import AdminEliminacions from './pages/AdminEliminacions';
+import JobDetail from './pages/JobDetail';
+import Jobs from './pages/Jobs';
+import BulkEdit from './pages/BulkEdit';
+import BulkDistribuir from './pages/BulkDistribuir';
 import Ajuda from './pages/Ajuda';
 
 function ProtectedRoute({ children, usuari, rolsPermesos }) {
@@ -49,6 +53,7 @@ function NavBar({ usuari, onLogout }) {
                 <Link to="/admin/seccions" onClick={() => setShowConfig(false)}>Camps</Link>
                 <Link to="/control-revisions" onClick={() => setShowConfig(false)}>Control revisions</Link>
                 <Link to="/admin/eliminacions" onClick={() => setShowConfig(false)}>Eliminacions</Link>
+                <Link to="/jobs" onClick={() => setShowConfig(false)}>Jobs massius</Link>
               </div>
             )}
           </li>
@@ -63,6 +68,7 @@ function NavBar({ usuari, onLogout }) {
             {showConfig && (
               <div className="nav-dropdown">
                 <Link to="/admin/destins" onClick={() => setShowConfig(false)}>Destins</Link>
+                <Link to="/jobs" onClick={() => setShowConfig(false)}>Jobs massius</Link>
               </div>
             )}
           </li>
@@ -159,10 +165,16 @@ function App() {
               usuari ? <Navigate to="/" /> : <Login onLogin={handleLogin} />
             } />
             <Route path="/" element={
-              <ProtectedRoute usuari={usuari}><LlistaFitxes /></ProtectedRoute>
+              <ProtectedRoute usuari={usuari}><LlistaFitxes usuari={usuari} /></ProtectedRoute>
             } />
             <Route path="/fitxes/nova" element={
               <ProtectedRoute usuari={usuari} rolsPermesos={['admin', 'editor']}><NovaFitxa /></ProtectedRoute>
+            } />
+            <Route path="/fitxes/bulk-edit" element={
+              <ProtectedRoute usuari={usuari} rolsPermesos={['admin']}><BulkEdit /></ProtectedRoute>
+            } />
+            <Route path="/fitxes/bulk-distribuir" element={
+              <ProtectedRoute usuari={usuari} rolsPermesos={['admin', 'editor', 'distribuidor']}><BulkDistribuir /></ProtectedRoute>
             } />
             <Route path="/fitxes/:id" element={
               <ProtectedRoute usuari={usuari}><DetallFitxa /></ProtectedRoute>
@@ -184,6 +196,12 @@ function App() {
             } />
             <Route path="/admin/eliminacions" element={
               <ProtectedRoute usuari={usuari} rolsPermesos={['admin']}><AdminEliminacions /></ProtectedRoute>
+            } />
+            <Route path="/jobs" element={
+              <ProtectedRoute usuari={usuari} rolsPermesos={['admin', 'editor', 'distribuidor']}><Jobs /></ProtectedRoute>
+            } />
+            <Route path="/jobs/:id" element={
+              <ProtectedRoute usuari={usuari} rolsPermesos={['admin', 'editor', 'distribuidor']}><JobDetail /></ProtectedRoute>
             } />
             <Route path="/ajuda" element={
               <ProtectedRoute usuari={usuari}><Ajuda /></ProtectedRoute>

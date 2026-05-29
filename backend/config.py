@@ -11,6 +11,11 @@ class Config:
         'postgresql://postgres:postgres@localhost:5432/fitxes_tecniques'
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    # Pool config: defensa contra connexions mortes en jobs llargs (background worker)
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_pre_ping': True,
+        'pool_recycle': 3600,
+    }
 
     # Entorn: development | production
     FLASK_ENV = os.environ.get('FLASK_ENV', 'development')

@@ -13,7 +13,7 @@ function arrayMove(arr, from, to) {
 /* ============================================================
    DEFAULT SECTIONS
    ============================================================ */
-const DEFAULT_SECTIONS = [
+export const DEFAULT_SECTIONS = [
   {
     id: 'ident', label: 'Identificación del producto / Identificació del producte',
     items: [

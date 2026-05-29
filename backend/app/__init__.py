@@ -24,12 +24,22 @@ def create_app():
     from app.routes.distribucions import distribucions_bp
     from app.routes.admin import admin_bp
     from app.routes.auth import auth_bp
+    from app.routes.jobs import jobs_bp
+    from app.routes.bulk import bulk_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api')
     app.register_blueprint(fitxes_bp, url_prefix='/api')
     app.register_blueprint(versions_bp, url_prefix='/api')
     app.register_blueprint(distribucions_bp, url_prefix='/api')
     app.register_blueprint(admin_bp, url_prefix='/api')
+    app.register_blueprint(jobs_bp, url_prefix='/api')
+    app.register_blueprint(bulk_bp, url_prefix='/api')
+
+    # Worker resident per processar JobBulk en background
+    # Es llança un cop per procés (idempotent). Desactivable amb ENABLE_JOB_WORKER=0.
+    if not app.config.get('TESTING'):
+        from app.services.job_worker import iniciar_worker
+        iniciar_worker(app)
 
     # Comanda per crear l'admin inicial
     @app.cli.command('crear-admin')

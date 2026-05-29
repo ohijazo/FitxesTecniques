@@ -269,6 +269,92 @@ class CampFitxa(db.Model):
         }
 
 
+class JobBulk(db.Model):
+    """Job d'una operació massiva (distribució o edició). Audit trail: no s'esborra mai."""
+    __tablename__ = 'job_bulk'
+
+    id = db.Column(db.Integer, primary_key=True)
+    tipus = db.Column(db.String(40), nullable=False)  # 'distribucio_massiva' | ...
+    estat = db.Column(db.String(20), nullable=False, default='creat')
+    # estats: creat | processant | acabat | interromput | error
+    total_items = db.Column(db.Integer, default=0)
+    items_ok = db.Column(db.Integer, default=0)
+    items_error = db.Column(db.Integer, default=0)
+    items_pendents = db.Column(db.Integer, default=0)
+    params = db.Column(db.JSON)
+    created_by = db.Column(db.String(200))
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    started_at = db.Column(db.DateTime, nullable=True)
+    finished_at = db.Column(db.DateTime, nullable=True)
+    arxivat = db.Column(db.Boolean, default=False)
+
+    items = db.relationship('JobItem', backref='job',
+                            lazy='dynamic', cascade='all, delete-orphan')
+
+    def _resolve_nom(self, email):
+        if not email:
+            return None
+        u = Usuari.query.filter_by(email=email).first()
+        return u.nom if u else email
+
+    def to_dict(self, include_stats=True):
+        data = {
+            'id': self.id,
+            'tipus': self.tipus,
+            'estat': self.estat,
+            'total_items': self.total_items or 0,
+            'items_ok': self.items_ok or 0,
+            'items_error': self.items_error or 0,
+            'items_pendents': self.items_pendents or 0,
+            'params': self.params,
+            'created_by': self._resolve_nom(self.created_by),
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'started_at': self.started_at.isoformat() if self.started_at else None,
+            'finished_at': self.finished_at.isoformat() if self.finished_at else None,
+            'arxivat': self.arxivat or False,
+        }
+        return data
+
+
+class JobItem(db.Model):
+    """Item individual d'un JobBulk (una operació atòmica)."""
+    __tablename__ = 'job_item'
+
+    id = db.Column(db.Integer, primary_key=True)
+    job_id = db.Column(db.Integer, db.ForeignKey('job_bulk.id'), nullable=False, index=True)
+    fitxa_id = db.Column(db.Integer, db.ForeignKey('fitxa_tecnica.id'), nullable=False)
+    desti_id = db.Column(db.Integer, db.ForeignKey('desti_distribucio.id'), nullable=True)
+    estat = db.Column(db.String(20), nullable=False, default='pendent')
+    # estats: pendent | processant | ok | error | omes
+    missatge_error = db.Column(db.Text)
+    executat_at = db.Column(db.DateTime, nullable=True)
+    intent_count = db.Column(db.Integer, default=0)
+    locked_at = db.Column(db.DateTime, nullable=True)
+
+    fitxa = db.relationship('FitxaTecnica')
+    desti = db.relationship('DestiDistribucio')
+
+    __table_args__ = (
+        db.Index('ix_job_item_job_estat', 'job_id', 'estat'),
+        db.Index('ix_job_item_estat_locked', 'estat', 'locked_at'),
+    )
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'job_id': self.job_id,
+            'fitxa_id': self.fitxa_id,
+            'fitxa_codi': self.fitxa.art_codi if self.fitxa else None,
+            'fitxa_nom': self.fitxa.nom_producte if self.fitxa else None,
+            'desti_id': self.desti_id,
+            'desti_nom': self.desti.nom if self.desti else None,
+            'estat': self.estat,
+            'missatge_error': self.missatge_error,
+            'executat_at': self.executat_at.isoformat() if self.executat_at else None,
+            'intent_count': self.intent_count or 0,
+        }
+
+
 class RegistreEliminacio(db.Model):
     """Registre d'audit per fitxes eliminades."""
     __tablename__ = 'registre_eliminacio'

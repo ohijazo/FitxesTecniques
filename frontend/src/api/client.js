@@ -120,4 +120,21 @@ export const api = {
   detallDesti: (id) => request(`/admin/destins/${id}`),
   editarDesti: (id, data) => request(`/admin/destins/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   eliminarDesti: (id) => request(`/admin/destins/${id}`, { method: 'DELETE' }),
+
+  // Jobs massius
+  crearJobDistribucio: (data) => request('/jobs/distribucio-massiva', { method: 'POST', body: JSON.stringify(data) }),
+  llistarJobs: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request(`/jobs${query ? `?${query}` : ''}`);
+  },
+  detallJob: (id) => request(`/jobs/${id}`),
+  itemsJob: (id, params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request(`/jobs/${id}/items${query ? `?${query}` : ''}`);
+  },
+  reprendreJob: (id) => request(`/jobs/${id}/reprendre`, { method: 'POST' }),
+  arxivarJob: (id) => request(`/jobs/${id}/arxivar`, { method: 'POST' }),
+
+  // Bulk edit
+  bulkEditFitxes: (data) => request('/fitxes/bulk-edit', { method: 'POST', body: JSON.stringify(data) }),
 };

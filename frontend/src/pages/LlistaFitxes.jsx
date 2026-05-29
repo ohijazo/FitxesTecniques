@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useToast } from '../components/Toast';
+import BulkActionBar from '../components/BulkActionBar';
 
 function DistBadge({ resum }) {
   if (!resum) return <span className="dist-badge dist-none" title="Sense versió activa">&mdash;</span>;
@@ -28,19 +29,21 @@ function DistBadge({ resum }) {
   );
 }
 
-function LlistaFitxes() {
+function LlistaFitxes({ usuari }) {
   const [fitxes, setFitxes] = useState([]);
   const [cerca, setCerca] = useState('');
   const [estat, setEstat] = useState(() => localStorage.getItem('filtre_estat') || '');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [total, setTotal] = useState(0);
+  const [seleccionats, setSeleccionats] = useState(() => new Set());
   const toast = useToast();
+  const navigate = useNavigate();
 
   const carregarFitxes = async (textCerca = '', filtreEstat = estat) => {
     setLoading(true);
     try {
-      const params = { per_page: 50 };
+      const params = { per_page: 200 };
       if (textCerca) params.cerca = textCerca;
       if (filtreEstat) params.estat = filtreEstat;
       const data = await api.llistarFitxes(params);
@@ -86,6 +89,41 @@ function LlistaFitxes() {
     }
   };
 
+  // Selecció múltiple
+  const idsVisibles = useMemo(() => fitxes.map((f) => f.id), [fitxes]);
+  const totsSeleccionats = idsVisibles.length > 0 && idsVisibles.every((id) => seleccionats.has(id));
+  const algunSeleccionat = idsVisibles.some((id) => seleccionats.has(id));
+
+  const toggleFitxa = (id) => {
+    setSeleccionats((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleTots = () => {
+    setSeleccionats((prev) => {
+      const next = new Set(prev);
+      if (totsSeleccionats) {
+        idsVisibles.forEach((id) => next.delete(id));
+      } else {
+        idsVisibles.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const deseleccionar = () => setSeleccionats(new Set());
+
+  const obrirEdicioMassiva = () => {
+    navigate('/fitxes/bulk-edit', { state: { fitxa_ids: [...seleccionats] } });
+  };
+
+  const obrirDistribucioMassiva = () => {
+    navigate('/fitxes/bulk-distribuir', { state: { fitxa_ids: [...seleccionats] } });
+  };
 
   return (
     <>
@@ -135,6 +173,18 @@ function LlistaFitxes() {
           <table>
             <thead>
               <tr>
+                <th className="table-checkbox-col">
+                  <input
+                    type="checkbox"
+                    checked={totsSeleccionats}
+                    ref={(el) => {
+                      if (el) el.indeterminate = !totsSeleccionats && algunSeleccionat;
+                    }}
+                    onChange={toggleTots}
+                    aria-label="Selecciona tots els visibles"
+                    title="Selecciona tots els visibles"
+                  />
+                </th>
                 <th>Codi</th>
                 <th>Producte</th>
                 <th>Rev.</th>
@@ -145,42 +195,61 @@ function LlistaFitxes() {
               </tr>
             </thead>
             <tbody>
-              {fitxes.map((f) => (
-                <tr key={f.id}>
-                  <td>
-                    <Link to={`/fitxes/${f.id}`} style={{ fontWeight: 600 }}>
-                      <code>{f.art_codi}</code>
-                    </Link>
-                  </td>
-                  <td>
-                    <Link to={`/fitxes/${f.id}`} style={{ color: 'var(--gray-800)' }}>
-                      {f.nom_producte}
-                    </Link>
-                  </td>
-                  <td style={{ textAlign: 'center', color: 'var(--gray-600)', fontWeight: 600 }}>
-                    {f.versio_activa != null ? f.versio_activa : '-'}
-                  </td>
-                  <td><span className={`badge ${f.estat}`}>{f.estat}</span></td>
-                  <td><DistBadge resum={f.dist_resum} /></td>
-                  <td style={{ color: 'var(--gray-500)', fontSize: '0.85rem' }}>
-                    {f.updated_at ? new Date(f.updated_at).toLocaleDateString('ca') : '-'}
-                  </td>
-                  <td>
-                    <div className="quick-actions">
-                      <button className="outline secondary btn-sm" onClick={() => descarregarPdf(f)} title="Descarregar PDF">
-                        PDF
-                      </button>
-                      <Link to={`/fitxes/${f.id}`} className="outline secondary btn-sm" role="button">
-                        Veure
+              {fitxes.map((f) => {
+                const checked = seleccionats.has(f.id);
+                return (
+                  <tr key={f.id} className={checked ? 'row-selected' : ''}>
+                    <td className="table-checkbox-col">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleFitxa(f.id)}
+                        aria-label={`Selecciona ${f.art_codi}`}
+                      />
+                    </td>
+                    <td>
+                      <Link to={`/fitxes/${f.id}`} style={{ fontWeight: 600 }}>
+                        <code>{f.art_codi}</code>
                       </Link>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td>
+                      <Link to={`/fitxes/${f.id}`} style={{ color: 'var(--gray-800)' }}>
+                        {f.nom_producte}
+                      </Link>
+                    </td>
+                    <td style={{ textAlign: 'center', color: 'var(--gray-600)', fontWeight: 600 }}>
+                      {f.versio_activa != null ? f.versio_activa : '-'}
+                    </td>
+                    <td><span className={`badge ${f.estat}`}>{f.estat}</span></td>
+                    <td><DistBadge resum={f.dist_resum} /></td>
+                    <td style={{ color: 'var(--gray-500)', fontSize: '0.85rem' }}>
+                      {f.updated_at ? new Date(f.updated_at).toLocaleDateString('ca') : '-'}
+                    </td>
+                    <td>
+                      <div className="quick-actions">
+                        <button className="outline secondary btn-sm" onClick={() => descarregarPdf(f)} title="Descarregar PDF">
+                          PDF
+                        </button>
+                        <Link to={`/fitxes/${f.id}`} className="outline secondary btn-sm" role="button">
+                          Veure
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
+
+      <BulkActionBar
+        count={seleccionats.size}
+        usuariRol={usuari?.rol}
+        onDistribuir={obrirDistribucioMassiva}
+        onEditar={obrirEdicioMassiva}
+        onDeseleccionar={deseleccionar}
+      />
     </>
   );
 }
