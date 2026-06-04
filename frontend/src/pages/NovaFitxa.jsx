@@ -79,10 +79,10 @@ function NovaFitxa() {
         categoria: formData.categoria,
         descripcio_canvi: formData.descripcio_canvi || 'Creació inicial',
         contingut: formData.contingut,
-        // Metadades de capçalera del Word
-        rev: wordResult?.rev || '',
-        data_revisio: wordResult?.data_revisio || '',
-        data_comprovacio: wordResult?.data_comprovacio || '',
+        // Metadades de capçalera (editades al formulari, predefinides des del Word)
+        rev: formData.rev || '',
+        data_revisio: formData.data_revisio || '',
+        data_comprovacio: formData.data_comprovacio || '',
         // Token de les imatges extretes del Word per moure-les a la fitxa
         imatges_temp_token: wordResult?.imatges_temp_token || null,
       });

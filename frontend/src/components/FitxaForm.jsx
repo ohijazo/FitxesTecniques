@@ -377,7 +377,7 @@ function formatDate(isoStr) {
   } catch { return isoStr; }
 }
 
-function PdfPageHeader({ rev, dataRevisio, dataComprovacio }) {
+function PdfPageHeader({ rev, dataRevisio, dataComprovacio, editable, onRevChange, onDataRevisioChange, onDataComprovacioChange }) {
   return (
     <table className="pdf-header">
       <tbody>
@@ -386,10 +386,54 @@ function PdfPageHeader({ rev, dataRevisio, dataComprovacio }) {
             <img src="/logo.png" alt="Farinera Coromina" className="pdf-logo-img" />
           </td>
           <td className="pdf-header-title" rowSpan={3}>FICHA T&Eacute;CNICA / FITXA T&Egrave;CNICA</td>
-          <td className="pdf-header-meta">Rev.: {rev ?? '-'}</td>
+          <td className="pdf-header-meta">
+            Rev.:{' '}
+            {editable ? (
+              <input
+                type="number"
+                min="0"
+                value={rev ?? ''}
+                onChange={(e) => onRevChange && onRevChange(e.target.value)}
+                className="pdf-header-input"
+                style={{ width: '4em', display: 'inline-block', margin: 0, padding: '0 0.2em' }}
+              />
+            ) : (
+              rev ?? '-'
+            )}
+          </td>
         </tr>
-        <tr><td className="pdf-header-meta">Fecha/Data Rev: {dataRevisio || '-'}</td></tr>
-        <tr><td className="pdf-header-meta">Fecha/Data Comprov.: {dataComprovacio || '-'}</td></tr>
+        <tr>
+          <td className="pdf-header-meta">
+            Fecha/Data Rev:{' '}
+            {editable ? (
+              <input
+                type="date"
+                value={dataRevisio || ''}
+                onChange={(e) => onDataRevisioChange && onDataRevisioChange(e.target.value)}
+                className="pdf-header-input"
+                style={{ width: 'auto', display: 'inline-block', margin: 0, padding: '0 0.2em' }}
+              />
+            ) : (
+              dataRevisio || '-'
+            )}
+          </td>
+        </tr>
+        <tr>
+          <td className="pdf-header-meta">
+            Fecha/Data Comprov.:{' '}
+            {editable ? (
+              <input
+                type="date"
+                value={dataComprovacio || ''}
+                onChange={(e) => onDataComprovacioChange && onDataComprovacioChange(e.target.value)}
+                className="pdf-header-input"
+                style={{ width: 'auto', display: 'inline-block', margin: 0, padding: '0 0.2em' }}
+              />
+            ) : (
+              dataComprovacio || '-'
+            )}
+          </td>
+        </tr>
       </tbody>
     </table>
   );
@@ -637,6 +681,21 @@ function CertImageEditor({ contingut, onChange, fitxaId }) {
 /* ============================================================
    FITXA FORM (editor amb sidebar nav)
    ============================================================ */
+function _toDateInput(val) {
+  // Converteix Date ISO o 'dd/mm/yyyy' a 'yyyy-mm-dd' per a inputs type=date
+  if (!val) return '';
+  const s = String(val).trim();
+  if (!s) return '';
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+  if (m) {
+    const dd = m[1].padStart(2, '0');
+    const mm = m[2].padStart(2, '0');
+    return `${m[3]}-${mm}-${dd}`;
+  }
+  return '';
+}
+
 function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId }) {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -644,11 +703,27 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId }) {
   const formRef = useRef(null);
   const c = initialData.contingut || {};
 
+  // Capçalera: prioritzar valors de la versió (BD), després initialData (Word), després contingut
+  const initialRev = (
+    initialData.rev !== undefined && initialData.rev !== ''
+      ? String(initialData.rev)
+      : (versio?.num_versio != null ? String(versio.num_versio) : (c.rev || ''))
+  );
+  const initialDataRev = _toDateInput(
+    initialData.data_revisio || versio?.data_revisio || c.data_revisio || ''
+  );
+  const initialDataComp = _toDateInput(
+    initialData.data_comprovacio || versio?.data_comprovacio || c.data_comprovacio || ''
+  );
+
   const [form, setForm] = useState({
     art_codi: initialData.art_codi || '',
     nom_producte: initialData.nom_producte || '',
     categoria: initialData.categoria || '',
     descripcio_canvi: initialData.descripcio_canvi || '',
+    rev: initialRev,
+    data_revisio: initialDataRev,
+    data_comprovacio: initialDataComp,
   });
 
   const [contingut, setContingut] = useState(c);
@@ -782,10 +857,17 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId }) {
     if (!form.descripcio_canvi.trim()) { alert('Cal indicar la descripció del canvi.'); return; }
     setSaving(true);
     try {
+      // El contingut ja no ha de portar rev/data_revisio/data_comprovacio
+      // (són metadades pròpies de la versió ara). Els netejem per evitar duplicar info.
+      const contingutNet = { ...contingut };
+      delete contingutNet.rev;
+      delete contingutNet.data_revisio;
+      delete contingutNet.data_comprovacio;
+
       await onSubmit({
         ...form,
         contingut: {
-          ...contingut,
+          ...contingutNet,
           codi_referencia: form.art_codi || contingut.codi_referencia,
           denominacio_comercial: contingut.denominacio_comercial || form.nom_producte,
         },
@@ -833,11 +915,15 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId }) {
 
         {/* Document */}
         <div className="pdf-document">
-          {/* Capsalera — logo + dades de versio (read-only) */}
+          {/* Capsalera — logo + dades de versio (editable) */}
           <PdfPageHeader
-            rev={isNew ? '-' : (versio?.num_versio ?? contingut.rev ?? '-')}
-            dataRevisio={versio?.created_at ? formatDate(versio.created_at) : (contingut.data_revisio || '-')}
-            dataComprovacio={versio?.data_comprovacio ? formatDate(versio.data_comprovacio) : (contingut.data_comprovacio || '-')}
+            editable
+            rev={form.rev}
+            dataRevisio={form.data_revisio}
+            dataComprovacio={form.data_comprovacio}
+            onRevChange={(v) => updateForm({ ...form, rev: v })}
+            onDataRevisioChange={(v) => updateForm({ ...form, data_revisio: v })}
+            onDataComprovacioChange={(v) => updateForm({ ...form, data_comprovacio: v })}
           />
 
           {/* Imatges de certificacio (editables) */}

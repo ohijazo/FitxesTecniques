@@ -761,73 +761,6 @@ function CanviEstatInactivaModal({ fitxa, distribucions, onDone, onClose }) {
 }
 
 
-function EditarMetadadesModal({ fitxa, versio, onDone, onClose }) {
-  const [rev, setRev] = useState(String(versio?.num_versio ?? ''));
-  const [dataRev, setDataRev] = useState(versio?.data_revisio ? versio.data_revisio.slice(0, 10) : '');
-  const [dataComp, setDataComp] = useState(versio?.data_comprovacio ? versio.data_comprovacio.slice(0, 10) : '');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const toast = useToast();
-
-  const guardar = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    try {
-      await api.actualitzarMetadadesVersio(fitxa.id, versio.id, {
-        num_versio: rev,
-        data_revisio: dataRev || null,
-        data_comprovacio: dataComp || null,
-      });
-      toast.success('Capçalera actualitzada');
-      onDone();
-    } catch (err) {
-      setError(err.message);
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h3 style={{ margin: 0 }}>Editar capçalera de la versió</h3>
-          <button className="outline secondary btn-sm" onClick={onClose}>&times;</button>
-        </div>
-
-        <p style={{ fontSize: '0.85rem', color: 'var(--gray-600)' }}>
-          Modifica les metadades de la versió activa sense crear-ne una de nova.
-        </p>
-
-        <form onSubmit={guardar}>
-          <label>
-            Rev. (núm. revisió)
-            <input type="number" min="0" value={rev} onChange={(e) => setRev(e.target.value)} required />
-          </label>
-          <label>
-            Data revisió
-            <input type="date" value={dataRev} onChange={(e) => setDataRev(e.target.value)} />
-          </label>
-          <label>
-            Data comprovació
-            <input type="date" value={dataComp} onChange={(e) => setDataComp(e.target.value)} />
-          </label>
-
-          {error && <p style={{ color: 'var(--danger)', fontSize: '0.88rem', marginBottom: '0.5rem' }}>{error}</p>}
-
-          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-            <button type="button" className="outline secondary" onClick={onClose}>Cancel·lar</button>
-            <button type="submit" disabled={loading} aria-busy={loading}>
-              {loading ? 'Guardant...' : 'Guardar'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-
 function DetallFitxa() {
   const { id } = useParams();
   const location = useLocation();
@@ -914,7 +847,6 @@ function DetallFitxa() {
   const [showEliminar, setShowEliminar] = useState(false);
   const [showDuplicar, setShowDuplicar] = useState(false);
   const [showInactivar, setShowInactivar] = useState(false);
-  const [showEditMetadades, setShowEditMetadades] = useState(false);
   const [canvianEstat, setCanvianEstat] = useState(false);
   const [editingObs, setEditingObs] = useState(false);
   const [obsText, setObsText] = useState('');
@@ -1024,22 +956,7 @@ function DetallFitxa() {
               <span className={`badge ${fitxa.estat}`}>{fitxa.estat}</span>
             )}
             {fitxa.es_client && <span className="badge" style={{ background: '#e3f2fd', color: '#1565c0' }}>Client</span>}
-            {versioActiva && (
-              <span style={{ color: 'var(--gray-500)', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                Rev. {versioActiva.num_versio}
-                {(usuari.rol === 'admin' || usuari.rol === 'editor') && (
-                  <button
-                    type="button"
-                    className="outline secondary btn-sm"
-                    onClick={() => setShowEditMetadades(true)}
-                    title="Editar Rev. / Data revisió / Data comprovació"
-                    style={{ padding: '0 0.3rem', fontSize: '0.75rem', lineHeight: 1.2 }}
-                  >
-                    Editar capçalera
-                  </button>
-                )}
-              </span>
-            )}
+            {versioActiva && <span style={{ color: 'var(--gray-500)' }}>Rev. {versioActiva.num_versio}</span>}
             {verif && verif.ok === true && (
               <span className="verif-ok" title="Les dades coincideixen amb el PDF del FTP">Verificat</span>
             )}
@@ -1252,15 +1169,6 @@ function DetallFitxa() {
           distribucions={distribucions}
           onDone={() => { setShowInactivar(false); carregarDades(); }}
           onClose={() => setShowInactivar(false)}
-        />
-      )}
-
-      {showEditMetadades && versioActiva && (
-        <EditarMetadadesModal
-          fitxa={fitxa}
-          versio={versioActiva}
-          onDone={() => { setShowEditMetadades(false); carregarDades(); }}
-          onClose={() => setShowEditMetadades(false)}
         />
       )}
     </>

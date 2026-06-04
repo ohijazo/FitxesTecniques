@@ -39,6 +39,9 @@ function EditarFitxa() {
       await api.crearVersio(id, {
         descripcio_canvi: formData.descripcio_canvi,
         contingut: formData.contingut,
+        num_versio: formData.rev,
+        data_revisio: formData.data_revisio || null,
+        data_comprovacio: formData.data_comprovacio || null,
       });
 
       toast.success('Versió desada correctament');
