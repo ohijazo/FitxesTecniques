@@ -57,6 +57,11 @@ def bulk_edit_fitxes():
     canvis = data.get('canvis') or {}
     descripcio_canvi = (data.get('descripcio_canvi') or '').strip()
     password = data.get('password', '')
+    # 'crear' (defecte): si una fitxa no té el camp, es crea amb el valor nou.
+    # 'saltar': si una fitxa no té el camp, el canvi s'omet per a aquella fitxa.
+    mode_camps_nous = (data.get('mode_camps_nous') or 'crear').lower()
+    if mode_camps_nous not in ('crear', 'saltar'):
+        return jsonify({'error': "mode_camps_nous ha de ser 'crear' o 'saltar'"}), 400
 
     # Validacions
     if not isinstance(fitxa_ids, list) or not fitxa_ids:
@@ -105,9 +110,23 @@ def bulk_edit_fitxes():
                 errors.append({'fitxa_id': fid, 'error': 'Sense versió activa'})
                 continue
 
-            # Copiar contingut existent i aplicar canvis
-            contingut_nou = dict(versio_activa.contingut) if versio_activa.contingut else {}
-            for camp, valor in canvis.items():
+            # Copiar contingut existent i aplicar canvis (segons mode_camps_nous)
+            contingut_existent = dict(versio_activa.contingut) if versio_activa.contingut else {}
+            if mode_camps_nous == 'saltar':
+                aplicables = {k: v for k, v in canvis.items() if k in contingut_existent}
+            else:
+                aplicables = dict(canvis)
+
+            if not aplicables:
+                errors.append({
+                    'fitxa_id': fid,
+                    'art_codi': fitxa.art_codi,
+                    'error': "Cap canvi aplicable: la fitxa no tenia cap dels camps tocats (mode saltar)"
+                })
+                continue
+
+            contingut_nou = dict(contingut_existent)
+            for camp, valor in aplicables.items():
                 contingut_nou[camp] = valor
 
             # Calcular nou num_versio

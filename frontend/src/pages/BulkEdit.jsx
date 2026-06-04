@@ -39,8 +39,24 @@ function calcularVariants(fitxes) {
 function ConfirmModal({ fitxes, canvis, onConfirm, onCancel }) {
   const [descripcio, setDescripcio] = useState('');
   const [password, setPassword] = useState('');
+  const [modeCamps, setModeCamps] = useState('crear');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Per a cada camp tocat, llista de fitxes que NO el tenien (es crearia)
+  const novetatsPerCamp = useMemo(() => {
+    const res = {};
+    Object.keys(canvis).forEach((camp) => {
+      const sense = fitxes.filter((f) => {
+        const c = f.versions?.find((v) => v.activa)?.contingut || {};
+        return !(camp in c);
+      });
+      if (sense.length > 0) res[camp] = sense;
+    });
+    return res;
+  }, [fitxes, canvis]);
+
+  const hiHaNovetats = Object.keys(novetatsPerCamp).length > 0;
 
   const enviar = async (e) => {
     e.preventDefault();
@@ -55,7 +71,7 @@ function ConfirmModal({ fitxes, canvis, onConfirm, onCancel }) {
     setLoading(true);
     setError(null);
     try {
-      await onConfirm(descripcio.trim(), password);
+      await onConfirm(descripcio.trim(), password, modeCamps);
     } catch (err) {
       setError(err.message);
       setLoading(false);
@@ -82,6 +98,40 @@ function ConfirmModal({ fitxes, canvis, onConfirm, onCancel }) {
             {camps.map((k) => <li key={k}><code>{k}</code></li>)}
           </ul>
         </div>
+
+        {hiHaNovetats && (
+          <div style={{
+            background: '#fef3c7', borderLeft: '4px solid #f59e0b',
+            padding: '0.75rem 1rem', borderRadius: '4px', marginBottom: '1rem',
+            fontSize: '0.85rem',
+          }}>
+            <strong>&#9888; Aquests camps no existeixen a totes les fitxes:</strong>
+            <ul style={{ marginTop: '0.4rem', marginBottom: '0.6rem' }}>
+              {Object.entries(novetatsPerCamp).map(([camp, fs]) => (
+                <li key={camp}>
+                  <code>{camp}</code>: es crearia a {fs.length} fitxa(es) que no el tenien
+                  {' '}({fs.slice(0, 5).map((f) => f.art_codi).join(', ')}{fs.length > 5 ? `, +${fs.length - 5} més` : ''})
+                </li>
+              ))}
+            </ul>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4rem', margin: '0.3rem 0', cursor: 'pointer' }}>
+              <input type="radio" name="modeCamps" checked={modeCamps === 'crear'}
+                onChange={() => setModeCamps('crear')}
+                style={{ width: 'auto', margin: '4px 0 0 0' }} />
+              <span>
+                <strong>Aplicar a totes</strong> &mdash; es crearà el camp a les fitxes que no el tenien.
+              </span>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.4rem', margin: '0.3rem 0', cursor: 'pointer' }}>
+              <input type="radio" name="modeCamps" checked={modeCamps === 'saltar'}
+                onChange={() => setModeCamps('saltar')}
+                style={{ width: 'auto', margin: '4px 0 0 0' }} />
+              <span>
+                <strong>Saltar les fitxes que no el tenien</strong> &mdash; només s'aplica a fitxes que ja tenien el camp. Les que no el tenien NO es modifiquen.
+              </span>
+            </label>
+          </div>
+        )}
 
         <details style={{ marginBottom: '1rem', fontSize: '0.85rem' }}>
           <summary style={{ cursor: 'pointer' }}>Fitxes afectades ({fitxes.length})</summary>
@@ -188,14 +238,21 @@ function BulkEdit() {
     setPendingChanges(canvis);
   };
 
-  const aplicarCanvis = async (descripcio, password) => {
-    await api.bulkEditFitxes({
+  const aplicarCanvis = async (descripcio, password, modeCamps) => {
+    const res = await api.bulkEditFitxes({
       fitxa_ids: fitxes.map((f) => f.id),
       canvis: pendingChanges,
       descripcio_canvi: descripcio,
       password,
+      mode_camps_nous: modeCamps || 'crear',
     });
-    toast.success(`Canvis aplicats a ${fitxes.length} fitxes`);
+    const okCount = (res?.ok || []).length;
+    const errCount = (res?.errors || []).length;
+    if (errCount === 0) {
+      toast.success(`Canvis aplicats a ${okCount} fitxes`);
+    } else {
+      toast.success(`Aplicat a ${okCount} fitxes; ${errCount} saltades o amb error`);
+    }
     setPendingChanges(null);
     navigate('/');
   };
