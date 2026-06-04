@@ -142,6 +142,7 @@ class VersioFitxa(db.Model):
     contingut = db.Column(db.JSON)
     fitxer_docx = db.Column(db.String(500))
     fitxer_pdf = db.Column(db.String(500))
+    data_revisio = db.Column(db.DateTime, nullable=True)
     data_comprovacio = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     created_by = db.Column(db.String(100))
@@ -168,6 +169,7 @@ class VersioFitxa(db.Model):
             'contingut': self.contingut,
             'fitxer_docx': self.fitxer_docx,
             'fitxer_pdf': self.fitxer_pdf,
+            'data_revisio': self.data_revisio.isoformat() if self.data_revisio else None,
             'data_comprovacio': self.data_comprovacio.isoformat() if self.data_comprovacio else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'created_by': self._resolve_nom(self.created_by),

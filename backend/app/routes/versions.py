@@ -113,6 +113,84 @@ def crear_versio(fitxa_id):
     return jsonify(versio.to_dict()), 201
 
 
+def _parse_data(val):
+    """Parseja una data ISO o dd/mm/aaaa a datetime. None si no vàlid o buit."""
+    if val is None or val == '':
+        return None
+    if isinstance(val, datetime):
+        return val
+    s = str(val).strip()
+    if not s:
+        return None
+    try:
+        return datetime.fromisoformat(s.replace('Z', '+00:00'))
+    except ValueError:
+        pass
+    for fmt in ('%d/%m/%Y', '%d-%m-%Y', '%Y-%m-%d'):
+        try:
+            return datetime.strptime(s, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+@versions_bp.route('/fitxes/<int:fitxa_id>/versions/<int:vid>/metadades', methods=['PUT'])
+@rol_requerit('admin', 'editor')
+def actualitzar_metadades_versio(fitxa_id, vid):
+    """Edita metadades de capçalera de la versió (rev/num_versio, data_revisio,
+    data_comprovacio) sense crear una versió nova. Per a correccions d'errata."""
+    fitxa = db.get_or_404(FitxaTecnica, fitxa_id)
+    versio = VersioFitxa.query.filter_by(fitxa_id=fitxa_id, id=vid).first_or_404()
+    data = request.get_json() or {}
+
+    canvis = False
+
+    if 'rev' in data or 'num_versio' in data:
+        raw = data.get('num_versio') if 'num_versio' in data else data.get('rev')
+        if raw is None or raw == '':
+            return jsonify({'error': "rev/num_versio no pot ser buit"}), 400
+        try:
+            n = int(str(raw).strip())
+        except (ValueError, TypeError):
+            return jsonify({'error': "rev/num_versio ha de ser un enter"}), 400
+        if n < 0:
+            return jsonify({'error': "rev/num_versio ha de ser ≥ 0"}), 400
+        # Conflicte si una altra versió de la mateixa fitxa ja té aquest num
+        conflict = VersioFitxa.query.filter(
+            VersioFitxa.fitxa_id == fitxa_id,
+            VersioFitxa.num_versio == n,
+            VersioFitxa.id != versio.id,
+        ).first()
+        if conflict:
+            return jsonify({
+                'error': f"Ja existeix una altra versió amb num_versio={n}"
+            }), 409
+        versio.num_versio = n
+        canvis = True
+
+    if 'data_revisio' in data:
+        versio.data_revisio = _parse_data(data.get('data_revisio'))
+        canvis = True
+
+    if 'data_comprovacio' in data:
+        versio.data_comprovacio = _parse_data(data.get('data_comprovacio'))
+        canvis = True
+
+    if not canvis:
+        return jsonify({'error': "Cap camp per actualitzar"}), 400
+
+    db.session.commit()
+
+    # Invalidar cache PDF
+    for cached in glob.glob(os.path.join(UPLOAD_DIR, fitxa.art_codi, '**', '*_generat.pdf'), recursive=True):
+        try:
+            os.remove(cached)
+        except OSError:
+            pass
+
+    return jsonify(versio.to_dict())
+
+
 @versions_bp.route('/fitxes/<int:fitxa_id>/versions/<int:vid>/publicar', methods=['POST'])
 @rol_requerit('admin', 'editor')
 def publicar_versio(fitxa_id, vid):

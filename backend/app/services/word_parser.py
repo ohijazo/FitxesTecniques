@@ -5,7 +5,55 @@ El document segueix l'estructura estàndard de Farinera Coromina:
 - Paràgrafs amb etiqueta + valor
 - Taules de paràmetres (fisicoquímiques, reològiques, etc.)
 """
+import os
 from docx import Document
+
+
+def _extract_images(doc):
+    """Extreu totes les imatges incrustades al document.
+
+    Retorna llista de dicts: {'filename': 'image1.png', 'content_type': 'image/png', 'blob': bytes}
+    """
+    imatges = []
+    seen = set()
+    for rel_id, rel in doc.part.rels.items():
+        if 'image' not in rel.reltype:
+            continue
+        try:
+            part = rel.target_part
+        except Exception:
+            continue
+        blob = part.blob
+        if not blob:
+            continue
+        # Dedup per contingut (mateixa imatge referenciada més d'un cop)
+        sig = (len(blob), blob[:32])
+        if sig in seen:
+            continue
+        seen.add(sig)
+
+        partname = getattr(part, 'partname', '') or ''
+        original = os.path.basename(str(partname)) or f'image_{len(imatges) + 1}'
+        content_type = getattr(part, 'content_type', '') or 'image/png'
+        ext = os.path.splitext(original)[1]
+        if not ext:
+            mime_to_ext = {
+                'image/png': '.png',
+                'image/jpeg': '.jpg',
+                'image/gif': '.gif',
+                'image/webp': '.webp',
+                'image/bmp': '.bmp',
+                'image/svg+xml': '.svg',
+            }
+            ext = mime_to_ext.get(content_type, '.png')
+            original = f'{original}{ext}'
+
+        imatges.append({
+            'filename': original,
+            'content_type': content_type,
+            'blob': blob,
+        })
+    return imatges
 
 
 def _clean(text):
@@ -211,6 +259,7 @@ def parse_docx(file_path):
             - 'data_revisio': data de revisió
             - 'data_comprovacio': data de comprovació
             - 'art_codi': codi de referència (per identificar la fitxa)
+            - 'imatges': llista de dicts {'filename', 'content_type', 'blob'} extretes del docx
     """
     doc = Document(file_path)
 
@@ -274,10 +323,14 @@ def parse_docx(file_path):
     # Extreure art_codi
     art_codi = contingut.get('codi_referencia', '').strip()
 
+    # Extreure imatges incrustades
+    imatges = _extract_images(doc)
+
     return {
         'contingut': contingut,
         'rev': header_info['rev'],
         'data_revisio': header_info['data_revisio'],
         'data_comprovacio': header_info['data_comprovacio'],
         'art_codi': art_codi,
+        'imatges': imatges,
     }

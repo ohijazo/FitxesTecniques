@@ -1,7 +1,9 @@
 import io
 import os
 import re
+import shutil
 import tempfile
+import uuid
 from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, send_file, current_app
 from werkzeug.utils import secure_filename
@@ -23,12 +25,170 @@ def _validar_art_codi(art_codi):
     return True
 
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'uploads')
+TEMP_IMG_DIR = os.path.join(UPLOAD_DIR, '_temp_imatges')
+
+ALLOWED_IMG_EXT = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'}
 
 
 def _ensure_upload_dir(art_codi, num_versio):
     path = os.path.join(UPLOAD_DIR, art_codi, f'v{num_versio}')
     os.makedirs(path, exist_ok=True)
     return path
+
+
+def _parse_data(val):
+    """Parseja un valor de data del frontend o del Word.
+    Accepta ISO ('2026-06-04', '2026-06-04T...') o format 'dd/mm/aaaa'.
+    Retorna datetime o None."""
+    if not val:
+        return None
+    if isinstance(val, datetime):
+        return val
+    s = str(val).strip()
+    if not s:
+        return None
+    # ISO
+    try:
+        return datetime.fromisoformat(s.replace('Z', '+00:00'))
+    except ValueError:
+        pass
+    # dd/mm/aaaa
+    for fmt in ('%d/%m/%Y', '%d-%m-%Y', '%Y-%m-%d'):
+        try:
+            return datetime.strptime(s, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def _parse_num_versio(val, default=1):
+    """Converteix 'rev' del Word a enter. Default si no és vàlid."""
+    if val is None or val == '':
+        return default
+    try:
+        n = int(str(val).strip())
+        return n if n >= 0 else default
+    except (ValueError, TypeError):
+        return default
+
+
+def _esborrar_destins(fitxa, dest_ids):
+    """Esborra el PDF d'una fitxa dels destins indicats (FTP/xarxa).
+    Reutilitza la informació de Distribucio.missatge_error per a obtenir
+    els noms reals de fitxer distribuïts. Retorna llista de resultats."""
+    if not dest_ids:
+        return []
+
+    resultats = []
+    for desti_id in dest_ids:
+        desti = DestiDistribucio.query.get(desti_id)
+        if not desti:
+            continue
+        config = desti.configuracio or {}
+
+        dist_ok = Distribucio.query.join(VersioFitxa).filter(
+            VersioFitxa.fitxa_id == fitxa.id,
+            Distribucio.desti_id == desti_id,
+            Distribucio.estat == 'ok',
+        ).all()
+        filenames = set()
+        for d in dist_ok:
+            if d.missatge_error:
+                name = d.missatge_error.split('/')[-1].split('\\')[-1]
+                if name:
+                    filenames.add(name)
+        if not filenames:
+            filenames.add(f'{fitxa.art_codi}.pdf')
+
+        for fname in filenames:
+            if desti.tipus == 'ftp':
+                from app.services.ftp_distributor import eliminar_ftp
+                result = eliminar_ftp(fitxa.art_codi, config, fname)
+            elif desti.tipus == 'xarxa':
+                from app.services.smb_distributor import eliminar_xarxa
+                result = eliminar_xarxa(fitxa.art_codi, config, fname)
+            else:
+                result = {'ok': False, 'error': f"Tipus {desti.tipus} no suportat"}
+            resultats.append({'desti': desti.nom, 'fitxer': fname, **result})
+
+    return resultats
+
+
+def _guardar_imatges_temp(imatges):
+    """Guarda imatges extretes del Word a un directori temporal.
+    Retorna el token i la llista de filenames finals."""
+    if not imatges:
+        return None, []
+    token = uuid.uuid4().hex
+    temp_dir = os.path.join(TEMP_IMG_DIR, token)
+    os.makedirs(temp_dir, exist_ok=True)
+
+    saved = []
+    for idx, img in enumerate(imatges):
+        filename = secure_filename(img.get('filename') or f'image_{idx + 1}.png')
+        ext = os.path.splitext(filename)[1].lower()
+        if ext not in ALLOWED_IMG_EXT:
+            continue
+        dest = os.path.join(temp_dir, filename)
+        # Evitar col·lisions
+        if os.path.exists(dest):
+            name, extension = os.path.splitext(filename)
+            filename = f'{name}_{idx + 1}{extension}'
+            dest = os.path.join(temp_dir, filename)
+        with open(dest, 'wb') as f:
+            f.write(img['blob'])
+        saved.append(filename)
+
+    return token, saved
+
+
+def _moure_imatges_temp(token, art_codi):
+    """Mou imatges del directori temporal a uploads/<art_codi>/img/.
+    Retorna llista d'URLs finals."""
+    if not token:
+        return []
+    temp_dir = os.path.join(TEMP_IMG_DIR, token)
+    if not os.path.isdir(temp_dir):
+        return []
+
+    img_dir = os.path.join(UPLOAD_DIR, art_codi, 'img')
+    os.makedirs(img_dir, exist_ok=True)
+
+    urls = []
+    for filename in os.listdir(temp_dir):
+        ext = os.path.splitext(filename)[1].lower()
+        if ext not in ALLOWED_IMG_EXT:
+            continue
+        src = os.path.join(temp_dir, filename)
+        dest_name = filename
+        dest = os.path.join(img_dir, dest_name)
+        # Evitar sobreescriure
+        if os.path.exists(dest):
+            name, extension = os.path.splitext(dest_name)
+            dest_name = f'{name}_{int(datetime.now(timezone.utc).timestamp())}{extension}'
+            dest = os.path.join(img_dir, dest_name)
+        try:
+            shutil.move(src, dest)
+        except OSError:
+            continue
+        urls.append(dest_name)
+
+    # Netejar directori temp
+    try:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+    except OSError:
+        pass
+
+    return urls
+
+
+SORT_COLS = {
+    'art_codi': FitxaTecnica.art_codi,
+    'nom_producte': FitxaTecnica.nom_producte,
+    'categoria': FitxaTecnica.categoria,
+    'estat': FitxaTecnica.estat,
+    'updated_at': FitxaTecnica.updated_at,
+}
 
 
 @fitxes_bp.route('/fitxes', methods=['GET'])
@@ -53,7 +213,25 @@ def llistar_fitxes():
             )
         )
 
-    query = query.order_by(FitxaTecnica.updated_at.desc())
+    sort_by = request.args.get('sort_by', 'updated_at', type=str)
+    sort_order = request.args.get('sort_order', 'desc', type=str).lower()
+    direction = 'asc' if sort_order == 'asc' else 'desc'
+
+    if sort_by == 'versio_activa':
+        # Subquery: num_versio de la versió activa per cada fitxa
+        sub = db.session.query(
+            VersioFitxa.fitxa_id.label('fid'),
+            VersioFitxa.num_versio.label('vnum'),
+        ).filter(VersioFitxa.activa == True).subquery()
+        query = query.outerjoin(sub, sub.c.fid == FitxaTecnica.id)
+        col = sub.c.vnum
+        query = query.order_by(col.asc() if direction == 'asc' else col.desc(),
+                               FitxaTecnica.id.asc())
+    else:
+        col = SORT_COLS.get(sort_by, FitxaTecnica.updated_at)
+        query = query.order_by(col.asc() if direction == 'asc' else col.desc(),
+                               FitxaTecnica.id.asc())
+
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
     # Afegir resum de distribució i versió activa per cada fitxa
@@ -118,17 +296,29 @@ def crear_fitxa():
     db.session.add(fitxa)
     db.session.flush()
 
+    # Parsejar dates de capçalera si venen del Word
+    data_rev_dt = _parse_data(data.get('data_revisio'))
+    data_comp_dt = _parse_data(data.get('data_comprovacio'))
+    num_versio = _parse_num_versio(data.get('rev'), default=1)
+
     versio = VersioFitxa(
         fitxa_id=fitxa.id,
-        num_versio=1,
+        num_versio=num_versio,
         descripcio_canvi=data.get('descripcio_canvi', 'Creació inicial'),
         contingut=data.get('contingut', {}),
+        data_revisio=data_rev_dt,
+        data_comprovacio=data_comp_dt,
         created_by=request.usuari.get('email', ''),
         activa=True,
         estat_versio='publicada',
     )
     db.session.add(versio)
     db.session.commit()
+
+    # Moure imatges del Word (si hi ha temp_token) a uploads/<art_codi>/img/
+    temp_token = data.get('imatges_temp_token')
+    if temp_token:
+        _moure_imatges_temp(temp_token, fitxa.art_codi)
 
     return jsonify(fitxa.to_dict(include_versions=True)), 201
 
@@ -161,6 +351,9 @@ def upload_word():
         os.unlink(tmp_path)
         return jsonify({'error': "No s'ha trobat el codi de referència al document"}), 400
 
+    # Guardar imatges incrustades a directori temporal
+    imatges_token, imatges_noms = _guardar_imatges_temp(result.get('imatges', []))
+
     # Comprovar si la fitxa ja existeix
     fitxa_existent = FitxaTecnica.query.filter_by(art_codi=art_codi).first()
 
@@ -174,6 +367,8 @@ def upload_word():
             'rev': result['rev'],
             'data_revisio': result['data_revisio'],
             'data_comprovacio': result['data_comprovacio'],
+            'imatges_temp_token': imatges_token,
+            'imatges_temp_noms': imatges_noms,
             'message': f"La fitxa {art_codi} ja existeix. Vols crear una nova versió?",
         }), 200
 
@@ -187,6 +382,8 @@ def upload_word():
         'data_comprovacio': result['data_comprovacio'],
         'art_codi': art_codi,
         'nom_producte': result['contingut'].get('denominacio_comercial', ''),
+        'imatges_temp_token': imatges_token,
+        'imatges_temp_noms': imatges_noms,
     }), 200
 
 
@@ -292,6 +489,63 @@ def actualitzar_observacions(fitxa_id):
     return jsonify({'message': 'Observacions actualitzades', 'observacions': fitxa.observacions})
 
 
+ESTATS_VALIDS = {'esborrany', 'publicada', 'obsoleta', 'inactiva'}
+
+
+@fitxes_bp.route('/fitxes/<int:fitxa_id>/estat', methods=['PATCH'])
+@rol_requerit('admin', 'editor')
+def canviar_estat(fitxa_id):
+    """Canvia l'estat d'una fitxa. Si passa a 'inactiva' i s'indiquen
+    destins, esborra el PDF d'aquests destins i ho registra a
+    RegistreEliminacio per a audit trail."""
+    from app.models import RegistreEliminacio, Usuari
+
+    fitxa = db.get_or_404(FitxaTecnica, fitxa_id)
+    data = request.get_json() or {}
+
+    nou_estat = (data.get('estat') or '').strip().lower()
+    if nou_estat not in ESTATS_VALIDS:
+        return jsonify({
+            'error': f"Estat invàlid. Vàlids: {', '.join(sorted(ESTATS_VALIDS))}"
+        }), 400
+
+    # Editor només pot fer transicions no destructives
+    rol = (request.usuari or {}).get('rol', '')
+    if rol != 'admin' and nou_estat in ('inactiva', 'obsoleta'):
+        return jsonify({
+            'error': "Només admin pot marcar fitxes com a inactiva o obsoleta"
+        }), 403
+
+    esborrar_destins = data.get('esborrar_destins', []) or []
+    motiu = (data.get('motiu') or '').strip()
+
+    dest_resultats = []
+    if nou_estat == 'inactiva' and esborrar_destins:
+        dest_resultats = _esborrar_destins(fitxa, esborrar_destins)
+
+        # Audit trail: registrar a RegistreEliminacio
+        usuari = Usuari.query.filter_by(email=request.usuari.get('email')).first()
+        versions_list = fitxa.versions.all()
+        registre = RegistreEliminacio(
+            art_codi=fitxa.art_codi,
+            nom_producte=fitxa.nom_producte,
+            num_versions=len(versions_list),
+            ultima_versio=max((v.num_versio for v in versions_list), default=0),
+            motiu=f"Inactivada (canvi d'estat): {motiu}" if motiu else "Inactivada (canvi d'estat)",
+            esborrat_ftp=True,
+            eliminat_per=usuari.nom if usuari else (request.usuari.get('email') or ''),
+        )
+        db.session.add(registre)
+
+    fitxa.estat = nou_estat
+    db.session.commit()
+
+    return jsonify({
+        'fitxa': fitxa.to_dict(),
+        'destins': dest_resultats,
+    })
+
+
 @fitxes_bp.route('/fitxes/<int:fitxa_id>', methods=['DELETE'])
 @rol_requerit('admin')
 def eliminar_fitxa(fitxa_id):
@@ -324,44 +578,7 @@ def eliminar_fitxa(fitxa_id):
     ultima_versio = max((v.num_versio for v in versions_list), default=0)
 
     # Esborrar dels destins seleccionats
-    dest_resultats = []
-    if esborrar_destins:
-        # Buscar distribucions ok per saber els noms de fitxer reals
-        from app.models import Distribucio as Dist2
-        for desti_id in esborrar_destins:
-            desti = DestiDistribucio.query.get(desti_id)
-            if not desti:
-                continue
-            config = desti.configuracio or {}
-
-            # Buscar noms de fitxer distribuïts a aquest destí
-            dist_ok = Dist2.query.join(VersioFitxa).filter(
-                VersioFitxa.fitxa_id == fitxa_id,
-                Dist2.desti_id == desti_id,
-                Dist2.estat == 'ok'
-            ).all()
-            # Extreure noms de fitxer de les rutes/URLs guardades
-            filenames = set()
-            for d in dist_ok:
-                if d.missatge_error:
-                    # El camp missatge_error guarda la ruta/URL quan estat=ok
-                    name = d.missatge_error.split('/')[-1].split('\\')[-1]
-                    if name:
-                        filenames.add(name)
-            # Fallback: nom per defecte
-            if not filenames:
-                filenames.add(f'{fitxa.art_codi}.pdf')
-
-            for fname in filenames:
-                if desti.tipus == 'ftp':
-                    from app.services.ftp_distributor import eliminar_ftp
-                    result = eliminar_ftp(fitxa.art_codi, config, fname)
-                elif desti.tipus == 'xarxa':
-                    from app.services.smb_distributor import eliminar_xarxa
-                    result = eliminar_xarxa(fitxa.art_codi, config, fname)
-                else:
-                    result = {'ok': False, 'error': f"Tipus {desti.tipus} no suportat"}
-                dest_resultats.append({'desti': desti.nom, 'fitxer': fname, **result})
+    dest_resultats = _esborrar_destins(fitxa, esborrar_destins)
 
     # Registrar l'acció
     accio_text = 'Inactivada' if nomes_inactivar else 'Eliminada'
@@ -451,6 +668,27 @@ def pujar_imatge(fitxa_id):
     return jsonify({'url': url, 'filename': filename}), 201
 
 
+@fitxes_bp.route('/fitxes/<int:fitxa_id>/imatges/from-temp', methods=['POST'])
+@rol_requerit('admin', 'editor')
+def imatges_from_temp(fitxa_id):
+    """Mou imatges extretes prèviament del Word (temp_token) a uploads/<art_codi>/img/."""
+    fitxa = db.get_or_404(FitxaTecnica, fitxa_id)
+    data = request.get_json() or {}
+    token = (data.get('temp_token') or '').strip()
+    if not token:
+        return jsonify({'error': 'Cal indicar temp_token'}), 400
+
+    # Validar token (només hex generat per uuid)
+    if not re.match(r'^[a-f0-9]{32}$', token):
+        return jsonify({'error': 'Token invàlid'}), 400
+
+    nous = _moure_imatges_temp(token, fitxa.art_codi)
+    urls = [
+        {'filename': n, 'url': f'/api/fitxes/{fitxa_id}/imatges/{n}'} for n in nous
+    ]
+    return jsonify({'imatges': urls, 'total': len(urls)}), 200
+
+
 @fitxes_bp.route('/fitxes/<int:fitxa_id>/imatges/<path:filename>', methods=['GET'])
 def servir_imatge(fitxa_id, filename):
     """Serveix una imatge associada a una fitxa."""
@@ -538,7 +776,9 @@ def descarregar_pdf(fitxa_id):
         data_comp = ''
         if versio.data_comprovacio:
             data_comp = versio.data_comprovacio.strftime('%d/%m/%Y')
-        if versio.created_at:
+        if versio.data_revisio:
+            data_rev = versio.data_revisio.strftime('%d/%m/%Y')
+        elif versio.created_at:
             data_rev = versio.created_at.strftime('%d/%m/%Y')
 
         pdf_bytes = generar_pdf(contingut, versio.num_versio, data_rev, data_comp)
@@ -721,7 +961,11 @@ def _build_control_revisions():
             'es_client': fitxa.es_client or False,
             'observacions': fitxa.observacions or '',
             'revisio': versio_ref.num_versio if versio_ref else 0,
-            'data_revisio': versio_ref.created_at.strftime('%d/%m/%Y') if versio_ref and versio_ref.created_at else '',
+            'data_revisio': (
+                versio_ref.data_revisio.strftime('%d/%m/%Y')
+                if versio_ref and versio_ref.data_revisio
+                else (versio_ref.created_at.strftime('%d/%m/%Y') if versio_ref and versio_ref.created_at else '')
+            ),
             'data_comprovacio': versio_ref.data_comprovacio.strftime('%d/%m/%Y') if versio_ref and versio_ref.data_comprovacio else '',
             'denominacio_juridica': _clean_html(contingut.get('denominacio_juridica', '')),
             'composicio': _clean_html(contingut.get('ingredients', '') or contingut.get('composicio', '')),

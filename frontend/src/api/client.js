@@ -58,6 +58,7 @@ export const api = {
   duplicarFitxa: (id, data) => request(`/fitxes/${id}/duplicar`, { method: 'POST', body: JSON.stringify(data) }),
   actualitzarObservacions: (id, observacions) => request(`/fitxes/${id}/observacions`, { method: 'PUT', body: JSON.stringify({ observacions }) }),
   eliminarFitxa: (id, data) => request(`/fitxes/${id}`, { method: 'DELETE', body: JSON.stringify(data) }),
+  canviarEstatFitxa: (id, data) => request(`/fitxes/${id}/estat`, { method: 'PATCH', body: JSON.stringify(data) }),
 
   // Versions
   llistarVersions: (fitxaId) => request(`/fitxes/${fitxaId}/versions`),
@@ -67,6 +68,7 @@ export const api = {
   enviarRevisio: (fitxaId, vid) => request(`/fitxes/${fitxaId}/versions/${vid}/revisar`, { method: 'POST' }),
   esborrarUltimaVersio: (fitxaId, data) => request(`/fitxes/${fitxaId}/versions/ultima`, { method: 'DELETE', body: JSON.stringify(data) }),
   diffVersions: (fitxaId, v1, v2) => request(`/fitxes/${fitxaId}/versions/diff?v1=${v1}&v2=${v2}`),
+  actualitzarMetadadesVersio: (fitxaId, vid, data) => request(`/fitxes/${fitxaId}/versions/${vid}/metadades`, { method: 'PUT', body: JSON.stringify(data) }),
 
   // Distribucions
   llistarDistribucions: (fitxaId) => request(`/fitxes/${fitxaId}/distribucions`),
@@ -88,6 +90,7 @@ export const api = {
     });
   },
   llistarImatges: (fitxaId) => request(`/fitxes/${fitxaId}/imatges`),
+  imatgesFromTemp: (fitxaId, tempToken) => request(`/fitxes/${fitxaId}/imatges/from-temp`, { method: 'POST', body: JSON.stringify({ temp_token: tempToken }) }),
 
   // Admin - Tipus de fitxa
   llistarTipus: () => request('/admin/tipus'),

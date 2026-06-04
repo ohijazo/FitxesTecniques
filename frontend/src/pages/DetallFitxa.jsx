@@ -665,6 +665,169 @@ function EliminarModal({ fitxa, onDone, onClose, onRefresh }) {
   );
 }
 
+function CanviEstatInactivaModal({ fitxa, distribucions, onDone, onClose }) {
+  const [destins, setDestins] = useState([]);
+  const [selectedDestins, setSelectedDestins] = useState({});
+  const [motiu, setMotiu] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const toast = useToast();
+
+  useEffect(() => {
+    api.llistarDestins().then((data) => {
+      // Filtrar destins amb distribució 'ok' per aquesta fitxa
+      const destinsAmbOk = data.filter((d) =>
+        distribucions.some((dist) => dist.desti_id === d.id && dist.estat === 'ok')
+      );
+      setDestins(destinsAmbOk);
+      const sel = {};
+      destinsAmbOk.forEach((d) => { sel[d.id] = true; });
+      setSelectedDestins(sel);
+    }).catch(() => {});
+  }, [distribucions]);
+
+  const toggleDesti = (id) =>
+    setSelectedDestins((prev) => ({ ...prev, [id]: !prev[id] }));
+
+  const confirmar = async (e) => {
+    e.preventDefault();
+    const ids = Object.entries(selectedDestins)
+      .filter(([, v]) => v).map(([k]) => parseInt(k));
+    setLoading(true);
+    setError(null);
+    try {
+      await api.canviarEstatFitxa(fitxa.id, {
+        estat: 'inactiva',
+        esborrar_destins: ids,
+        motiu,
+      });
+      toast.success(`Fitxa ${fitxa.art_codi} marcada com a inactiva`);
+      onDone();
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3 style={{ margin: 0 }}>Inactivar fitxa</h3>
+          <button className="outline secondary btn-sm" onClick={onClose}>&times;</button>
+        </div>
+
+        <p style={{ fontSize: '0.88rem', color: 'var(--gray-600)' }}>
+          La fitxa <strong>{fitxa.art_codi}</strong> es marcarà com a inactiva.
+          {destins.length > 0 && ' També pots esborrar el PDF dels destins on s\'havia distribuït.'}
+        </p>
+
+        <form onSubmit={confirmar}>
+          <label>
+            Motiu (opcional)
+            <input type="text" value={motiu} onChange={(e) => setMotiu(e.target.value)}
+              placeholder="Ex: producte descatalogat" />
+          </label>
+
+          {destins.length > 0 ? (
+            <fieldset style={{ marginBottom: '1rem' }}>
+              <legend style={{ fontSize: '0.85rem', fontWeight: 600 }}>Esborrar dels destins:</legend>
+              {destins.map((d) => (
+                <label key={d.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', margin: '0.3rem 0' }}>
+                  <input type="checkbox" checked={selectedDestins[d.id] || false}
+                    onChange={() => toggleDesti(d.id)} style={{ width: 'auto', margin: 0 }} />
+                  {d.nom} <span style={{ color: 'var(--gray-400)', fontSize: '0.8rem' }}>({d.tipus.toUpperCase()})</span>
+                </label>
+              ))}
+            </fieldset>
+          ) : (
+            <p style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>
+              No hi ha distribucions correctes per esborrar.
+            </p>
+          )}
+
+          {error && <p style={{ color: 'var(--danger)', fontSize: '0.88rem', marginBottom: '0.5rem' }}>{error}</p>}
+
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+            <button type="button" className="outline secondary" onClick={onClose}>Cancel·lar</button>
+            <button type="submit" disabled={loading} aria-busy={loading}>
+              {loading ? 'Processant...' : 'Inactivar'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+
+function EditarMetadadesModal({ fitxa, versio, onDone, onClose }) {
+  const [rev, setRev] = useState(String(versio?.num_versio ?? ''));
+  const [dataRev, setDataRev] = useState(versio?.data_revisio ? versio.data_revisio.slice(0, 10) : '');
+  const [dataComp, setDataComp] = useState(versio?.data_comprovacio ? versio.data_comprovacio.slice(0, 10) : '');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const toast = useToast();
+
+  const guardar = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      await api.actualitzarMetadadesVersio(fitxa.id, versio.id, {
+        num_versio: rev,
+        data_revisio: dataRev || null,
+        data_comprovacio: dataComp || null,
+      });
+      toast.success('Capçalera actualitzada');
+      onDone();
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3 style={{ margin: 0 }}>Editar capçalera de la versió</h3>
+          <button className="outline secondary btn-sm" onClick={onClose}>&times;</button>
+        </div>
+
+        <p style={{ fontSize: '0.85rem', color: 'var(--gray-600)' }}>
+          Modifica les metadades de la versió activa sense crear-ne una de nova.
+        </p>
+
+        <form onSubmit={guardar}>
+          <label>
+            Rev. (núm. revisió)
+            <input type="number" min="0" value={rev} onChange={(e) => setRev(e.target.value)} required />
+          </label>
+          <label>
+            Data revisió
+            <input type="date" value={dataRev} onChange={(e) => setDataRev(e.target.value)} />
+          </label>
+          <label>
+            Data comprovació
+            <input type="date" value={dataComp} onChange={(e) => setDataComp(e.target.value)} />
+          </label>
+
+          {error && <p style={{ color: 'var(--danger)', fontSize: '0.88rem', marginBottom: '0.5rem' }}>{error}</p>}
+
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+            <button type="button" className="outline secondary" onClick={onClose}>Cancel·lar</button>
+            <button type="submit" disabled={loading} aria-busy={loading}>
+              {loading ? 'Guardant...' : 'Guardar'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+
 function DetallFitxa() {
   const { id } = useParams();
   const location = useLocation();
@@ -750,8 +913,35 @@ function DetallFitxa() {
 
   const [showEliminar, setShowEliminar] = useState(false);
   const [showDuplicar, setShowDuplicar] = useState(false);
+  const [showInactivar, setShowInactivar] = useState(false);
+  const [showEditMetadades, setShowEditMetadades] = useState(false);
+  const [canvianEstat, setCanvianEstat] = useState(false);
   const [editingObs, setEditingObs] = useState(false);
   const [obsText, setObsText] = useState('');
+
+  const canviarEstat = async (nouEstat) => {
+    if (!fitxa || nouEstat === fitxa.estat) return;
+
+    // Si passa a inactiva i hi ha distribucions ok, obrir modal de confirmació
+    if (nouEstat === 'inactiva') {
+      const teOk = distribucions.some((d) => d.estat === 'ok');
+      if (teOk) {
+        setShowInactivar(true);
+        return;
+      }
+    }
+
+    setCanvianEstat(true);
+    try {
+      await api.canviarEstatFitxa(fitxa.id, { estat: nouEstat });
+      toast.success(`Estat canviat a ${nouEstat}`);
+      carregarDades();
+    } catch (err) {
+      toast.error(`Error: ${err.message}`);
+    } finally {
+      setCanvianEstat(false);
+    }
+  };
 
   const descarregarPdf = (versioId) => {
     const token = localStorage.getItem('token');
@@ -816,9 +1006,40 @@ function DetallFitxa() {
           <h2 style={{ margin: 0 }}>{fitxa.nom_producte}</h2>
           <div className="detail-meta">
             <code className="detail-code">{fitxa.art_codi}</code>
-            <span className={`badge ${fitxa.estat}`}>{fitxa.estat}</span>
+            {(usuari.rol === 'admin' || usuari.rol === 'editor') ? (
+              <select
+                value={fitxa.estat}
+                onChange={(e) => canviarEstat(e.target.value)}
+                disabled={canvianEstat}
+                title="Canviar estat de la fitxa"
+                className={`badge ${fitxa.estat}`}
+                style={{ margin: 0, padding: '0.1rem 0.4rem', fontSize: '0.8rem', height: 'auto', width: 'auto' }}
+              >
+                <option value="esborrany">esborrany</option>
+                <option value="publicada">publicada</option>
+                <option value="obsoleta" disabled={usuari.rol !== 'admin'}>obsoleta</option>
+                <option value="inactiva" disabled={usuari.rol !== 'admin'}>inactiva</option>
+              </select>
+            ) : (
+              <span className={`badge ${fitxa.estat}`}>{fitxa.estat}</span>
+            )}
             {fitxa.es_client && <span className="badge" style={{ background: '#e3f2fd', color: '#1565c0' }}>Client</span>}
-            {versioActiva && <span style={{ color: 'var(--gray-500)' }}>Rev. {versioActiva.num_versio}</span>}
+            {versioActiva && (
+              <span style={{ color: 'var(--gray-500)', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                Rev. {versioActiva.num_versio}
+                {(usuari.rol === 'admin' || usuari.rol === 'editor') && (
+                  <button
+                    type="button"
+                    className="outline secondary btn-sm"
+                    onClick={() => setShowEditMetadades(true)}
+                    title="Editar Rev. / Data revisió / Data comprovació"
+                    style={{ padding: '0 0.3rem', fontSize: '0.75rem', lineHeight: 1.2 }}
+                  >
+                    Editar capçalera
+                  </button>
+                )}
+              </span>
+            )}
             {verif && verif.ok === true && (
               <span className="verif-ok" title="Les dades coincideixen amb el PDF del FTP">Verificat</span>
             )}
@@ -1022,6 +1243,24 @@ function DetallFitxa() {
           fitxaArtCodi={fitxa.art_codi}
           fitxaNom={fitxa.nom_producte}
           onClose={() => setShowDuplicar(false)}
+        />
+      )}
+
+      {showInactivar && (
+        <CanviEstatInactivaModal
+          fitxa={fitxa}
+          distribucions={distribucions}
+          onDone={() => { setShowInactivar(false); carregarDades(); }}
+          onClose={() => setShowInactivar(false)}
+        />
+      )}
+
+      {showEditMetadades && versioActiva && (
+        <EditarMetadadesModal
+          fitxa={fitxa}
+          versio={versioActiva}
+          onDone={() => { setShowEditMetadades(false); carregarDades(); }}
+          onClose={() => setShowEditMetadades(false)}
         />
       )}
     </>

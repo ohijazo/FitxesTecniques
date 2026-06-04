@@ -40,6 +40,17 @@ function NovaFitxa() {
 
       if (data.existent) {
         if (confirm(data.message)) {
+          // Si hi havia imatges al Word, associar-les a la fitxa existent
+          if (data.imatges_temp_token) {
+            try {
+              const res = await api.imatgesFromTemp(data.fitxa.id, data.imatges_temp_token);
+              if (res.total > 0) {
+                toast.success(`${res.total} imatge(s) del Word associades a la fitxa`);
+              }
+            } catch (err) {
+              toast.error(`Error associant imatges: ${err.message}`);
+            }
+          }
           navigate(`/fitxes/${data.fitxa.id}/editar`, {
             state: { dadesWord: {
               ...data.dades_extretes,
@@ -68,9 +79,18 @@ function NovaFitxa() {
         categoria: formData.categoria,
         descripcio_canvi: formData.descripcio_canvi || 'Creació inicial',
         contingut: formData.contingut,
+        // Metadades de capçalera del Word
+        rev: wordResult?.rev || '',
+        data_revisio: wordResult?.data_revisio || '',
+        data_comprovacio: wordResult?.data_comprovacio || '',
+        // Token de les imatges extretes del Word per moure-les a la fitxa
+        imatges_temp_token: wordResult?.imatges_temp_token || null,
       });
 
       toast.success('Fitxa creada correctament');
+      if (wordResult?.imatges_temp_token && wordResult?.imatges_temp_noms?.length) {
+        toast.success(`${wordResult.imatges_temp_noms.length} imatge(s) del Word importades`);
+      }
       setNovaFitxaId(fitxa.id);
       setNovaFitxaCodi(fitxa.art_codi);
     } catch (err) {

@@ -33,6 +33,8 @@ function LlistaFitxes({ usuari }) {
   const [fitxes, setFitxes] = useState([]);
   const [cerca, setCerca] = useState('');
   const [estat, setEstat] = useState(() => localStorage.getItem('filtre_estat') || '');
+  const [sortBy, setSortBy] = useState(() => localStorage.getItem('sort_by') || 'updated_at');
+  const [sortOrder, setSortOrder] = useState(() => localStorage.getItem('sort_order') || 'desc');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [total, setTotal] = useState(0);
@@ -40,10 +42,10 @@ function LlistaFitxes({ usuari }) {
   const toast = useToast();
   const navigate = useNavigate();
 
-  const carregarFitxes = async (textCerca = '', filtreEstat = estat) => {
+  const carregarFitxes = async (textCerca = '', filtreEstat = estat, sb = sortBy, so = sortOrder) => {
     setLoading(true);
     try {
-      const params = { per_page: 200 };
+      const params = { per_page: 200, sort_by: sb, sort_order: so };
       if (textCerca) params.cerca = textCerca;
       if (filtreEstat) params.estat = filtreEstat;
       const data = await api.llistarFitxes(params);
@@ -57,7 +59,23 @@ function LlistaFitxes({ usuari }) {
     }
   };
 
-  useEffect(() => { carregarFitxes(cerca, estat); }, [estat]);
+  useEffect(() => { carregarFitxes(cerca, estat, sortBy, sortOrder); }, [estat, sortBy, sortOrder]);
+
+  const toggleSort = (col) => {
+    let nextOrder = 'asc';
+    if (sortBy === col) {
+      nextOrder = sortOrder === 'asc' ? 'desc' : 'asc';
+    }
+    setSortBy(col);
+    setSortOrder(nextOrder);
+    localStorage.setItem('sort_by', col);
+    localStorage.setItem('sort_order', nextOrder);
+  };
+
+  const sortIndicator = (col) => {
+    if (sortBy !== col) return ' ↕';
+    return sortOrder === 'asc' ? ' ▲' : ' ▼';
+  };
 
   const handleCerca = (e) => {
     e.preventDefault();
@@ -185,12 +203,22 @@ function LlistaFitxes({ usuari }) {
                     title="Selecciona tots els visibles"
                   />
                 </th>
-                <th>Codi</th>
-                <th>Producte</th>
-                <th>Rev.</th>
-                <th>Estat</th>
+                <th onClick={() => toggleSort('art_codi')} style={{ cursor: 'pointer', userSelect: 'none' }} title="Ordenar per codi">
+                  Codi{sortIndicator('art_codi')}
+                </th>
+                <th onClick={() => toggleSort('nom_producte')} style={{ cursor: 'pointer', userSelect: 'none' }} title="Ordenar per producte">
+                  Producte{sortIndicator('nom_producte')}
+                </th>
+                <th onClick={() => toggleSort('versio_activa')} style={{ cursor: 'pointer', userSelect: 'none' }} title="Ordenar per revisió">
+                  Rev.{sortIndicator('versio_activa')}
+                </th>
+                <th onClick={() => toggleSort('estat')} style={{ cursor: 'pointer', userSelect: 'none' }} title="Ordenar per estat">
+                  Estat{sortIndicator('estat')}
+                </th>
                 <th>Distribució</th>
-                <th>Actualitzat</th>
+                <th onClick={() => toggleSort('updated_at')} style={{ cursor: 'pointer', userSelect: 'none' }} title="Ordenar per data">
+                  Actualitzat{sortIndicator('updated_at')}
+                </th>
                 <th style={{ textAlign: 'right' }}>Accions</th>
               </tr>
             </thead>
