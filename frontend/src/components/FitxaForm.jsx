@@ -149,7 +149,7 @@ function ItemToolbar({ onMoveUp, onMoveDown, onMoveToSection, onRemove, canUp, c
 /* ============================================================
    EDITABLE FIELD
    ============================================================ */
-function EditableField({ label, value, onChange, onRemove, multiline, readOnly, toolbar }) {
+function EditableField({ label, value, onChange, onRemove, multiline, readOnly, toolbar, bulkVaries, bulkCount }) {
   if (readOnly) {
     if (!value || !String(value).trim()) return null;
     const hasHtml = typeof value === 'string' && value.includes('<');
@@ -170,6 +170,7 @@ function EditableField({ label, value, onChange, onRemove, multiline, readOnly, 
         {label}
         {toolbar}
       </div>
+      {bulkVaries && <BulkVariesNote count={bulkCount} />}
       {multiline ? (
         <RichEditor value={value || ''} onChange={onChange} />
       ) : (
@@ -696,7 +697,52 @@ function _toDateInput(val) {
   return '';
 }
 
-function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId }) {
+/* ============================================================
+   BULK MODE HELPERS
+   ============================================================ */
+function BulkBanner({ bulkContext }) {
+  if (!bulkContext) return null;
+  const codis = bulkContext.fitxes.map((f) => f.art_codi);
+  return (
+    <div className="bulk-banner" style={{
+      background: '#fef3c7', color: '#92400e', padding: '0.6rem 1rem',
+      borderLeft: '4px solid #f59e0b', borderRadius: '4px',
+      marginBottom: '1rem', fontSize: '0.9rem',
+    }}>
+      <strong>Edició massiva &mdash; {codis.length} fitxes:</strong>{' '}
+      {codis.slice(0, 8).join(', ')}{codis.length > 8 ? `, +${codis.length - 8} més` : ''}
+      <br />
+      <small style={{ opacity: 0.85 }}>
+        Només els camps que toqueu s'aplicaran a totes les fitxes. La capçalera, les taules i les imatges no s'editen en mode massiu.
+      </small>
+    </div>
+  );
+}
+
+function BulkVariesNote({ count }) {
+  if (!count) return null;
+  return (
+    <small style={{ display: 'block', color: '#92400e', fontSize: '0.78rem', marginTop: '0.15rem' }}>
+      &#9888; Varia entre {count} fitxes &mdash; escriviu un valor per sobreescriure totes
+    </small>
+  );
+}
+
+function BulkDisabledBox({ children }) {
+  return (
+    <div className="pdf-field" style={{ opacity: 0.55 }}>
+      <div style={{
+        background: '#f3f4f6', padding: '0.75rem', borderRadius: '4px',
+        fontSize: '0.85rem', color: 'var(--gray-600)', fontStyle: 'italic',
+      }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+
+function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext }) {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [activeSection, setActiveSection] = useState(null);
@@ -732,6 +778,11 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId }) {
 
   const updateForm = (newForm) => { setForm(newForm); setDirty(true); };
   const updateContingut = useCallback((fn) => { setContingut(fn); setDirty(true); }, []);
+
+  // Bulk mode: registrar quins camps ha tocat l'usuari per construir el payload
+  const notifyTouch = useCallback((key) => {
+    if (bulkContext && bulkContext.onTouch) bulkContext.onTouch(key);
+  }, [bulkContext]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -781,7 +832,11 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId }) {
     return () => observer.disconnect();
   }, [sections]);
 
-  const update = (key, value) => { setContingut((prev) => ({ ...prev, [key]: value })); setDirty(true); };
+  const update = (key, value) => {
+    setContingut((prev) => ({ ...prev, [key]: value }));
+    setDirty(true);
+    notifyTouch(key);
+  };
 
   const removeItem = (sectionId, itemKey) => {
     setSections((prev) => prev.map((s) =>
@@ -856,6 +911,17 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // En mode bulk, deleguem tot a BulkEdit (que mostrarà el modal de confirmació)
+    if (bulkContext) {
+      setSaving(true);
+      try {
+        await onSubmit({ contingut, form });
+        setDirty(false);
+      } finally { setSaving(false); }
+      return;
+    }
+
     if (!form.descripcio_canvi.trim()) { alert('Cal indicar la descripció del canvi.'); return; }
     setSaving(true);
     try {
@@ -880,33 +946,51 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId }) {
 
   return (
     <form onSubmit={handleSubmit} ref={formRef}>
+      <BulkBanner bulkContext={bulkContext} />
+
       {/* Barra superior */}
       <div className="pdf-topbar">
-        <div className="pdf-topbar-fields">
-          <label>
-            Codi article
-            <input value={form.art_codi} onChange={(e) => updateForm({ ...form, art_codi: e.target.value })}
-              required disabled={!isNew} placeholder="Ex: 60360" />
-          </label>
-          <label style={{ flex: 2 }}>
-            Nom producte
-            <input value={form.nom_producte} onChange={(e) => updateForm({ ...form, nom_producte: e.target.value })}
-              required placeholder="Ex: HARINA PANADERIA W150" />
-          </label>
-          <label>
-            Categoria
-            <input value={form.categoria} onChange={(e) => updateForm({ ...form, categoria: e.target.value })} placeholder="Ex: Farines" />
-          </label>
-        </div>
+        {!bulkContext && (
+          <div className="pdf-topbar-fields">
+            <label>
+              Codi article
+              <input value={form.art_codi} onChange={(e) => updateForm({ ...form, art_codi: e.target.value })}
+                required disabled={!isNew} placeholder="Ex: 60360" />
+            </label>
+            <label style={{ flex: 2 }}>
+              Nom producte
+              <input value={form.nom_producte} onChange={(e) => updateForm({ ...form, nom_producte: e.target.value })}
+                required placeholder="Ex: HARINA PANADERIA W150" />
+            </label>
+            <label>
+              Categoria
+              <input value={form.categoria} onChange={(e) => updateForm({ ...form, categoria: e.target.value })} placeholder="Ex: Farines" />
+            </label>
+          </div>
+        )}
         <div className="pdf-topbar-row2">
-          <label style={{ flex: 1, margin: 0 }}>
-            Descripció del canvi *
-            <textarea value={form.descripcio_canvi} onChange={(e) => updateForm({ ...form, descripcio_canvi: e.target.value })}
-              required placeholder="Ex: S'actualitzen els valors de W i P/L. S'afegeix el niquel als contaminants."
-              rows={2} style={{ resize: 'vertical', minHeight: '46px' }} />
-          </label>
-          <button type="submit" aria-busy={saving} disabled={saving} className="pdf-save-btn">
-            {saving ? 'Desant...' : isNew ? 'Crear fitxa' : 'Desar (nova versió)'}
+          {!bulkContext ? (
+            <label style={{ flex: 1, margin: 0 }}>
+              Descripció del canvi *
+              <textarea value={form.descripcio_canvi} onChange={(e) => updateForm({ ...form, descripcio_canvi: e.target.value })}
+                required placeholder="Ex: S'actualitzen els valors de W i P/L. S'afegeix el niquel als contaminants."
+                rows={2} style={{ resize: 'vertical', minHeight: '46px' }} />
+            </label>
+          ) : (
+            <div style={{ flex: 1, fontSize: '0.88rem', color: 'var(--gray-600)' }}>
+              {bulkContext.touchedCount === 0
+                ? 'Encara no has tocat cap camp. Modifica un valor per habilitar l\'aplicació.'
+                : `${bulkContext.touchedCount} camp(s) modificat(s). Es demanaran descripció i contrasenya abans d'aplicar.`}
+            </div>
+          )}
+          <button type="submit" aria-busy={saving}
+            disabled={saving || (bulkContext && bulkContext.touchedCount === 0)}
+            className="pdf-save-btn">
+            {saving
+              ? 'Desant...'
+              : bulkContext
+                ? `Aplicar a ${bulkContext.fitxes.length} fitxes`
+                : (isNew ? 'Crear fitxa' : 'Desar (nova versió)')}
           </button>
         </div>
       </div>
@@ -917,32 +1001,43 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId }) {
 
         {/* Document */}
         <div className="pdf-document">
-          {/* Capsalera — logo + dades de versio (editable) */}
+          {/* Capsalera — logo + dades de versio (NO editable en mode bulk) */}
           <PdfPageHeader
-            editable
-            rev={form.rev}
-            dataRevisio={form.data_revisio}
-            dataComprovacio={form.data_comprovacio}
+            editable={!bulkContext}
+            rev={bulkContext ? '—' : form.rev}
+            dataRevisio={bulkContext ? '' : form.data_revisio}
+            dataComprovacio={bulkContext ? '' : form.data_comprovacio}
             onRevChange={(v) => updateForm({ ...form, rev: v })}
             onDataRevisioChange={(v) => updateForm({ ...form, data_revisio: v })}
             onDataComprovacioChange={(v) => updateForm({ ...form, data_comprovacio: v })}
           />
+          {bulkContext && (
+            <div style={{ fontSize: '0.78rem', color: 'var(--gray-500)', marginTop: '-0.5rem', marginBottom: '0.5rem', fontStyle: 'italic' }}>
+              Rev. i dates no s'editen en mode massiu (cada fitxa té la seva pròpia capçalera).
+            </div>
+          )}
 
-          {/* Imatges de certificacio (editables) */}
-          <CertImageEditor contingut={contingut} onChange={update} fitxaId={fitxaId} />
+          {/* Imatges de certificacio (NO disponible en bulk) */}
+          {bulkContext ? (
+            <BulkDisabledBox>Imatges de certificació: no es poden pujar en mode massiu.</BulkDisabledBox>
+          ) : (
+            <CertImageEditor contingut={contingut} onChange={update} fitxaId={fitxaId} />
+          )}
 
           {/* Seccions */}
           {sections.map((section, si) => (
             <div key={section.id} id={`section-${section.id}`} className="pdf-section-block">
               {/* Accions secció (només visibles al hover) */}
-              <div className="pdf-section-actions-bar">
-                <button type="button" disabled={si === 0} onClick={() => moveSectionUp(si)} title="Pujar secció">&#9650;</button>
-                <button type="button" disabled={si === sections.length - 1} onClick={() => moveSectionDown(si)} title="Baixar secció">&#9660;</button>
-                <button type="button" onClick={() => removeSection(section.id)} title="Eliminar secció" className="remove">&times;</button>
-              </div>
+              {!bulkContext && (
+                <div className="pdf-section-actions-bar">
+                  <button type="button" disabled={si === 0} onClick={() => moveSectionUp(si)} title="Pujar secció">&#9650;</button>
+                  <button type="button" disabled={si === sections.length - 1} onClick={() => moveSectionDown(si)} title="Baixar secció">&#9660;</button>
+                  <button type="button" onClick={() => removeSection(section.id)} title="Eliminar secció" className="remove">&times;</button>
+                </div>
+              )}
 
               {section.items.map((it, ii) => {
-                const tb = (
+                const tb = bulkContext ? null : (
                   <ItemToolbar
                     canUp={ii > 0}
                     canDown={ii < section.items.length - 1}
@@ -954,41 +1049,68 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId }) {
                     currentSection={section.id}
                   />
                 );
+                const varies = bulkContext?.variesByKey?.[it.key];
+                const bulkCount = bulkContext?.fitxes?.length || 0;
 
-                if (it.type === 'table') return (
-                  <EditableTable key={it.id} label={it.label}
-                    rows={Array.isArray(contingut[it.key]) ? contingut[it.key] : []}
-                    onChange={(v) => update(it.key, v)}
-                    subtitle={contingut[`${it.key}_subtitle`] || ''}
-                    note={contingut[`${it.key}_note`] || ''}
-                    onSubtitleChange={(v) => update(`${it.key}_subtitle`, v)}
-                    onNoteChange={(v) => update(`${it.key}_note`, v)}
-                    toolbar={tb} />
-                );
-                if (it.type === 'image') return (
-                  <EditableImage key={it.id} label={it.label}
-                    value={contingut[it.key]}
-                    onChange={(v) => update(it.key, v)}
-                    fitxaId={fitxaId}
-                    toolbar={tb} />
-                );
+                if (it.type === 'table') {
+                  if (bulkContext) {
+                    return (
+                      <BulkDisabledBox key={it.id}>
+                        <strong>{it.label}</strong>: les taules no s'editen en mode massiu
+                        {varies ? ` (Varia entre ${bulkCount} fitxes).` : '.'}
+                      </BulkDisabledBox>
+                    );
+                  }
+                  return (
+                    <EditableTable key={it.id} label={it.label}
+                      rows={Array.isArray(contingut[it.key]) ? contingut[it.key] : []}
+                      onChange={(v) => update(it.key, v)}
+                      subtitle={contingut[`${it.key}_subtitle`] || ''}
+                      note={contingut[`${it.key}_note`] || ''}
+                      onSubtitleChange={(v) => update(`${it.key}_subtitle`, v)}
+                      onNoteChange={(v) => update(`${it.key}_note`, v)}
+                      toolbar={tb} />
+                  );
+                }
+                if (it.type === 'image') {
+                  if (bulkContext) {
+                    return (
+                      <BulkDisabledBox key={it.id}>
+                        <strong>{it.label}</strong>: les imatges no es pugen en mode massiu.
+                      </BulkDisabledBox>
+                    );
+                  }
+                  return (
+                    <EditableImage key={it.id} label={it.label}
+                      value={contingut[it.key]}
+                      onChange={(v) => update(it.key, v)}
+                      fitxaId={fitxaId}
+                      toolbar={tb} />
+                  );
+                }
                 return (
                   <EditableField key={it.id} label={it.label}
                     value={contingut[it.key]}
                     onChange={(v) => update(it.key, v)}
                     multiline={it.type === 'textarea'}
-                    toolbar={tb} />
+                    toolbar={tb}
+                    bulkVaries={varies}
+                    bulkCount={bulkCount} />
                 );
               })}
 
-              <AddItemInline onAdd={(key, label, type) => addItemToSection(section.id, key, label, type)} />
+              {!bulkContext && (
+                <AddItemInline onAdd={(key, label, type) => addItemToSection(section.id, key, label, type)} />
+              )}
             </div>
           ))}
 
           {/* Afegir secció */}
-          <div style={{ marginTop: '1.5rem' }}>
-            <button type="button" className="pdf-add-section-btn" onClick={addSection}>+ Afegir secció</button>
-          </div>
+          {!bulkContext && (
+            <div style={{ marginTop: '1.5rem' }}>
+              <button type="button" className="pdf-add-section-btn" onClick={addSection}>+ Afegir secció</button>
+            </div>
+          )}
 
           {/* Peu */}
           <div className="pdf-footer">
