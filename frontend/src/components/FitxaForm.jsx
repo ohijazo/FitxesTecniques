@@ -709,8 +709,10 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId }) {
       ? String(initialData.rev)
       : (versio?.num_versio != null ? String(versio.num_versio) : (c.rev || ''))
   );
+  // Fallback a versio.created_at quan data_revisio és NULL (fitxes antigues
+  // anteriors a la migració que va afegir data_revisio com a columna pròpia).
   const initialDataRev = _toDateInput(
-    initialData.data_revisio || versio?.data_revisio || c.data_revisio || ''
+    initialData.data_revisio || versio?.data_revisio || c.data_revisio || versio?.created_at || ''
   );
   const initialDataComp = _toDateInput(
     initialData.data_comprovacio || versio?.data_comprovacio || c.data_comprovacio || ''
