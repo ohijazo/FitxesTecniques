@@ -39,8 +39,19 @@ function LlistaFitxes({ usuari }) {
   const [error, setError] = useState(null);
   const [total, setTotal] = useState(0);
   const [seleccionats, setSeleccionats] = useState(() => new Set());
+  const [estatsCatalog, setEstatsCatalog] = useState([]);
   const toast = useToast();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    api.llistarEstats().then(setEstatsCatalog).catch(() => {});
+  }, []);
+
+  const estatsByCodi = useMemo(() => {
+    const m = {};
+    estatsCatalog.forEach((e) => { m[e.codi] = e; });
+    return m;
+  }, [estatsCatalog]);
 
   const carregarFitxes = async (textCerca = '', filtreEstat = estat, sb = sortBy, so = sortOrder) => {
     setLoading(true);
@@ -169,9 +180,9 @@ function LlistaFitxes({ usuari }) {
         <label style={{ margin: 0, width: '180px' }}>
           <select value={estat} onChange={handleEstat} style={{ margin: 0 }}>
             <option value="">Tots els estats</option>
-            <option value="publicada">Publicada</option>
-            <option value="obsoleta">Obsoleta</option>
-            <option value="inactiva">Inactiva</option>
+            {estatsCatalog.map((e) => (
+              <option key={e.codi} value={e.codi}>{e.nom}</option>
+            ))}
           </select>
         </label>
         <button type="submit" style={{ whiteSpace: 'nowrap', marginBottom: 0 }}>Cercar</button>
@@ -248,7 +259,15 @@ function LlistaFitxes({ usuari }) {
                     <td style={{ textAlign: 'center', color: 'var(--gray-600)', fontWeight: 600 }}>
                       {f.versio_activa != null ? f.versio_activa : '-'}
                     </td>
-                    <td><span className={`badge ${f.estat}`}>{f.estat}</span></td>
+                    <td>
+                      {(() => {
+                        const e = estatsByCodi[f.estat];
+                        if (e) {
+                          return <span className="badge" style={{ background: e.color, color: e.color_text }}>{e.nom}</span>;
+                        }
+                        return <span className={`badge ${f.estat}`}>{f.estat}</span>;
+                      })()}
+                    </td>
                     <td><DistBadge resum={f.dist_resum} /></td>
                     <td style={{ color: 'var(--gray-500)', fontSize: '0.85rem' }}>
                       {f.updated_at ? new Date(f.updated_at).toLocaleDateString('ca') : '-'}

@@ -9,6 +9,7 @@ import NovaFitxa from './pages/NovaFitxa';
 import EditarFitxa from './pages/EditarFitxa';
 import AdminUsuaris from './pages/AdminUsuaris';
 import AdminDestins from './pages/AdminDestins';
+import AdminEstats from './pages/AdminEstats';
 import AdminSeccions from './pages/AdminSeccions';
 import ControlRevisions from './pages/ControlRevisions';
 import AdminEliminacions from './pages/AdminEliminacions';
@@ -50,6 +51,7 @@ function NavBar({ usuari, onLogout }) {
               <div className="nav-dropdown">
                 <Link to="/admin/usuaris" onClick={() => setShowConfig(false)}>Usuaris</Link>
                 <Link to="/admin/destins" onClick={() => setShowConfig(false)}>Destins</Link>
+                <Link to="/admin/estats" onClick={() => setShowConfig(false)}>Estats</Link>
                 <Link to="/admin/seccions" onClick={() => setShowConfig(false)}>Camps</Link>
                 <Link to="/control-revisions" onClick={() => setShowConfig(false)}>Control revisions</Link>
                 <Link to="/admin/eliminacions" onClick={() => setShowConfig(false)}>Eliminacions</Link>
@@ -109,7 +111,7 @@ function Breadcrumbs() {
     crumbs.push({ label: 'Ajuda' });
   } else if (path.startsWith('/admin/')) {
     const section = path.split('/')[2];
-    const labels = { seccions: 'Camps', usuaris: 'Usuaris', destins: 'Destins', tipus: 'Tipus', eliminacions: 'Eliminacions' };
+    const labels = { seccions: 'Camps', usuaris: 'Usuaris', destins: 'Destins', tipus: 'Tipus', eliminacions: 'Eliminacions', estats: 'Estats' };
     crumbs[0] = { label: 'Admin', to: '/' };
     crumbs.push({ label: labels[section] || section });
   }
@@ -193,6 +195,9 @@ function App() {
             } />
             <Route path="/admin/destins" element={
               <ProtectedRoute usuari={usuari} rolsPermesos={['admin', 'distribuidor']}><AdminDestins /></ProtectedRoute>
+            } />
+            <Route path="/admin/estats" element={
+              <ProtectedRoute usuari={usuari} rolsPermesos={['admin']}><AdminEstats /></ProtectedRoute>
             } />
             <Route path="/admin/eliminacions" element={
               <ProtectedRoute usuari={usuari} rolsPermesos={['admin']}><AdminEliminacions /></ProtectedRoute>

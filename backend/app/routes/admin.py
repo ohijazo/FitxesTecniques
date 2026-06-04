@@ -1,8 +1,15 @@
 import re
 from flask import Blueprint, request, jsonify
 from app import db
-from app.models import CampFitxa, SeccioFitxa, TipusFitxa, DestiDistribucio
+from app.models import CampFitxa, SeccioFitxa, TipusFitxa, DestiDistribucio, EstatFitxa
 from app.auth import login_required, rol_requerit
+
+
+ACCIONS_VALIDES = {'cap', 'esborrar_destins'}
+
+
+def _validar_codi_estat(codi):
+    return bool(codi) and bool(re.match(r'^[a-z][a-z0-9_]{0,29}$', codi))
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -349,3 +356,117 @@ def eliminar_desti(did):
     db.session.delete(desti)
     db.session.commit()
     return jsonify({'message': 'Desti eliminat'}), 200
+
+
+# --- Estats de fitxa ---
+
+@admin_bp.route('/admin/estats', methods=['GET'])
+@login_required
+def llistar_estats():
+    estats = EstatFitxa.query.order_by(EstatFitxa.ordre, EstatFitxa.id).all()
+    return jsonify([e.to_dict() for e in estats])
+
+
+@admin_bp.route('/admin/estats', methods=['POST'])
+@rol_requerit('admin')
+def crear_estat():
+    data = request.get_json() or {}
+    codi = (data.get('codi') or '').strip().lower()
+    nom = (data.get('nom') or '').strip()
+    accio = (data.get('accio') or 'cap').strip()
+
+    if not _validar_codi_estat(codi):
+        return jsonify({'error': "Codi invàlid (lletres, números i guió baix, ha de començar per lletra)"}), 400
+    if not nom:
+        return jsonify({'error': "Cal indicar el nom"}), 400
+    if accio not in ACCIONS_VALIDES:
+        return jsonify({'error': f"Acció invàlida. Vàlides: {', '.join(sorted(ACCIONS_VALIDES))}"}), 400
+    if EstatFitxa.query.filter_by(codi=codi).first():
+        return jsonify({'error': f"Ja existeix un estat amb codi '{codi}'"}), 409
+
+    estat = EstatFitxa(
+        codi=codi,
+        nom=nom,
+        color=data.get('color') or '#e5e7eb',
+        color_text=data.get('color_text') or '#374151',
+        accio=accio,
+        protegit=False,
+        ordre=int(data.get('ordre') or 100),
+    )
+    db.session.add(estat)
+    db.session.commit()
+    return jsonify(estat.to_dict()), 201
+
+
+@admin_bp.route('/admin/estats/<int:eid>', methods=['PUT'])
+@rol_requerit('admin')
+def editar_estat(eid):
+    estat = db.get_or_404(EstatFitxa, eid)
+    data = request.get_json() or {}
+
+    # 'codi' només es pot canviar si NO és protegit
+    if 'codi' in data:
+        nou_codi = (data.get('codi') or '').strip().lower()
+        if estat.protegit and nou_codi != estat.codi:
+            return jsonify({'error': "No es pot canviar el codi d'un estat protegit"}), 403
+        if nou_codi != estat.codi:
+            if not _validar_codi_estat(nou_codi):
+                return jsonify({'error': "Codi invàlid"}), 400
+            if EstatFitxa.query.filter_by(codi=nou_codi).first():
+                return jsonify({'error': f"Ja existeix un estat amb codi '{nou_codi}'"}), 409
+            # Actualitzar fitxes existents que usaven el codi antic
+            from app.models import FitxaTecnica
+            FitxaTecnica.query.filter_by(estat=estat.codi).update({'estat': nou_codi})
+            estat.codi = nou_codi
+
+    if 'nom' in data:
+        nom = (data.get('nom') or '').strip()
+        if not nom:
+            return jsonify({'error': "El nom no pot ser buit"}), 400
+        estat.nom = nom
+    if 'color' in data:
+        estat.color = data['color'] or '#e5e7eb'
+    if 'color_text' in data:
+        estat.color_text = data['color_text'] or '#374151'
+    if 'accio' in data:
+        accio = (data.get('accio') or 'cap').strip()
+        if accio not in ACCIONS_VALIDES:
+            return jsonify({'error': f"Acció invàlida. Vàlides: {', '.join(sorted(ACCIONS_VALIDES))}"}), 400
+        estat.accio = accio
+    if 'ordre' in data:
+        try:
+            estat.ordre = int(data['ordre'])
+        except (ValueError, TypeError):
+            pass
+
+    db.session.commit()
+    return jsonify(estat.to_dict())
+
+
+@admin_bp.route('/admin/estats/<int:eid>', methods=['DELETE'])
+@rol_requerit('admin')
+def eliminar_estat(eid):
+    from app.models import FitxaTecnica
+    estat = db.get_or_404(EstatFitxa, eid)
+    if estat.protegit:
+        return jsonify({'error': "No es pot eliminar un estat protegit del sistema"}), 403
+    # Comprovar que no hi ha fitxes que l'usin
+    en_us = FitxaTecnica.query.filter_by(estat=estat.codi).count()
+    if en_us > 0:
+        return jsonify({
+            'error': f"No es pot eliminar: {en_us} fitxa(es) tenen aquest estat"
+        }), 409
+    db.session.delete(estat)
+    db.session.commit()
+    return jsonify({'message': 'Estat eliminat'}), 200
+
+
+@admin_bp.route('/admin/estats/accions', methods=['GET'])
+@login_required
+def llistar_accions_estat():
+    """Retorna les accions disponibles per a estats (per al desplegable del form)."""
+    return jsonify([
+        {'codi': 'cap', 'nom': 'Cap acció', 'descripcio': 'L\'estat no executa cap acció especial.'},
+        {'codi': 'esborrar_destins', 'nom': 'Esborrar dels destins',
+         'descripcio': 'Quan es marca una fitxa amb aquest estat, demana confirmació i esborra el PDF dels destins on s\'havia distribuït.'},
+    ])

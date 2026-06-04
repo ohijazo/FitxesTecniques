@@ -123,6 +123,13 @@ export const api = {
   editarDesti: (id, data) => request(`/admin/destins/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   eliminarDesti: (id) => request(`/admin/destins/${id}`, { method: 'DELETE' }),
 
+  // Admin - Estats
+  llistarEstats: () => request('/admin/estats'),
+  crearEstat: (data) => request('/admin/estats', { method: 'POST', body: JSON.stringify(data) }),
+  editarEstat: (id, data) => request(`/admin/estats/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  eliminarEstat: (id) => request(`/admin/estats/${id}`, { method: 'DELETE' }),
+  llistarAccionsEstat: () => request('/admin/estats/accions'),
+
   // Jobs massius
   crearJobDistribucio: (data) => request('/jobs/distribucio-massiva', { method: 'POST', body: JSON.stringify(data) }),
   llistarJobs: (params = {}) => {

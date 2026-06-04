@@ -665,7 +665,7 @@ function EliminarModal({ fitxa, onDone, onClose, onRefresh }) {
   );
 }
 
-function CanviEstatInactivaModal({ fitxa, distribucions, onDone, onClose }) {
+function EsborrarDestinsModal({ fitxa, estat, distribucions, onDone, onClose }) {
   const [destins, setDestins] = useState([]);
   const [selectedDestins, setSelectedDestins] = useState({});
   const [motiu, setMotiu] = useState('');
@@ -697,11 +697,11 @@ function CanviEstatInactivaModal({ fitxa, distribucions, onDone, onClose }) {
     setError(null);
     try {
       await api.canviarEstatFitxa(fitxa.id, {
-        estat: 'inactiva',
+        estat: estat.codi,
         esborrar_destins: ids,
         motiu,
       });
-      toast.success(`Fitxa ${fitxa.art_codi} marcada com a inactiva`);
+      toast.success(`Fitxa ${fitxa.art_codi} marcada com a "${estat.nom}"`);
       onDone();
     } catch (err) {
       setError(err.message);
@@ -713,12 +713,12 @@ function CanviEstatInactivaModal({ fitxa, distribucions, onDone, onClose }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h3 style={{ margin: 0 }}>Inactivar fitxa</h3>
+          <h3 style={{ margin: 0 }}>Canviar estat a "{estat.nom}"</h3>
           <button className="outline secondary btn-sm" onClick={onClose}>&times;</button>
         </div>
 
         <p style={{ fontSize: '0.88rem', color: 'var(--gray-600)' }}>
-          La fitxa <strong>{fitxa.art_codi}</strong> es marcarà com a inactiva.
+          La fitxa <strong>{fitxa.art_codi}</strong> passarà a l'estat <strong>{estat.nom}</strong>.
           {destins.length > 0 && ' També pots esborrar el PDF dels destins on s\'havia distribuït.'}
         </p>
 
@@ -846,27 +846,36 @@ function DetallFitxa() {
 
   const [showEliminar, setShowEliminar] = useState(false);
   const [showDuplicar, setShowDuplicar] = useState(false);
-  const [showInactivar, setShowInactivar] = useState(false);
+  const [estatAConfirmar, setEstatAConfirmar] = useState(null);
   const [canvianEstat, setCanvianEstat] = useState(false);
+  const [estatsCatalog, setEstatsCatalog] = useState([]);
   const [editingObs, setEditingObs] = useState(false);
   const [obsText, setObsText] = useState('');
 
-  const canviarEstat = async (nouEstat) => {
-    if (!fitxa || nouEstat === fitxa.estat) return;
+  useEffect(() => {
+    api.llistarEstats().then(setEstatsCatalog).catch(() => {});
+  }, []);
 
-    // Si passa a inactiva i hi ha distribucions ok, obrir modal de confirmació
-    if (nouEstat === 'inactiva') {
+  const estatActualObj = estatsCatalog.find((e) => e.codi === fitxa?.estat);
+
+  const canviarEstat = async (nouCodi) => {
+    if (!fitxa || nouCodi === fitxa.estat) return;
+    const estat = estatsCatalog.find((e) => e.codi === nouCodi);
+    if (!estat) return;
+
+    // Si l'estat té acció d'esborrat i hi ha distribucions ok, obrir modal
+    if (estat.accio === 'esborrar_destins') {
       const teOk = distribucions.some((d) => d.estat === 'ok');
       if (teOk) {
-        setShowInactivar(true);
+        setEstatAConfirmar(estat);
         return;
       }
     }
 
     setCanvianEstat(true);
     try {
-      await api.canviarEstatFitxa(fitxa.id, { estat: nouEstat });
-      toast.success(`Estat canviat a ${nouEstat}`);
+      await api.canviarEstatFitxa(fitxa.id, { estat: nouCodi });
+      toast.success(`Estat canviat a ${estat.nom}`);
       carregarDades();
     } catch (err) {
       toast.error(`Error: ${err.message}`);
@@ -942,18 +951,27 @@ function DetallFitxa() {
               <select
                 value={fitxa.estat}
                 onChange={(e) => canviarEstat(e.target.value)}
-                disabled={canvianEstat}
+                disabled={canvianEstat || estatsCatalog.length === 0}
                 title="Canviar estat de la fitxa"
-                className={`badge ${fitxa.estat}`}
-                style={{ margin: 0, padding: '0.1rem 0.4rem', fontSize: '0.8rem', height: 'auto', width: 'auto' }}
+                className="badge"
+                style={estatActualObj
+                  ? { margin: 0, padding: '0.1rem 0.4rem', fontSize: '0.8rem', height: 'auto', width: 'auto', background: estatActualObj.color, color: estatActualObj.color_text }
+                  : { margin: 0, padding: '0.1rem 0.4rem', fontSize: '0.8rem', height: 'auto', width: 'auto' }}
               >
-                <option value="esborrany">esborrany</option>
-                <option value="publicada">publicada</option>
-                <option value="obsoleta" disabled={usuari.rol !== 'admin'}>obsoleta</option>
-                <option value="inactiva" disabled={usuari.rol !== 'admin'}>inactiva</option>
+                {estatsCatalog.map((e) => (
+                  <option
+                    key={e.codi}
+                    value={e.codi}
+                    disabled={usuari.rol !== 'admin' && e.accio !== 'cap'}
+                  >
+                    {e.nom}
+                  </option>
+                ))}
               </select>
             ) : (
-              <span className={`badge ${fitxa.estat}`}>{fitxa.estat}</span>
+              estatActualObj
+                ? <span className="badge" style={{ background: estatActualObj.color, color: estatActualObj.color_text }}>{estatActualObj.nom}</span>
+                : <span className={`badge ${fitxa.estat}`}>{fitxa.estat}</span>
             )}
             {fitxa.es_client && <span className="badge" style={{ background: '#e3f2fd', color: '#1565c0' }}>Client</span>}
             {versioActiva && <span style={{ color: 'var(--gray-500)' }}>Rev. {versioActiva.num_versio}</span>}
@@ -1163,12 +1181,13 @@ function DetallFitxa() {
         />
       )}
 
-      {showInactivar && (
-        <CanviEstatInactivaModal
+      {estatAConfirmar && (
+        <EsborrarDestinsModal
           fitxa={fitxa}
+          estat={estatAConfirmar}
           distribucions={distribucions}
-          onDone={() => { setShowInactivar(false); carregarDades(); }}
-          onClose={() => setShowInactivar(false)}
+          onDone={() => { setEstatAConfirmar(null); carregarDades(); }}
+          onClose={() => setEstatAConfirmar(null)}
         />
       )}
     </>

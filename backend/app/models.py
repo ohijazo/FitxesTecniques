@@ -357,6 +357,40 @@ class JobItem(db.Model):
         }
 
 
+class EstatFitxa(db.Model):
+    """Catàleg d'estats que pot tenir una fitxa.
+    El camp `accio` defineix què passa quan una fitxa canvia a aquest estat:
+    - 'cap': res especial
+    - 'esborrar_destins': obre un modal de confirmació i esborra el PDF
+      dels destins on s'havia distribuït.
+    Els estats `protegit=True` són del sistema i no es poden eliminar
+    ni canviar el codi (es pot canviar nom, color, accio, ordre).
+    """
+    __tablename__ = 'estat_fitxa'
+
+    id = db.Column(db.Integer, primary_key=True)
+    codi = db.Column(db.String(30), unique=True, nullable=False)
+    nom = db.Column(db.String(100), nullable=False)
+    color = db.Column(db.String(20), default='#e5e7eb')
+    color_text = db.Column(db.String(20), default='#374151')
+    accio = db.Column(db.String(40), default='cap')
+    protegit = db.Column(db.Boolean, default=False)
+    ordre = db.Column(db.Integer, default=100)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'codi': self.codi,
+            'nom': self.nom,
+            'color': self.color or '#e5e7eb',
+            'color_text': self.color_text or '#374151',
+            'accio': self.accio or 'cap',
+            'protegit': bool(self.protegit),
+            'ordre': self.ordre if self.ordre is not None else 100,
+        }
+
+
 class RegistreEliminacio(db.Model):
     """Registre d'audit per fitxes eliminades."""
     __tablename__ = 'registre_eliminacio'

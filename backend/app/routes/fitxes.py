@@ -489,60 +489,62 @@ def actualitzar_observacions(fitxa_id):
     return jsonify({'message': 'Observacions actualitzades', 'observacions': fitxa.observacions})
 
 
-ESTATS_VALIDS = {'esborrany', 'publicada', 'obsoleta', 'inactiva'}
-
-
 @fitxes_bp.route('/fitxes/<int:fitxa_id>/estat', methods=['PATCH'])
 @rol_requerit('admin', 'editor')
 def canviar_estat(fitxa_id):
-    """Canvia l'estat d'una fitxa. Si passa a 'inactiva' i s'indiquen
+    """Canvia l'estat d'una fitxa. L'estat s'ha d'existir al catàleg
+    `estat_fitxa`. Si l'estat té `accio='esborrar_destins'` i s'indiquen
     destins, esborra el PDF d'aquests destins i ho registra a
     RegistreEliminacio per a audit trail."""
-    from app.models import RegistreEliminacio, Usuari
+    from app.models import RegistreEliminacio, Usuari, EstatFitxa
 
     fitxa = db.get_or_404(FitxaTecnica, fitxa_id)
     data = request.get_json() or {}
 
-    nou_estat = (data.get('estat') or '').strip().lower()
-    if nou_estat not in ESTATS_VALIDS:
-        return jsonify({
-            'error': f"Estat invàlid. Vàlids: {', '.join(sorted(ESTATS_VALIDS))}"
-        }), 400
+    nou_codi = (data.get('estat') or '').strip().lower()
+    if not nou_codi:
+        return jsonify({'error': "Cal indicar l'estat"}), 400
 
-    # Editor només pot fer transicions no destructives
+    estat = EstatFitxa.query.filter_by(codi=nou_codi).first()
+    if not estat:
+        return jsonify({'error': f"L'estat '{nou_codi}' no existeix"}), 400
+
+    # Editor només pot fer transicions a estats sense acció destructiva
     rol = (request.usuari or {}).get('rol', '')
-    if rol != 'admin' and nou_estat in ('inactiva', 'obsoleta'):
+    if rol != 'admin' and estat.accio != 'cap':
         return jsonify({
-            'error': "Només admin pot marcar fitxes com a inactiva o obsoleta"
+            'error': "Només admin pot canviar a estats amb acció associada"
         }), 403
 
     esborrar_destins = data.get('esborrar_destins', []) or []
     motiu = (data.get('motiu') or '').strip()
 
     dest_resultats = []
-    if nou_estat == 'inactiva' and esborrar_destins:
+    if estat.accio == 'esborrar_destins' and esborrar_destins:
         dest_resultats = _esborrar_destins(fitxa, esborrar_destins)
 
         # Audit trail: registrar a RegistreEliminacio
         usuari = Usuari.query.filter_by(email=request.usuari.get('email')).first()
         versions_list = fitxa.versions.all()
+        accio_text = f"Canvi a '{estat.nom}'"
         registre = RegistreEliminacio(
             art_codi=fitxa.art_codi,
             nom_producte=fitxa.nom_producte,
             num_versions=len(versions_list),
             ultima_versio=max((v.num_versio for v in versions_list), default=0),
-            motiu=f"Inactivada (canvi d'estat): {motiu}" if motiu else "Inactivada (canvi d'estat)",
+            motiu=f"{accio_text}: {motiu}" if motiu else accio_text,
             esborrat_ftp=True,
             eliminat_per=usuari.nom if usuari else (request.usuari.get('email') or ''),
         )
         db.session.add(registre)
 
-    fitxa.estat = nou_estat
+    fitxa.estat = nou_codi
     db.session.commit()
 
     return jsonify({
         'fitxa': fitxa.to_dict(),
         'destins': dest_resultats,
+        'accio': estat.accio,
     })
 
 
