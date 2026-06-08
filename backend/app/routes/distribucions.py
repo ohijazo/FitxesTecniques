@@ -16,9 +16,16 @@ def _generar_nom_fitxer(patro, fitxa, versio):
     nom = nom.replace('{nom_producte}', fitxa.nom_producte or '')
     nom = nom.replace('{versio}', str(versio.num_versio) if versio else '0')
     nom = nom.replace('{data}', datetime.now(timezone.utc).strftime('%Y%m%d'))
-    # Netejar caràcters no vàlids per noms de fitxer
-    for char in ['\\', '/', ':', '*', '?', '"', '<', '>', '|']:
+    # Netejar caràcters no vàlids per noms de fitxer (Windows/SMB) i per URL/SharePoint
+    for char in ['\\', '/', ':', '*', '?', '"', '<', '>', '|', '#', '%', '&']:
         nom = nom.replace(char, '_')
+    # Eliminar caràcters de control (salts de línia, tabuladors, etc.) que
+    # tot i percent-encoded són rebutjats per IIS/SharePoint amb 400 'Invalid URL'.
+    nom = ''.join(c for c in nom if ord(c) >= 32)
+    # SharePoint/Windows no permeten espais ni dots al final del nom.
+    nom = nom.strip().rstrip('.').strip()
+    if not nom:
+        nom = f'{fitxa.art_codi}.pdf'
     return nom
 
 
