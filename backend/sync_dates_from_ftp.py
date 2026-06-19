@@ -2,6 +2,9 @@
 Corregeix data_revisio i data_comprovacio de la versio activa de cada fitxa
 a partir del PDF que hi ha al FTP corporatiu (font de veritat).
 
+La configuracio del FTP es llegeix del registre de DestiDistribucio amb
+tipus='ftp' (per defecte el que es diu 'ftp'; per altres noms usa --desti).
+
 Mode dry-run per defecte (no escriu res). Per aplicar realment cal --apply.
 
 Us:
@@ -12,6 +15,8 @@ Us:
     python sync_dates_from_ftp.py                    # dry-run, totes les fitxes
     python sync_dates_from_ftp.py --apply            # aplica els canvis
     python sync_dates_from_ftp.py --art-codi 60360   # nomes una fitxa (debug)
+    python sync_dates_from_ftp.py --desti "ftp clients"
+        # usa un desti FTP amb un nom diferent
     python sync_dates_from_ftp.py --apply --force-null
         # si el PDF no te data, posa NULL a la BD (per defecte preserva)
 """
@@ -26,22 +31,10 @@ from datetime import datetime, timezone
 sys.path.insert(0, os.path.dirname(__file__))
 
 from app import create_app, db
-from app.models import FitxaTecnica, VersioFitxa
+from app.models import FitxaTecnica, VersioFitxa, DestiDistribucio
+from app.routes.distribucions import _generar_nom_fitxer
 from app.services.ftp_distributor import descarregar_ftp
 from app.services.pdf_parser import parse_pdf
-
-
-def _ftp_config_from_env():
-    """Llegeix la config del FTP principal de variables d'entorn."""
-    tls_raw = os.environ.get('FTP_TLS', 'true').strip().lower()
-    return {
-        'host': os.environ.get('FTP_HOST', ''),
-        'port': int(os.environ.get('FTP_PORT', 21)),
-        'user': os.environ.get('FTP_USER', ''),
-        'password': os.environ.get('FTP_PASSWORD', ''),
-        'path': os.environ.get('FTP_PATH', '/'),
-        'tls': tls_raw in ('1', 'true', 'yes', 'on'),
-    }
 
 
 def _data_str(dt):
@@ -70,6 +63,33 @@ def _dates_iguals(a, b):
     return (a.year, a.month, a.day) == (b.year, b.month, b.day)
 
 
+def _trobar_desti_ftp(nom):
+    """Troba el desti de tipus FTP. Si nom està especificat, l'usa; sino
+    busca un desti actiu de tipus 'ftp' (preferint el que es diu 'ftp')."""
+    if nom:
+        d = DestiDistribucio.query.filter_by(nom=nom, tipus='ftp').first()
+        if not d:
+            print(f'ERROR: no existeix cap desti FTP amb nom="{nom}"')
+            sys.exit(1)
+        return d
+
+    # Sense --desti: busca per defecte
+    d = DestiDistribucio.query.filter_by(nom='ftp', tipus='ftp', actiu=True).first()
+    if d:
+        return d
+    # Fallback: qualsevol desti FTP actiu
+    candidates = DestiDistribucio.query.filter_by(tipus='ftp', actiu=True).all()
+    if not candidates:
+        print('ERROR: no s\'ha trobat cap desti de tipus FTP actiu a la BD')
+        sys.exit(1)
+    if len(candidates) > 1:
+        noms = ', '.join(f'"{c.nom}"' for c in candidates)
+        print(f'ERROR: hi ha {len(candidates)} destins FTP actius ({noms}). '
+              f'Especifica --desti <nom>')
+        sys.exit(1)
+    return candidates[0]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -77,20 +97,30 @@ def main():
                         help='Aplica els canvis (sense aquest flag es dry-run)')
     parser.add_argument('--art-codi', default=None,
                         help='Processa nomes la fitxa amb aquest codi (debug)')
+    parser.add_argument('--desti', default=None,
+                        help='Nom del DestiDistribucio FTP a usar '
+                             '(per defecte: el que es diu "ftp")')
     parser.add_argument('--force-null', action='store_true',
                         help='Si el PDF no te data, posa NULL a la BD '
                              '(per defecte preserva el valor existent)')
     args = parser.parse_args()
 
-    config = _ftp_config_from_env()
-    if not config['host'] or not config['user']:
-        print('ERROR: FTP_HOST o FTP_USER no definits a .env')
-        sys.exit(1)
-    print(f"FTP: {config['user']}@{config['host']}:{config['port']}"
-          f"{config['path']} (tls={config['tls']})")
-
     app = create_app()
     with app.app_context():
+        desti = _trobar_desti_ftp(args.desti)
+        # configuracio_segura() retorna el dict amb password desxifrat
+        config = desti.configuracio_segura() or {}
+        host = config.get('host', '')
+        user = config.get('user', '')
+        if not host or not user:
+            print(f'ERROR: desti FTP "{desti.nom}" no te host/user configurats')
+            sys.exit(1)
+        print(f"Desti FTP: \"{desti.nom}\" -> {user}@{host}:"
+              f"{config.get('port', 21)}{config.get('path', '/')} "
+              f"(tls={config.get('tls', True)})")
+        print(f"Patro nom fitxer: {desti.patro_nom_fitxer}")
+        print()
+
         # Fitxes amb almenys una versio activa
         query = (db.session.query(FitxaTecnica, VersioFitxa)
                  .join(VersioFitxa, VersioFitxa.fitxa_id == FitxaTecnica.id)
@@ -119,7 +149,7 @@ def main():
         }
 
         for fitxa, versio in parelles:
-            filename = f'{fitxa.art_codi}.pdf'
+            filename = _generar_nom_fitxer(desti.patro_nom_fitxer, fitxa, versio)
             status = ''
             data_rev_pdf = None
             data_comp_pdf = None
@@ -132,13 +162,15 @@ def main():
                     if result['not_found']:
                         stats['missing_ftp'] += 1
                         status = 'MISSING_FTP'
-                        print(f'  {fitxa.art_codi}: PDF no trobat al FTP')
+                        print(f'  {fitxa.art_codi} ({filename}): PDF no trobat al FTP')
                     else:
                         stats['ftp_error'] += 1
                         status = f"FTP_ERROR: {result['error']}"
-                        print(f'  {fitxa.art_codi}: error FTP: {result["error"]}')
+                        print(f'  {fitxa.art_codi} ({filename}): error FTP: '
+                              f'{result["error"]}')
                     report_rows.append({
                         'art_codi': fitxa.art_codi,
+                        'filename_ftp': filename,
                         'versio_id': versio.id,
                         'status': status,
                         'data_revisio_bd': _data_str(versio.data_revisio),
@@ -156,6 +188,7 @@ def main():
                     print(f'  {fitxa.art_codi}: error parseig: {e}')
                     report_rows.append({
                         'art_codi': fitxa.art_codi,
+                        'filename_ftp': filename,
                         'versio_id': versio.id,
                         'status': status,
                         'data_revisio_bd': _data_str(versio.data_revisio),
@@ -177,7 +210,6 @@ def main():
             row_canvis = []
 
             if data_rev_pdf is None and parsed.get('data_revisio'):
-                # PDF tenia text pero no era data valida
                 print(f'  {fitxa.art_codi}: data_revisio al PDF no valida '
                       f'({parsed.get("data_revisio")!r})')
 
@@ -219,6 +251,7 @@ def main():
 
             report_rows.append({
                 'art_codi': fitxa.art_codi,
+                'filename_ftp': filename,
                 'versio_id': versio.id,
                 'status': status,
                 'data_revisio_bd': _data_str(versio.data_revisio),
@@ -246,7 +279,7 @@ def main():
                                    f'sync_dates_report_{ts}.csv')
         with open(report_path, 'w', encoding='utf-8', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=[
-                'art_codi', 'versio_id', 'status',
+                'art_codi', 'filename_ftp', 'versio_id', 'status',
                 'data_revisio_bd', 'data_revisio_pdf',
                 'data_comprovacio_bd', 'data_comprovacio_pdf',
             ])
