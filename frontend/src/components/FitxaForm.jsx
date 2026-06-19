@@ -478,7 +478,9 @@ export function PdfDocumentView({ contingut, versio }) {
 
   // Prioritzar dades del model VersioFitxa, fallback a contingut
   const rev = versio?.num_versio ?? contingut.rev ?? '-';
-  const dataRevisio = versio?.created_at ? formatDate(versio.created_at) : (contingut.data_revisio || '-');
+  const dataRevisio = versio?.data_revisio
+    ? formatDate(versio.data_revisio)
+    : (versio?.created_at ? formatDate(versio.created_at) : (contingut.data_revisio || '-'));
   const dataComprovacio = versio?.data_comprovacio ? formatDate(versio.data_comprovacio) : (contingut.data_comprovacio || '-');
 
   const knownKeys = new Set();
@@ -742,12 +744,49 @@ function BulkDisabledBox({ children }) {
 }
 
 
+const DRAFT_AUTOSAVE_MS = 3000;
+const DRAFT_KEY_PREFIX = 'draft:fitxa:';
+
+function _draftKey({ bulkContext, isNew, fitxaId }) {
+  if (bulkContext) return null;  // no autosave en mode bulk
+  if (isNew) return `${DRAFT_KEY_PREFIX}new`;
+  if (fitxaId != null) return `${DRAFT_KEY_PREFIX}${fitxaId}`;
+  return null;
+}
+
+function _readDraft(key) {
+  if (!key) return null;
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (_) {
+    return null;
+  }
+}
+
+function _writeDraft(key, payload) {
+  if (!key) return;
+  try {
+    localStorage.setItem(key, JSON.stringify(payload));
+  } catch (_) {
+    /* quota o serialització: ignorar */
+  }
+}
+
+function _clearDraft(key) {
+  if (!key) return;
+  try { localStorage.removeItem(key); } catch (_) { /* ignorar */ }
+}
+
 function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext }) {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [activeSection, setActiveSection] = useState(null);
   const formRef = useRef(null);
   const c = initialData.contingut || {};
+  const draftKey = _draftKey({ bulkContext, isNew, fitxaId });
+  const [draftDisponible, setDraftDisponible] = useState(null);  // {savedAt} si hi ha draft a recuperar
 
   // Capçalera: prioritzar valors de la versió (BD), després initialData (Word), després contingut
   const initialRev = (
@@ -792,6 +831,21 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext 
     return () => window.removeEventListener('beforeunload', handler);
   }, [dirty]);
 
+  // Comprovar si hi ha un draft a recuperar (només una vegada, al muntar)
+  useEffect(() => {
+    if (!draftKey) return;
+    const stored = _readDraft(draftKey);
+    if (!stored) return;
+    // Si la versió guardada al backend és posterior al draft, descartar el draft
+    const baseUpdated = initialData.updated_at ? new Date(initialData.updated_at).getTime() : 0;
+    if (stored.savedAt && stored.savedAt > baseUpdated) {
+      setDraftDisponible({ savedAt: stored.savedAt });
+    } else {
+      _clearDraft(draftKey);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [sections, setSections] = useState(() => {
     const knownKeys = new Set();
     DEFAULT_SECTIONS.forEach((s) => s.items.forEach((it) => knownKeys.add(it.key)));
@@ -831,6 +885,35 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext 
     });
     return () => observer.disconnect();
   }, [sections]);
+
+  // Autosave: guardar el draft a localStorage 3s després del darrer canvi
+  useEffect(() => {
+    if (!draftKey || !dirty || saving) return;
+    const t = setTimeout(() => {
+      _writeDraft(draftKey, {
+        form,
+        contingut,
+        sections,
+        savedAt: Date.now(),
+      });
+    }, DRAFT_AUTOSAVE_MS);
+    return () => clearTimeout(t);
+  }, [draftKey, dirty, saving, form, contingut, sections]);
+
+  const recuperarDraft = () => {
+    const stored = _readDraft(draftKey);
+    if (!stored) { setDraftDisponible(null); return; }
+    if (stored.form) setForm(stored.form);
+    if (stored.contingut) setContingut(stored.contingut);
+    if (Array.isArray(stored.sections)) setSections(stored.sections);
+    setDirty(true);
+    setDraftDisponible(null);
+  };
+
+  const descartarDraft = () => {
+    _clearDraft(draftKey);
+    setDraftDisponible(null);
+  };
 
   const update = (key, value) => {
     setContingut((prev) => ({ ...prev, [key]: value }));
@@ -941,12 +1024,32 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext 
         },
       });
       setDirty(false);
+      _clearDraft(draftKey);
     } finally { setSaving(false); }
   };
 
   return (
     <form onSubmit={handleSubmit} ref={formRef}>
       <BulkBanner bulkContext={bulkContext} />
+      {draftDisponible && (
+        <div className="draft-recovery-banner" role="status" style={{
+          background: '#e0f2fe', borderLeft: '4px solid #0284c7',
+          padding: '0.75rem 1rem', borderRadius: '4px', marginBottom: '1rem',
+          display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap',
+          fontSize: '0.9rem',
+        }}>
+          <span style={{ flex: 1, minWidth: 0 }}>
+            Hi ha un esborrany sense desar de{' '}
+            <strong>{new Date(draftDisponible.savedAt).toLocaleString('ca-ES')}</strong>.
+          </span>
+          <button type="button" onClick={recuperarDraft} className="btn-sm" style={{ margin: 0 }}>
+            Recuperar
+          </button>
+          <button type="button" onClick={descartarDraft} className="outline secondary btn-sm" style={{ margin: 0 }}>
+            Descartar
+          </button>
+        </div>
+      )}
 
       {/* Barra superior */}
       <div className="pdf-topbar">
