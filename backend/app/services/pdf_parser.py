@@ -100,15 +100,18 @@ def _parse_header(pages):
                 for cell in row:
                     if not cell:
                         continue
-                    if 'Rev.:' in cell:
-                        m = re.search(r'Rev\.:\s*(\d+)', cell)
+                    # Comparacio case-insensitive perque alguns PDFs porten
+                    # 'comprov' en minuscula i altres 'Comprov' en majuscula.
+                    cell_lc = cell.lower()
+                    if 'rev.:' in cell_lc:
+                        m = re.search(r'[Rr]ev\.:\s*(\d+)', cell)
                         if m:
                             info['rev'] = m.group(1)
-                    if 'Fecha' in cell and 'Rev' in cell and 'Comprov' not in cell:
+                    if 'fecha' in cell_lc and 'rev' in cell_lc and 'comprov' not in cell_lc:
                         m = re.search(r'(\d{1,2}/\d{1,2}/\d{4})', cell)
                         if m:
                             info['data_revisio'] = m.group(1)
-                    if 'Comprov' in cell:
+                    if 'comprov' in cell_lc:
                         m = re.search(r'(\d{1,2}/\d{1,2}/\d{4})', cell)
                         if m:
                             info['data_comprovacio'] = m.group(1)
