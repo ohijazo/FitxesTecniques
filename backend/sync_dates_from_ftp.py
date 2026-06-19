@@ -108,8 +108,12 @@ def main():
     app = create_app()
     with app.app_context():
         desti = _trobar_desti_ftp(args.desti)
-        # configuracio_segura() retorna el dict amb password desxifrat
-        config = desti.configuracio_segura() or {}
+        # configuracio_segura() desxifra password si l'encriptacio esta desplegada;
+        # si el codi de producció encara no la té, llegim el JSON directament.
+        if hasattr(desti, 'configuracio_segura'):
+            config = desti.configuracio_segura() or {}
+        else:
+            config = dict(desti.configuracio or {})
         host = config.get('host', '')
         user = config.get('user', '')
         if not host or not user:
