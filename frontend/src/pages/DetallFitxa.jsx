@@ -4,6 +4,8 @@ import { api } from '../api/client';
 import { useToast } from '../components/Toast';
 import { PdfDocumentView } from '../components/FitxaForm';
 import RichEditor from '../components/RichEditor';
+import { useEscapeKey } from '../components/useEscapeKey';
+import RetirarDestiModal from '../components/RetirarDestiModal';
 import DOMPurify from 'dompurify';
 
 
@@ -91,12 +93,13 @@ function VerificarPanel({ fitxaId, onClose }) {
   );
 }
 
-function DistribuirPanel({ fitxaId, distribucions, onDone, onClose }) {
+function DistribuirPanel({ fitxaId, fitxaArtCodi, distribucions, onDone, onClose }) {
   const [destins, setDestins] = useState([]);
   const [selected, setSelected] = useState({});
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [resultats, setResultats] = useState([]);
+  const [retirarDesti, setRetirarDesti] = useState(null);
   const toast = useToast();
 
   useEffect(() => {
@@ -110,8 +113,13 @@ function DistribuirPanel({ fitxaId, distribucions, onDone, onClose }) {
     }).catch(() => setLoading(false));
   }, []);
 
+  // Una fitxa està "actualment al destí" si l'última distribució per a aquell
+  // destí va ser 'ok' (no 'retirat' o 'error' posterior).
   const destiJaDistribuit = (destiId) => {
-    return distribucions.some((d) => d.desti_id === destiId && d.estat === 'ok');
+    const perDesti = distribucions
+      .filter((d) => d.desti_id === destiId && d.executat_at)
+      .sort((a, b) => new Date(b.executat_at) - new Date(a.executat_at));
+    return perDesti.length > 0 && perDesti[0].estat === 'ok';
   };
 
   const toggle = (id) => setSelected((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -182,12 +190,33 @@ function DistribuirPanel({ fitxaId, distribucions, onDone, onClose }) {
                     </div>
                   </div>
                   {jaOk && (
-                    <span className="badge ok" style={{ fontSize: '0.72rem' }}>Ja distribuït</span>
+                    <>
+                      <span className="badge ok" style={{ fontSize: '0.72rem' }}>Ja distribuït</span>
+                      <button
+                        type="button"
+                        className="outline btn-sm"
+                        onClick={(e) => { e.preventDefault(); setRetirarDesti(d); }}
+                        style={{ margin: 0, color: 'var(--danger)', borderColor: 'var(--danger)', fontSize: '0.78rem' }}
+                        title={`Retirar el PDF de ${d.nom}`}
+                      >
+                        Retirar
+                      </button>
+                    </>
                   )}
                 </label>
               );
             })}
           </div>
+
+          {retirarDesti && (
+            <RetirarDestiModal
+              fitxaId={fitxaId}
+              fitxaArtCodi={fitxaArtCodi}
+              desti={retirarDesti}
+              onDone={() => { setRetirarDesti(null); onDone(); }}
+              onClose={() => setRetirarDesti(null)}
+            />
+          )}
 
           {resultats.length > 0 && (
             <div style={{ marginBottom: '1rem' }}>
@@ -304,6 +333,7 @@ function DiffView({ fitxaId, v1Id, v2Id, onClose }) {
 }
 
 function EsborrarVersioModal({ fitxa, versio, fitxaId, onDone, onClose }) {
+  useEscapeKey(onClose);
   const [motiu, setMotiu] = useState('');
   const [password, setPassword] = useState('');
   const [destins, setDestins] = useState([]);
@@ -399,12 +429,19 @@ function EsborrarVersioModal({ fitxa, versio, fitxaId, onDone, onClose }) {
 function VersionsSection({ fitxa, fitxaId, onPublicar, onVistaPrevia, onRefresh }) {
   const [diffPair, setDiffPair] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [compareV1, setCompareV1] = useState('');
+  const [compareV2, setCompareV2] = useState('');
   const versions = fitxa.versions || [];
 
   const mostrarDiff = (v, i) => {
     if (i < versions.length - 1) {
       setDiffPair({ v1Id: versions[i + 1].id, v2Id: v.id });
     }
+  };
+
+  const compararLliure = () => {
+    if (!compareV1 || !compareV2 || compareV1 === compareV2) return;
+    setDiffPair({ v1Id: parseInt(compareV1), v2Id: parseInt(compareV2) });
   };
 
   if (versions.length === 0) {
@@ -414,7 +451,37 @@ function VersionsSection({ fitxa, fitxaId, onPublicar, onVistaPrevia, onRefresh 
   return (
     <>
       {versions.length > 1 && (
-        <div style={{ marginBottom: '1rem' }}>
+        <div style={{
+          marginBottom: '1rem', display: 'flex', gap: '0.75rem',
+          alignItems: 'center', flexWrap: 'wrap',
+        }}>
+          <div style={{
+            display: 'flex', gap: '0.4rem', alignItems: 'center',
+            background: 'var(--brand-50)', padding: '0.5rem 0.75rem',
+            borderRadius: 'var(--radius)', border: '1px solid var(--brand-light)',
+          }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Comparar:</span>
+            <select value={compareV1} onChange={(e) => setCompareV1(e.target.value)}
+              style={{ margin: 0, width: 'auto', minWidth: '90px', padding: '0.3rem 0.5rem' }}>
+              <option value="">— Rev. —</option>
+              {versions.map((v) => (
+                <option key={v.id} value={v.id}>Rev. {v.num_versio}</option>
+              ))}
+            </select>
+            <span>amb</span>
+            <select value={compareV2} onChange={(e) => setCompareV2(e.target.value)}
+              style={{ margin: 0, width: 'auto', minWidth: '90px', padding: '0.3rem 0.5rem' }}>
+              <option value="">— Rev. —</option>
+              {versions.map((v) => (
+                <option key={v.id} value={v.id}>Rev. {v.num_versio}</option>
+              ))}
+            </select>
+            <button type="button" className="btn-sm" onClick={compararLliure}
+              disabled={!compareV1 || !compareV2 || compareV1 === compareV2}
+              style={{ margin: 0 }}>
+              Comparar
+            </button>
+          </div>
           <button className="outline" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
             onClick={() => setShowDeleteModal(true)}>
             Esborrar última versió (Rev. {versions[0].num_versio})
@@ -477,6 +544,7 @@ function VersionsSection({ fitxa, fitxaId, onPublicar, onVistaPrevia, onRefresh 
 }
 
 function DuplicarModal({ fitxaId, fitxaArtCodi, fitxaNom, onClose }) {
+  useEscapeKey(onClose);
   const [artCodi, setArtCodi] = useState('');
   const [nomProducte, setNomProducte] = useState(fitxaNom || '');
   const [loading, setLoading] = useState(false);
@@ -540,6 +608,7 @@ function DuplicarModal({ fitxaId, fitxaArtCodi, fitxaNom, onClose }) {
 }
 
 function EliminarModal({ fitxa, onDone, onClose, onRefresh }) {
+  useEscapeKey(onClose);
   const [motiu, setMotiu] = useState('');
   const [password, setPassword] = useState('');
   const [accio, setAccio] = useState('inactivar'); // 'inactivar' | 'eliminar'
@@ -666,6 +735,7 @@ function EliminarModal({ fitxa, onDone, onClose, onRefresh }) {
 }
 
 function EsborrarDestinsModal({ fitxa, estat, distribucions, onDone, onClose }) {
+  useEscapeKey(onClose);
   const [destins, setDestins] = useState([]);
   const [selectedDestins, setSelectedDestins] = useState({});
   const [motiu, setMotiu] = useState('');
@@ -1099,6 +1169,7 @@ function DetallFitxa() {
               {showDistribuir && versioActiva && (
                 <DistribuirPanel
                   fitxaId={id}
+                  fitxaArtCodi={fitxa.art_codi}
                   distribucions={distribucions}
                   onDone={carregarDades}
                   onClose={() => setShowDistribuir(false)}

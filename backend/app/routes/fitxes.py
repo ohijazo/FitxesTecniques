@@ -887,6 +887,61 @@ def verificar_fitxa(fitxa_id):
     })
 
 
+@fitxes_bp.route('/fitxes/<int:fitxa_id>/parse-pdf', methods=['POST'])
+@rol_requerit('admin', 'editor')
+def parse_pdf_upload(fitxa_id):
+    """Parseja un PDF pujat per l'usuari i retorna el contingut estructurat.
+
+    No persisteix res a BD: només transforma PDF -> JSON perquè el frontend
+    pre-empleni el formulari d'edició. La nova versió la crea el flux normal.
+    """
+    fitxa = db.get_or_404(FitxaTecnica, fitxa_id)
+
+    if 'pdf' not in request.files:
+        return jsonify({'error': "Cal pujar un fitxer PDF al camp 'pdf'"}), 400
+
+    file = request.files['pdf']
+    if not file or not file.filename:
+        return jsonify({'error': "Fitxer buit"}), 400
+    if not file.filename.lower().endswith('.pdf'):
+        return jsonify({'error': "El fitxer ha de tenir extensió .pdf"}), 400
+
+    from app.services.pdf_parser import parse_pdf
+
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp:
+            file.save(tmp)
+            tmp_path = tmp.name
+
+        result = parse_pdf(tmp_path)
+    except Exception as e:
+        return jsonify({'error': f"Error parsejant el PDF: {str(e)}"}), 500
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+
+    warning = None
+    pdf_art_codi = (result.get('art_codi') or '').strip()
+    if pdf_art_codi and pdf_art_codi != fitxa.art_codi:
+        warning = (
+            f"El codi del PDF ('{pdf_art_codi}') no coincideix amb el de la fitxa "
+            f"('{fitxa.art_codi}'). Comprova que estiguis pujant el PDF correcte."
+        )
+
+    return jsonify({
+        'contingut': result.get('contingut') or {},
+        'rev': result.get('rev'),
+        'data_revisio': result.get('data_revisio'),
+        'data_comprovacio': result.get('data_comprovacio'),
+        'art_codi': pdf_art_codi or None,
+        'warning': warning,
+    })
+
+
 @fitxes_bp.route('/fitxes/<int:fitxa_id>/docx', methods=['GET'])
 @login_required
 def descarregar_docx(fitxa_id):

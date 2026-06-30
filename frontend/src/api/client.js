@@ -52,6 +52,10 @@ export const api = {
     const query = new URLSearchParams(params).toString();
     return request(`/fitxes${query ? `?${query}` : ''}`);
   },
+  llistarIdsFitxes: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request(`/fitxes/ids${query ? `?${query}` : ''}`);
+  },
   detallFitxa: (id) => request(`/fitxes/${id}`),
   crearFitxa: (data) => request('/fitxes', { method: 'POST', body: JSON.stringify(data) }),
   editarFitxa: (id, data) => request(`/fitxes/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -73,6 +77,33 @@ export const api = {
   llistarDistribucions: (fitxaId) => request(`/fitxes/${fitxaId}/distribucions`),
   distribuirTots: (fitxaId) => request(`/fitxes/${fitxaId}/distribuir`, { method: 'POST' }),
   distribuirDesti: (fitxaId, destiId) => request(`/fitxes/${fitxaId}/distribuir/${destiId}`, { method: 'POST' }),
+  retirarDesti: (fitxaId, destiId, data) => request(`/fitxes/${fitxaId}/retirar/${destiId}`, { method: 'POST', body: JSON.stringify(data) }),
+
+  // Importar PDF a edició (parser → JSON sense persistir)
+  parsePdf: (fitxaId, file) => {
+    const formData = new FormData();
+    formData.append('pdf', file);
+    const token = getToken();
+    return fetch(`${API_BASE}/fitxes/${fitxaId}/parse-pdf`, {
+      method: 'POST',
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: formData,
+    }).then(async (res) => {
+      if (res.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('usuari');
+        window.location.href = '/login';
+        throw new Error('Sessió expirada');
+      }
+      const raw = await res.text().catch(() => '');
+      let parsed = null;
+      try { parsed = raw ? JSON.parse(raw) : null; } catch { /* no JSON */ }
+      if (!res.ok) {
+        throw new Error((parsed && parsed.error) || `HTTP ${res.status}: ${raw.slice(0, 200)}`);
+      }
+      return parsed;
+    });
+  },
 
   // Imatges
   pujarImatge: (fitxaId, file) => {
@@ -130,6 +161,12 @@ export const api = {
   eliminarEstat: (id) => request(`/admin/estats/${id}`, { method: 'DELETE' }),
   llistarAccionsEstat: () => request('/admin/estats/accions'),
 
+  // Admin - Audit log
+  llistarAuditLog: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request(`/admin/audit-log${query ? `?${query}` : ''}`);
+  },
+
   // Jobs massius
   crearJobDistribucio: (data) => request('/jobs/distribucio-massiva', { method: 'POST', body: JSON.stringify(data) }),
   llistarJobs: (params = {}) => {
@@ -142,6 +179,8 @@ export const api = {
     return request(`/jobs/${id}/items${query ? `?${query}` : ''}`);
   },
   reprendreJob: (id) => request(`/jobs/${id}/reprendre`, { method: 'POST' }),
+  retryErrorsJob: (id) => request(`/jobs/${id}/retry-errors`, { method: 'POST' }),
+  cancellarJob: (id) => request(`/jobs/${id}/cancellar`, { method: 'POST' }),
   arxivarJob: (id) => request(`/jobs/${id}/arxivar`, { method: 'POST' }),
 
   // Bulk edit
