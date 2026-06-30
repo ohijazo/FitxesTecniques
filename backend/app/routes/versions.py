@@ -142,6 +142,7 @@ def crear_versio(fitxa_id):
     db.session.add(versio)
 
     fitxa.estat = 'publicada'
+    fitxa.updated_at = datetime.now(timezone.utc)
 
     # Invalidar cache PDF de versions anteriors
     for cached in glob.glob(os.path.join(UPLOAD_DIR, fitxa.art_codi, '**', '*_generat.pdf'), recursive=True):
@@ -175,6 +176,7 @@ def publicar_versio(fitxa_id, vid):
     versio.activa = True
     versio.estat_versio = 'publicada'
     fitxa.estat = 'publicada'
+    fitxa.updated_at = datetime.now(timezone.utc)
     db.session.commit()
 
     return jsonify(versio.to_dict())
@@ -189,6 +191,8 @@ def aprovar_versio(fitxa_id, vid):
     versio.estat_versio = 'aprovada'
     versio.aprovat_per = request.usuari.get('email', '')
     versio.aprovat_at = datetime.now(timezone.utc)
+    fitxa = db.get_or_404(FitxaTecnica, fitxa_id)
+    fitxa.updated_at = datetime.now(timezone.utc)
     db.session.commit()
 
     return jsonify(versio.to_dict())
@@ -200,6 +204,8 @@ def enviar_revisio(fitxa_id, vid):
     """Envia una versió a revisió."""
     versio = VersioFitxa.query.filter_by(fitxa_id=fitxa_id, id=vid).first_or_404()
     versio.estat_versio = 'en_revisio'
+    fitxa = db.get_or_404(FitxaTecnica, fitxa_id)
+    fitxa.updated_at = datetime.now(timezone.utc)
     db.session.commit()
     return jsonify(versio.to_dict())
 
@@ -292,6 +298,7 @@ def esborrar_ultima_versio(fitxa_id):
         anterior.estat_versio = 'publicada'
 
     db.session.delete(ultima)
+    fitxa.updated_at = datetime.now(timezone.utc)
     db.session.commit()
 
     # Invalidar cache PDF
