@@ -23,6 +23,12 @@ function EditarFitxa() {
     const carregarFitxa = async () => {
       try {
         const f = await api.detallFitxa(id);
+        // Les fitxes de producte comercialitzat no s'editen amb formulari:
+        // l'única operació és pujar un PDF nou, que es fa des del detall.
+        if (f?.tipus_producte === 'comercialitzat') {
+          navigate(`/fitxes/${id}`, { replace: true });
+          return;
+        }
         setFitxa(f);
       } catch (err) {
         setError(err.message);
@@ -31,7 +37,7 @@ function EditarFitxa() {
       }
     };
     carregarFitxa();
-  }, [id]);
+  }, [id, navigate]);
 
   const handleSubmit = async (formData) => {
     try {

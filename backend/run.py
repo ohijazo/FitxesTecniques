@@ -1,6 +1,9 @@
+import os
+
 from app import create_app
 
 app = create_app()
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=50002, debug=app.config.get('DEBUG', False))
+    port = int(os.environ.get('PORT', 50002))
+    app.run(host='0.0.0.0', port=port, debug=app.config.get('DEBUG', False))

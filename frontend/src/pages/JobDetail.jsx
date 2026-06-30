@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useToast } from '../components/Toast';
 
-const ESTATS_TERMINALS = new Set(['acabat', 'interromput', 'error']);
+const ESTATS_TERMINALS = new Set(['acabat', 'interromput', 'error', 'cancellat']);
 const REFRESH_MS = 3000;
 
 function EstatBadge({ estat }) {
@@ -35,7 +35,21 @@ function JobDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [reprenent, setReprenent] = useState(false);
+  const [notifPermission, setNotifPermission] = useState(
+    typeof Notification !== 'undefined' ? Notification.permission : 'denied'
+  );
+  const [errorsExpandits, setErrorsExpandits] = useState(() => new Set());
   const intervalRef = useRef(null);
+  const prevEstatRef = useRef(null);
+
+  const toggleErrorExpandit = (itemId) => {
+    setErrorsExpandits((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  };
 
   const carregar = async (silenciosos = false) => {
     try {
@@ -66,12 +80,75 @@ function JobDetail() {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [job?.estat, id, filterEstat]);
 
+  // Títol amb progrés mentre el job està actiu; restaurar en sortir
+  useEffect(() => {
+    const originalTitle = document.title;
+    if (job && !ESTATS_TERMINALS.has(job.estat)) {
+      const total = job.total_items || 0;
+      const fets = (job.items_ok || 0) + (job.items_error || 0);
+      document.title = `(${fets}/${total}) Job #${job.id} — ${originalTitle}`;
+    }
+    return () => { document.title = originalTitle; };
+  }, [job?.id, job?.estat, job?.items_ok, job?.items_error, job?.total_items]);
+
+  // Notificació quan el job acaba (només si permís ja concedit)
+  useEffect(() => {
+    if (!job) return;
+    const wasActive = prevEstatRef.current && !ESTATS_TERMINALS.has(prevEstatRef.current);
+    const isNowTerminal = ESTATS_TERMINALS.has(job.estat);
+    if (wasActive && isNowTerminal && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      const errors = job.items_error || 0;
+      const oks = job.items_ok || 0;
+      try {
+        new Notification(`Job #${job.id} acabat`, {
+          body: errors > 0 ? `${oks} ok · ${errors} errors` : `${oks} operacions completades`,
+          tag: `job-${job.id}`,
+        });
+      } catch (_) { /* navegador sense suport o bloquejat */ }
+    }
+    prevEstatRef.current = job.estat;
+  }, [job?.estat, job?.id, job?.items_ok, job?.items_error]);
+
+  const activarNotificacions = () => {
+    if (typeof Notification === 'undefined') return;
+    Notification.requestPermission().then((p) => setNotifPermission(p));
+  };
+
   const reprendre = async () => {
     setReprenent(true);
     try {
       const j = await api.reprendreJob(id);
       setJob(j);
       toast.success('Job reprès');
+      carregar();
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setReprenent(false);
+    }
+  };
+
+  const cancellar = async () => {
+    if (!confirm('Cancel·lar el job? Els items pendents quedaran omesos. Els que ja estan en curs acabaran de processar-se.')) return;
+    setReprenent(true);
+    try {
+      const j = await api.cancellarJob(id);
+      setJob(j);
+      toast.success('Job cancel·lat');
+      carregar();
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setReprenent(false);
+    }
+  };
+
+  const reintentarErrors = async () => {
+    setReprenent(true);
+    try {
+      const j = await api.retryErrorsJob(id);
+      setJob(j);
+      toast.success('Items en error reposats a pendent');
       carregar();
     } catch (e) {
       toast.error(e.message);
@@ -113,9 +190,27 @@ function JobDetail() {
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <EstatBadge estat={job.estat} />
+          {!ESTATS_TERMINALS.has(job.estat) && notifPermission === 'default' && (
+            <button className="outline secondary btn-sm" onClick={activarNotificacions}
+              title="Reb una notificació del navegador quan el job acabi">
+              Activar notificacions
+            </button>
+          )}
+          {(job.estat === 'creat' || job.estat === 'processant') && (
+            <button className="outline" onClick={cancellar} disabled={reprenent}
+              style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}>
+              Cancel·lar
+            </button>
+          )}
           {job.estat === 'interromput' && (
             <button onClick={reprendre} disabled={reprenent}>
               {reprenent ? 'Reprenent...' : 'Reprendre'}
+            </button>
+          )}
+          {ESTATS_TERMINALS.has(job.estat) && (job.items_error || 0) > 0 && (
+            <button onClick={reintentarErrors} disabled={reprenent}
+              title="Repon a 'pendent' només els items en error">
+              {reprenent ? 'Processant...' : `Reintentar errors (${job.items_error})`}
             </button>
           )}
           {ESTATS_TERMINALS.has(job.estat) && !job.arxivat && (
@@ -199,9 +294,33 @@ function JobDetail() {
                 <td style={{ fontSize: '0.82rem', color: 'var(--gray-500)' }}>
                   {it.executat_at ? new Date(it.executat_at).toLocaleString('ca') : '-'}
                 </td>
-                <td style={{ fontSize: '0.82rem', maxWidth: '320px', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                    title={it.missatge_error || ''}>
-                  {it.missatge_error || ''}
+                <td style={{ fontSize: '0.82rem', maxWidth: '420px' }}>
+                  {it.missatge_error ? (
+                    errorsExpandits.has(it.id) ? (
+                      <div>
+                        <pre style={{
+                          whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0,
+                          fontFamily: 'inherit', fontSize: '0.82rem', color: 'var(--danger)',
+                        }}>{it.missatge_error}</pre>
+                        <button type="button" className="link-button"
+                          onClick={() => toggleErrorExpandit(it.id)}
+                          style={{ fontSize: '0.75rem', marginTop: '0.25rem' }}>
+                          amaga
+                        </button>
+                      </div>
+                    ) : (
+                      <button type="button" className="link-button"
+                        onClick={() => toggleErrorExpandit(it.id)}
+                        title="Click per veure el missatge complet"
+                        style={{
+                          textAlign: 'left', color: 'var(--danger)',
+                          maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap', display: 'block',
+                        }}>
+                        {it.missatge_error}
+                      </button>
+                    )
+                  ) : ''}
                 </td>
               </tr>
             ))}

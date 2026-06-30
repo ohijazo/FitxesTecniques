@@ -1,8 +1,10 @@
 import re
 from flask import Blueprint, request, jsonify
 from app import db
-from app.models import CampFitxa, SeccioFitxa, TipusFitxa, DestiDistribucio, EstatFitxa
+from app.models import CampFitxa, SeccioFitxa, TipusFitxa, DestiDistribucio, EstatFitxa, AuditLog
 from app.auth import login_required, rol_requerit
+from app.services import audit
+from app.services.crypto import encrypt_config
 
 
 ACCIONS_VALIDES = {'cap', 'esborrar_destins'}
@@ -304,12 +306,14 @@ def crear_desti():
     desti = DestiDistribucio(
         nom=data['nom'],
         tipus=data['tipus'],
-        configuracio=data.get('configuracio', {}),
+        configuracio=encrypt_config(data.get('configuracio', {})),
         patro_nom_fitxer=data.get('patro_nom_fitxer', '{art_codi}.pdf'),
         actiu=data.get('actiu', True),
         created_by=request.usuari.get('email', ''),
     )
     db.session.add(desti)
+    db.session.flush()
+    audit.registrar('create', 'desti', desti.id, despres=desti.to_dict(include_config=True))
     db.session.commit()
     return jsonify(desti.to_dict(include_config=True)), 201
 
@@ -326,6 +330,7 @@ def detall_desti(did):
 def editar_desti(did):
     desti = db.get_or_404(DestiDistribucio, did)
     data = request.get_json()
+    snapshot_abans = desti.to_dict(include_config=True)
 
     if 'nom' in data:
         desti.nom = data['nom']
@@ -335,16 +340,20 @@ def editar_desti(did):
         desti.tipus = data['tipus']
     if 'configuracio' in data:
         new_config = data['configuracio']
+        # Si l'usuari ha enviat '********' per a un secret, vol dir "no canviar":
+        # recupera el valor xifrat anterior tal qual (sense desxifrar).
         if desti.configuracio:
             for sensitive_key in ('password', 'client_secret'):
                 if new_config.get(sensitive_key) == '********':
                     new_config[sensitive_key] = desti.configuracio.get(sensitive_key, '')
-        desti.configuracio = new_config
+        desti.configuracio = encrypt_config(new_config)
     if 'patro_nom_fitxer' in data:
         desti.patro_nom_fitxer = data['patro_nom_fitxer']
     if 'actiu' in data:
         desti.actiu = data['actiu']
 
+    audit.registrar('update', 'desti', desti.id,
+                    abans=snapshot_abans, despres=desti.to_dict(include_config=True))
     db.session.commit()
     return jsonify(desti.to_dict(include_config=True))
 
@@ -353,7 +362,9 @@ def editar_desti(did):
 @rol_requerit('admin', 'distribuidor')
 def eliminar_desti(did):
     desti = db.get_or_404(DestiDistribucio, did)
+    snapshot = desti.to_dict(include_config=True)
     db.session.delete(desti)
+    audit.registrar('delete', 'desti', did, abans=snapshot)
     db.session.commit()
     return jsonify({'message': 'Desti eliminat'}), 200
 
@@ -394,6 +405,8 @@ def crear_estat():
         ordre=int(data.get('ordre') or 100),
     )
     db.session.add(estat)
+    db.session.flush()
+    audit.registrar('create', 'estat', estat.id, despres=estat.to_dict())
     db.session.commit()
     return jsonify(estat.to_dict()), 201
 
@@ -403,6 +416,7 @@ def crear_estat():
 def editar_estat(eid):
     estat = db.get_or_404(EstatFitxa, eid)
     data = request.get_json() or {}
+    snapshot_abans = estat.to_dict()
 
     # 'codi' només es pot canviar si NO és protegit
     if 'codi' in data:
@@ -439,6 +453,8 @@ def editar_estat(eid):
         except (ValueError, TypeError):
             pass
 
+    audit.registrar('update', 'estat', estat.id,
+                    abans=snapshot_abans, despres=estat.to_dict())
     db.session.commit()
     return jsonify(estat.to_dict())
 
@@ -456,9 +472,39 @@ def eliminar_estat(eid):
         return jsonify({
             'error': f"No es pot eliminar: {en_us} fitxa(es) tenen aquest estat"
         }), 409
+    snapshot = estat.to_dict()
     db.session.delete(estat)
+    audit.registrar('delete', 'estat', eid, abans=snapshot)
     db.session.commit()
     return jsonify({'message': 'Estat eliminat'}), 200
+
+
+@admin_bp.route('/admin/audit-log', methods=['GET'])
+@rol_requerit('admin')
+def llistar_audit_log():
+    """Llista el registre d'audit administratiu amb filtres opcionals."""
+    page = request.args.get('page', 1, type=int)
+    per_page = min(request.args.get('per_page', 50, type=int), 200)
+    entitat = request.args.get('entitat', '', type=str)
+    accio = request.args.get('accio', '', type=str)
+    usuari = request.args.get('usuari', '', type=str)
+
+    q = AuditLog.query
+    if entitat:
+        q = q.filter(AuditLog.entitat == entitat)
+    if accio:
+        q = q.filter(AuditLog.accio == accio)
+    if usuari:
+        q = q.filter(AuditLog.usuari.ilike(f'%{usuari}%'))
+
+    q = q.order_by(AuditLog.id.desc())
+    pag = q.paginate(page=page, per_page=per_page, error_out=False)
+    return jsonify({
+        'entrades': [e.to_dict() for e in pag.items],
+        'total': pag.total,
+        'pages': pag.pages,
+        'page': page,
+    })
 
 
 @admin_bp.route('/admin/estats/accions', methods=['GET'])

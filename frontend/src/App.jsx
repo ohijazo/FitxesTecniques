@@ -11,6 +11,7 @@ import AdminUsuaris from './pages/AdminUsuaris';
 import AdminDestins from './pages/AdminDestins';
 import AdminEstats from './pages/AdminEstats';
 import AdminSeccions from './pages/AdminSeccions';
+import AdminAuditLog from './pages/AdminAuditLog';
 import ControlRevisions from './pages/ControlRevisions';
 import AdminEliminacions from './pages/AdminEliminacions';
 import JobDetail from './pages/JobDetail';
@@ -18,6 +19,7 @@ import Jobs from './pages/Jobs';
 import BulkEdit from './pages/BulkEdit';
 import BulkDistribuir from './pages/BulkDistribuir';
 import Ajuda from './pages/Ajuda';
+import GlobalSearch from './components/GlobalSearch';
 
 function ProtectedRoute({ children, usuari, rolsPermesos }) {
   if (!usuari) return <Navigate to="/login" />;
@@ -55,6 +57,7 @@ function NavBar({ usuari, onLogout }) {
                 <Link to="/admin/seccions" onClick={() => setShowConfig(false)}>Camps</Link>
                 <Link to="/control-revisions" onClick={() => setShowConfig(false)}>Control revisions</Link>
                 <Link to="/admin/eliminacions" onClick={() => setShowConfig(false)}>Eliminacions</Link>
+                <Link to="/admin/audit-log" onClick={() => setShowConfig(false)}>Audit log</Link>
                 <Link to="/jobs" onClick={() => setShowConfig(false)}>Jobs massius</Link>
               </div>
             )}
@@ -132,6 +135,30 @@ function Breadcrumbs() {
   );
 }
 
+function OfflineBanner() {
+  const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
+  useEffect(() => {
+    const onOnline = () => setOnline(true);
+    const onOffline = () => setOnline(false);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, []);
+  if (online) return null;
+  return (
+    <div role="alert" style={{
+      background: '#fee2e2', color: '#991b1b', borderBottom: '2px solid #ef4444',
+      padding: '0.5rem 1rem', textAlign: 'center', fontSize: '0.9rem', fontWeight: 600,
+      position: 'sticky', top: 0, zIndex: 1000,
+    }}>
+      Sense connexió a la xarxa. Els canvis no es desaran fins que es restableixi.
+    </div>
+  );
+}
+
 function App() {
   const [usuari, setUsuari] = useState(() => {
     const saved = localStorage.getItem('usuari');
@@ -159,7 +186,9 @@ function App() {
   return (
     <BrowserRouter>
       <ToastProvider>
+        <OfflineBanner />
         {usuari && <NavBar usuari={usuari} onLogout={handleLogout} />}
+        {usuari && <GlobalSearch />}
         <main className="container" style={{ paddingTop: '1rem', paddingBottom: '3rem' }}>
           {usuari && <Breadcrumbs />}
           <Routes>
@@ -201,6 +230,9 @@ function App() {
             } />
             <Route path="/admin/eliminacions" element={
               <ProtectedRoute usuari={usuari} rolsPermesos={['admin']}><AdminEliminacions /></ProtectedRoute>
+            } />
+            <Route path="/admin/audit-log" element={
+              <ProtectedRoute usuari={usuari} rolsPermesos={['admin']}><AdminAuditLog /></ProtectedRoute>
             } />
             <Route path="/jobs" element={
               <ProtectedRoute usuari={usuari} rolsPermesos={['admin', 'editor', 'distribuidor']}><Jobs /></ProtectedRoute>

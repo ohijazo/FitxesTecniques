@@ -4,6 +4,10 @@ __pycache__/
 backend/venv/
 backend/.env
 
+# Frontend env
+frontend/.env
+frontend/.env.local
+
 # Uploads (generated/imported PDFs)
 backend/uploads/
 
@@ -21,3 +25,36 @@ Thumbs.db
 
 # Claude
 .claude/
+
+# Backups i dumps de BD (mai al repo)
+*.dump
+*.sql
+backend/fitxes_uploads.tar.gz
+
+# Logs
+*.log
+backend/*.log
+
+# Screenshots i captures (locals)
+*.png
+!frontend/public/**/*.png
+!frontend/src/**/*.png
+
+# Fitxers de test/debug locals
+test_output*.pdf
+x.pdf
+40150.pdf
+60360.pdf
+01921_parsed.json
+backend/contingut_01921.json
+
+# Documentació exportada (els .md sí, els PDF/DOCX no)
+Fitxes_Tecniques_Guia_Desplegament*.pdf
+Fitxes_Tecniques_Manual_Tecnic.pdf
+Fitxes_Tecniques_Manual_Tecnic.docx
+
+# Excel i Word locals al root
+*.xlsx
+*.docx
+!docs/**/*.docx
+!docs/**/*.xlsx

@@ -26,6 +26,7 @@ LOG = logging.getLogger('job_worker')
 POLL_INTERVAL = 2          # segons entre intents d'agafar item
 STUCK_CHECK_INTERVAL = 30  # segons entre comprovacions d'items encallats
 JOB_CHECK_INTERVAL = 60    # segons entre comprovacions de jobs acabats
+HEARTBEAT_INTERVAL = 30    # segons entre actualitzacions del heartbeat al disc
 STUCK_TIMEOUT_MIN = 10     # un item processant més de 10 min es considera encallat
 
 
@@ -83,9 +84,14 @@ def _recovery_startup(app):
 def _worker_loop(app):
     """Loop principal del worker."""
     from app import db
+    from app.services import heartbeat
 
     ultim_stuck_check = 0
     ultim_job_check = 0
+    ultim_heartbeat = 0
+
+    # Toc inicial perquè l'estat sigui visible immediatament
+    heartbeat.escriure()
 
     while True:
         try:
@@ -97,6 +103,10 @@ def _worker_loop(app):
                     db.session.remove()
 
             ara = time.time()
+            if ara - ultim_heartbeat >= HEARTBEAT_INTERVAL:
+                ultim_heartbeat = ara
+                heartbeat.escriure()
+
             if ara - ultim_stuck_check >= STUCK_CHECK_INTERVAL:
                 ultim_stuck_check = ara
                 try:
@@ -131,11 +141,15 @@ def _processar_seguent_item(app):
     # 1) Agafar item de manera atòmica
     session = db.session
     try:
+        # Exclou items de jobs cancel·lats/interromputs: el job ja ha canviat
+        # d'estat i no se n'han de processar més items.
         result = session.execute(
             text("""
-                SELECT id FROM job_item
-                WHERE estat = 'pendent'
-                ORDER BY id
+                SELECT ji.id FROM job_item ji
+                JOIN job_bulk jb ON jb.id = ji.job_id
+                WHERE ji.estat = 'pendent'
+                  AND jb.estat NOT IN ('cancellat', 'interromput')
+                ORDER BY ji.id
                 FOR UPDATE SKIP LOCKED
                 LIMIT 1
             """)
@@ -205,7 +219,7 @@ def _processar_seguent_item(app):
                 JobItem.estat.in_(('pendent', 'processant')),
             ).count()
             job.items_pendents = pendents_count
-            # Si era l'últim item, marca el job com acabat
+            # Si era l'últim item, marca el job com acabat (no toquem si està cancel·lat)
             if pendents_count == 0 and job.estat == 'processant':
                 job.estat = 'acabat'
                 job.finished_at = datetime.now(timezone.utc)

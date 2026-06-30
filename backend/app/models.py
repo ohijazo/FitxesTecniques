@@ -3,6 +3,22 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from app import db
 
 
+def _iso_utc(dt):
+    """Serialitza un datetime com a ISO 8601 amb marcador UTC.
+
+    Les columnes db.DateTime emmagatzemen valors naive però sempre s'hi
+    desa UTC (datetime.now(timezone.utc)). Quan es serialitza sense
+    marcador, JavaScript els interpreta com a hora local i mostra l'hora
+    incorrecta. Afegint '+00:00' el frontend els converteix correctament
+    a hora local via toLocaleString().
+    """
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.isoformat()
+
+
 class Usuari(db.Model):
     __tablename__ = 'usuari'
 
@@ -27,7 +43,7 @@ class Usuari(db.Model):
             'nom': self.nom,
             'rol': self.rol,
             'actiu': self.actiu,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'created_at': _iso_utc(self.created_at),
         }
 
 
@@ -43,6 +59,13 @@ class DestiDistribucio(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     created_by = db.Column(db.String(100))
 
+    def configuracio_segura(self):
+        """Retorna el dict de configuració amb camps sensibles desxifrats.
+        Pensat per als distribuïdors que necessiten el valor real per autenticar-se.
+        No es persisteix — només lectura."""
+        from app.services.crypto import decrypt_config
+        return decrypt_config(self.configuracio or {})
+
     def to_dict(self, include_config=False):
         data = {
             'id': self.id,
@@ -50,11 +73,11 @@ class DestiDistribucio(db.Model):
             'tipus': self.tipus,
             'patro_nom_fitxer': self.patro_nom_fitxer,
             'actiu': self.actiu,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'created_at': _iso_utc(self.created_at),
             'created_by': self.created_by,
         }
         if include_config:
-            # No exposar secrets al frontend
+            # No exposar secrets al frontend (ni en clar ni xifrats)
             config = dict(self.configuracio) if self.configuracio else {}
             for sensitive_key in ('password', 'client_secret'):
                 if config.get(sensitive_key):
@@ -84,7 +107,7 @@ class TipusFitxa(db.Model):
             'slug': self.slug,
             'descripcio': self.descripcio,
             'actiu': self.actiu,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'created_at': _iso_utc(self.created_at),
             'num_seccions': self.seccions.count(),
         }
         if include_seccions:
@@ -101,6 +124,9 @@ class FitxaTecnica(db.Model):
     nom_producte = db.Column(db.String(200), nullable=False)
     categoria = db.Column(db.String(100))
     estat = db.Column(db.String(20), default='esborrany')
+    # 'elaborat' (producte propi amb contingut estructurat + PDF generat)
+    # | 'comercialitzat' (producte revenut, només es puja el PDF rebut)
+    tipus_producte = db.Column(db.String(20), nullable=False, default='elaborat')
     es_client = db.Column(db.Boolean, default=False)
     observacions = db.Column(db.Text, default='')
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
@@ -121,10 +147,11 @@ class FitxaTecnica(db.Model):
             'nom_producte': self.nom_producte,
             'categoria': self.categoria,
             'estat': self.estat,
+            'tipus_producte': self.tipus_producte or 'elaborat',
             'es_client': self.es_client,
             'observacions': self.observacions or '',
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'created_at': _iso_utc(self.created_at),
+            'updated_at': _iso_utc(self.updated_at),
             'created_by': self.created_by,
         }
         if include_versions:
@@ -169,14 +196,14 @@ class VersioFitxa(db.Model):
             'contingut': self.contingut,
             'fitxer_docx': self.fitxer_docx,
             'fitxer_pdf': self.fitxer_pdf,
-            'data_revisio': self.data_revisio.isoformat() if self.data_revisio else None,
-            'data_comprovacio': self.data_comprovacio.isoformat() if self.data_comprovacio else None,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'data_revisio': _iso_utc(self.data_revisio),
+            'data_comprovacio': _iso_utc(self.data_comprovacio),
+            'created_at': _iso_utc(self.created_at),
             'created_by': self._resolve_nom(self.created_by),
             'activa': self.activa,
             'estat_versio': self.estat_versio or 'esborrany',
             'aprovat_per': self._resolve_nom(self.aprovat_per),
-            'aprovat_at': self.aprovat_at.isoformat() if self.aprovat_at else None,
+            'aprovat_at': _iso_utc(self.aprovat_at),
         }
 
 
@@ -207,7 +234,7 @@ class Distribucio(db.Model):
             'estat': self.estat,
             'intents': self.intents,
             'missatge_error': self.missatge_error,
-            'executat_at': self.executat_at.isoformat() if self.executat_at else None,
+            'executat_at': _iso_utc(self.executat_at),
             'executat_by': self._resolve_nom(self.executat_by),
         }
 
@@ -310,9 +337,9 @@ class JobBulk(db.Model):
             'items_pendents': self.items_pendents or 0,
             'params': self.params,
             'created_by': self._resolve_nom(self.created_by),
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'started_at': self.started_at.isoformat() if self.started_at else None,
-            'finished_at': self.finished_at.isoformat() if self.finished_at else None,
+            'created_at': _iso_utc(self.created_at),
+            'started_at': _iso_utc(self.started_at),
+            'finished_at': _iso_utc(self.finished_at),
             'arxivat': self.arxivat or False,
         }
         return data
@@ -352,7 +379,7 @@ class JobItem(db.Model):
             'desti_nom': self.desti.nom if self.desti else None,
             'estat': self.estat,
             'missatge_error': self.missatge_error,
-            'executat_at': self.executat_at.isoformat() if self.executat_at else None,
+            'executat_at': _iso_utc(self.executat_at),
             'intent_count': self.intent_count or 0,
         }
 
@@ -391,6 +418,37 @@ class EstatFitxa(db.Model):
         }
 
 
+class AuditLog(db.Model):
+    """Registre d'audit per a canvis de configuració administrativa.
+
+    Captura accions sobre entitats com Destins, Camps, Estats, Usuaris.
+    Els snapshots `abans`/`despres` són opcionals i estan en clar (sense
+    secrets — la utilitat de registre els filtra).
+    """
+    __tablename__ = 'audit_log'
+
+    id = db.Column(db.Integer, primary_key=True)
+    usuari = db.Column(db.String(200), nullable=False, index=True)
+    accio = db.Column(db.String(50), nullable=False, index=True)  # 'create' | 'update' | 'delete' | ...
+    entitat = db.Column(db.String(50), nullable=False, index=True)  # 'desti' | 'camp' | 'estat' | 'usuari' | ...
+    entitat_id = db.Column(db.Integer, nullable=True)
+    abans = db.Column(db.JSON, nullable=True)
+    despres = db.Column(db.JSON, nullable=True)
+    at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'usuari': self.usuari,
+            'accio': self.accio,
+            'entitat': self.entitat,
+            'entitat_id': self.entitat_id,
+            'abans': self.abans,
+            'despres': self.despres,
+            'at': _iso_utc(self.at),
+        }
+
+
 class RegistreEliminacio(db.Model):
     """Registre d'audit per fitxes eliminades."""
     __tablename__ = 'registre_eliminacio'
@@ -415,5 +473,5 @@ class RegistreEliminacio(db.Model):
             'motiu': self.motiu,
             'esborrat_ftp': self.esborrat_ftp,
             'eliminat_per': self.eliminat_per,
-            'eliminat_at': self.eliminat_at.isoformat() if self.eliminat_at else None,
+            'eliminat_at': _iso_utc(self.eliminat_at),
         }

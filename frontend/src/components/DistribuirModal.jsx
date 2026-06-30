@@ -1,6 +1,8 @@
 import { useState } from 'react';
+import { useEscapeKey } from './useEscapeKey';
 
 function DistribuirModal({ titol, missatge, onDistribuir, onNoDistribuir, onClose }) {
+  useEscapeKey(onClose);
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>

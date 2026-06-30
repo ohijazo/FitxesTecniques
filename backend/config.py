@@ -17,6 +17,9 @@ class Config:
         'pool_recycle': 3600,
     }
 
+    # Sostre global d'uploads (30 MB). Els endpoints fan validació pròpia per tipus.
+    MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 30 * 1024 * 1024))
+
     # Entorn: development | production
     FLASK_ENV = os.environ.get('FLASK_ENV', 'development')
     DEBUG = FLASK_ENV == 'development'

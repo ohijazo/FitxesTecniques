@@ -4,28 +4,57 @@ import { api } from '../api/client';
 import { useToast } from '../components/Toast';
 import BulkActionBar from '../components/BulkActionBar';
 
-function DistBadge({ resum }) {
+function _relatiu(iso) {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return null;
+  const diff = Date.now() - t;
+  const dies = Math.floor(diff / (24 * 3600 * 1000));
+  if (dies < 1) return 'avui';
+  if (dies === 1) return 'ahir';
+  if (dies < 30) return `fa ${dies} dies`;
+  return new Date(iso).toLocaleDateString('ca');
+}
+
+function DistBadge({ resum, darrer }) {
+  const dataLabel = _relatiu(darrer);
+  const renderRelatiu = () => dataLabel ? (
+    <div style={{ fontSize: '0.7rem', color: 'var(--gray-500)', marginTop: '0.15rem' }}>{dataLabel}</div>
+  ) : null;
   if (!resum) return <span className="dist-badge dist-none" title="Sense versió activa">&mdash;</span>;
   const { ok, error, pendent } = resum;
+  const title = darrer ? `Última distribució: ${new Date(darrer).toLocaleString('ca')}` : '';
   if (error > 0) return (
-    <span className="dist-badge dist-error" title={`${error} error, ${ok} ok`}>
-      <span className="dist-icon">&times;</span> {error} error
-    </span>
+    <div title={title || `${error} error, ${ok} ok`}>
+      <span className="dist-badge dist-error">
+        <span className="dist-icon">&times;</span> {error} error
+      </span>
+      {renderRelatiu()}
+    </div>
   );
   if (pendent > 0 && ok === 0) return (
-    <span className="dist-badge dist-pending" title={`${pendent} pendents`}>
-      <span className="dist-icon">&#9675;</span> Pendent
-    </span>
+    <div title={title || `${pendent} pendents`}>
+      <span className="dist-badge dist-pending">
+        <span className="dist-icon">&#9675;</span> Pendent
+      </span>
+      {renderRelatiu()}
+    </div>
   );
   if (ok > 0 && pendent === 0) return (
-    <span className="dist-badge dist-ok" title={`${ok} distribucions ok`}>
-      <span className="dist-icon">&#10003;</span> Distribuït
-    </span>
+    <div title={title || `${ok} distribucions ok`}>
+      <span className="dist-badge dist-ok">
+        <span className="dist-icon">&#10003;</span> Distribuït
+      </span>
+      {renderRelatiu()}
+    </div>
   );
   return (
-    <span className="dist-badge dist-partial" title={`${ok} ok, ${pendent} pendents`}>
-      <span className="dist-icon">&#9681;</span> Parcial
-    </span>
+    <div title={title || `${ok} ok, ${pendent} pendents`}>
+      <span className="dist-badge dist-partial">
+        <span className="dist-icon">&#9681;</span> Parcial
+      </span>
+      {renderRelatiu()}
+    </div>
   );
 }
 
@@ -144,6 +173,19 @@ function LlistaFitxes({ usuari }) {
     });
   };
 
+  const seleccionarTotsFiltrats = async () => {
+    try {
+      const params = {};
+      if (cerca) params.cerca = cerca;
+      if (estat) params.estat = estat;
+      const { ids } = await api.llistarIdsFitxes(params);
+      setSeleccionats(new Set(ids));
+      toast.success(`${ids.length} fitxes seleccionades`);
+    } catch (err) {
+      toast.error(`Error: ${err.message}`);
+    }
+  };
+
   const deseleccionar = () => setSeleccionats(new Set());
 
   const obrirEdicioMassiva = () => {
@@ -152,6 +194,28 @@ function LlistaFitxes({ usuari }) {
 
   const obrirDistribucioMassiva = () => {
     navigate('/fitxes/bulk-distribuir', { state: { fitxa_ids: [...seleccionats] } });
+  };
+
+  const exportarExcel = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (cerca) params.set('cerca', cerca);
+      if (estat) params.set('estat', estat);
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/fitxes/export${params.toString() ? `?${params}` : ''}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Error exportant');
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `Fitxes_tecniques_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast.success('Excel exportat');
+    } catch (err) {
+      toast.error(`Error: ${err.message}`);
+    }
   };
 
   return (
@@ -186,6 +250,11 @@ function LlistaFitxes({ usuari }) {
           </select>
         </label>
         <button type="submit" style={{ whiteSpace: 'nowrap', marginBottom: 0 }}>Cercar</button>
+        <button type="button" className="outline secondary" onClick={exportarExcel}
+          style={{ whiteSpace: 'nowrap', marginBottom: 0 }}
+          title="Exporta el llistat filtrat a Excel">
+          Exportar Excel
+        </button>
       </form>
 
       {error && <p style={{ color: 'var(--danger)' }}>{error}</p>}
@@ -198,6 +267,21 @@ function LlistaFitxes({ usuari }) {
           <p>Prova a canviar els filtres o <Link to="/fitxes/nova">crea la primera fitxa</Link>.</p>
         </div>
       ) : (
+        <>
+        {totsSeleccionats && total > idsVisibles.length && seleccionats.size < total && (
+          <div role="status" style={{
+            background: '#e0f2fe', borderLeft: '4px solid #0284c7',
+            padding: '0.6rem 1rem', borderRadius: '4px', marginBottom: '0.75rem',
+            fontSize: '0.88rem', display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap',
+          }}>
+            <span style={{ flex: 1 }}>
+              S'han seleccionat les {idsVisibles.length} fitxes d'aquesta pàgina.
+            </span>
+            <button type="button" className="btn-sm" onClick={seleccionarTotsFiltrats} style={{ margin: 0 }}>
+              Seleccionar totes les {total} que coincideixen amb el filtre
+            </button>
+          </div>
+        )}
         <div className="table-wrapper">
           <table>
             <thead>
@@ -250,6 +334,24 @@ function LlistaFitxes({ usuari }) {
                       <Link to={`/fitxes/${f.id}`} style={{ fontWeight: 600 }}>
                         <code>{f.art_codi}</code>
                       </Link>
+                      {f.tipus_producte === 'comercialitzat' && (
+                        <span
+                          title="Producte comercialitzat (PDF pujat)"
+                          style={{
+                            marginLeft: '0.4rem',
+                            padding: '1px 6px',
+                            fontSize: '0.65rem',
+                            fontWeight: 600,
+                            background: 'var(--brand-50, #eef2ff)',
+                            color: 'var(--brand, #4f46e5)',
+                            border: '1px solid var(--brand-light, #c7d2fe)',
+                            borderRadius: '3px',
+                            verticalAlign: 'middle',
+                          }}
+                        >
+                          Comercial
+                        </span>
+                      )}
                     </td>
                     <td>
                       <Link to={`/fitxes/${f.id}`} style={{ color: 'var(--gray-800)' }}>
@@ -268,7 +370,7 @@ function LlistaFitxes({ usuari }) {
                         return <span className={`badge ${f.estat}`}>{f.estat}</span>;
                       })()}
                     </td>
-                    <td><DistBadge resum={f.dist_resum} /></td>
+                    <td><DistBadge resum={f.dist_resum} darrer={f.darrera_distribucio_at} /></td>
                     <td style={{ color: 'var(--gray-500)', fontSize: '0.85rem' }}>
                       {f.updated_at ? new Date(f.updated_at).toLocaleDateString('ca') : '-'}
                     </td>
@@ -288,6 +390,7 @@ function LlistaFitxes({ usuari }) {
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       <BulkActionBar

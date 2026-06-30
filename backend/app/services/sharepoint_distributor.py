@@ -220,9 +220,11 @@ def _simple_upload(token, site_id, drive_id, item_path, pdf_path):
     try:
         r = requests.put(url, headers=headers, data=data, timeout=120)
     except requests.RequestException as e:
+        LOG.error('[SharePoint] PUT url=%s falla: %s', url, e)
         return None, f"Error pujant (simple): {e}"
     if r.status_code not in (200, 201):
-        LOG.warning('[SharePoint] PUT %s -> %s: %s', item_path, r.status_code, r.text[:300])
+        LOG.error('[SharePoint] PUT url=%s item_path=%r -> %s: %s',
+                  url, item_path, r.status_code, r.text[:500])
         return None, f"Pujada simple fallida ({r.status_code}): {r.text[:300]}"
     return r.json(), None
 
@@ -238,8 +240,11 @@ def _session_upload(token, site_id, drive_id, item_path, pdf_path):
     try:
         r = requests.post(create_url, headers=headers, json=body, timeout=30)
     except requests.RequestException as e:
+        LOG.error('[SharePoint] createUploadSession url=%s falla: %s', create_url, e)
         return None, f"Error creant upload session: {e}"
     if r.status_code not in (200, 201):
+        LOG.error('[SharePoint] createUploadSession url=%s item_path=%r -> %s: %s',
+                  create_url, item_path, r.status_code, r.text[:500])
         return None, f"Upload session fallida ({r.status_code}): {r.text[:300]}"
     upload_url = r.json().get('uploadUrl')
     if not upload_url:

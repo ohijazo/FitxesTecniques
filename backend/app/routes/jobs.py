@@ -177,6 +177,70 @@ def reprendre_job(job_id):
     return jsonify(job.to_dict())
 
 
+@jobs_bp.route('/jobs/<int:job_id>/cancellar', methods=['POST'])
+@rol_requerit('admin', 'editor', 'distribuidor')
+def cancellar_job(job_id):
+    """Cancel·la un job en curs.
+
+    Els items en estat 'pendent' passen a 'omes' (no es processaran).
+    Els items 'processant' que ja té el worker en mà acaben el seu cicle (el job es
+    marcarà com 'cancellat' i el worker no agafarà més items perquè exclou jobs
+    cancel·lats al SELECT). El registre Distribucio dels items en curs es manté
+    intacte per traçabilitat.
+    """
+    job = db.get_or_404(JobBulk, job_id)
+    if job.estat not in ('creat', 'processant'):
+        return jsonify({'error': f"Només es poden cancel·lar jobs actius (estat actual: {job.estat})"}), 400
+
+    n = JobItem.query.filter_by(job_id=job_id, estat='pendent').count()
+    if n > 0:
+        JobItem.query.filter_by(job_id=job_id, estat='pendent').update(
+            {'estat': 'omes', 'missatge_error': 'Job cancel·lat per l\'usuari'},
+            synchronize_session=False,
+        )
+
+    job.estat = 'cancellat'
+    job.finished_at = datetime.now(timezone.utc)
+    job.items_pendents = JobItem.query.filter(
+        JobItem.job_id == job_id,
+        JobItem.estat.in_(('pendent', 'processant')),
+    ).count()
+
+    db.session.commit()
+    return jsonify(job.to_dict())
+
+
+@jobs_bp.route('/jobs/<int:job_id>/retry-errors', methods=['POST'])
+@rol_requerit('admin', 'editor', 'distribuidor')
+def retry_errors_job(job_id):
+    """Reintenta només els items en error d'un job. El job ha d'estar en estat terminal.
+
+    L'historial d'intents (intent_count) i la traçabilitat no es perden: els items
+    es retornen a 'pendent' i el worker els reprocessa, però intent_count continua
+    sumant intents nous als previs.
+    """
+    job = db.get_or_404(JobBulk, job_id)
+    if job.estat not in ('acabat', 'interromput', 'error'):
+        return jsonify({'error': "Només es poden reintentar errors d'un job acabat o interromput"}), 400
+
+    n = JobItem.query.filter_by(job_id=job_id, estat='error').count()
+    if n == 0:
+        return jsonify(job.to_dict())
+
+    JobItem.query.filter_by(job_id=job_id, estat='error').update(
+        {'estat': 'pendent', 'locked_at': None, 'missatge_error': None},
+        synchronize_session=False,
+    )
+
+    job.items_pendents = (job.items_pendents or 0) + n
+    job.items_error = max(0, (job.items_error or 0) - n)
+    job.estat = 'processant'
+    job.finished_at = None
+
+    db.session.commit()
+    return jsonify(job.to_dict())
+
+
 @jobs_bp.route('/jobs/<int:job_id>/arxivar', methods=['POST'])
 @rol_requerit('admin', 'editor', 'distribuidor')
 def arxivar_job(job_id):

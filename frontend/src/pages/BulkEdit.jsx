@@ -3,6 +3,7 @@ import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useToast } from '../components/Toast';
 import FitxaForm from '../components/FitxaForm';
+import { useEscapeKey } from '../components/useEscapeKey';
 
 /**
  * Edició massiva — mateix layout que l'edició individual (FitxaForm),
@@ -42,6 +43,7 @@ function ConfirmModal({ fitxes, canvis, onConfirm, onCancel }) {
   const [modeCamps, setModeCamps] = useState('crear');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  useEscapeKey(loading ? null : onCancel);
 
   // Per a cada camp tocat, llista de fitxes que NO el tenien (es crearia)
   const novetatsPerCamp = useMemo(() => {

@@ -1,9 +1,12 @@
 """Servei per distribuir PDFs a carpetes de xarxa (SMB/CIFS)."""
 
+import logging
 import os
 import shutil
 import subprocess
 import platform
+
+LOG = logging.getLogger(__name__)
 
 
 def _connect_share(share_path, user, password, domain=''):
@@ -80,34 +83,42 @@ def distribuir_xarxa(pdf_path, art_codi, config, filename=None):
     if not filename:
         filename = f'{art_codi}.pdf'
     dest_path = os.path.join(dest_dir, filename)
+    LOG.info('[SMB] Copiant %s a %s', filename, dest_dir)
 
     # Intent 1: copiar directament (funciona si ja estem autenticats a la xarxa)
     try:
         if not os.path.exists(dest_dir):
             os.makedirs(dest_dir, exist_ok=True)
         shutil.copy2(pdf_path, dest_path)
+        LOG.info('[SMB] Copiat OK %s (sense reintent)', dest_path)
         return {'ok': True, 'error': None, 'path': dest_path}
-    except (PermissionError, FileNotFoundError, OSError):
-        pass
+    except (PermissionError, FileNotFoundError, OSError) as e:
+        LOG.info('[SMB] Primer intent ha fallat (%s), provant amb credencials', e.__class__.__name__)
 
     # Intent 2: connectar amb credencials i reintentar
     if user and password:
         conn = _connect_share(ruta_base, user, password, domain)
         if not conn['ok']:
+            LOG.error('[SMB] Connexió amb credencials fallida: %s', conn.get('error'))
             return conn
 
         try:
             if not os.path.exists(dest_dir):
                 os.makedirs(dest_dir, exist_ok=True)
             shutil.copy2(pdf_path, dest_path)
+            LOG.info('[SMB] Copiat OK %s (després de credencials)', dest_path)
             return {'ok': True, 'error': None, 'path': dest_path}
         except PermissionError as e:
+            LOG.exception('[SMB] Sense permisos a %s', dest_path)
             return {'ok': False, 'error': f"Sense permisos: {e}"}
         except FileNotFoundError as e:
+            LOG.exception('[SMB] Ruta no trobada %s', dest_path)
             return {'ok': False, 'error': f"Ruta no trobada: {e}"}
         except Exception as e:
+            LOG.exception('[SMB] Error inesperat copiant a %s', dest_path)
             return {'ok': False, 'error': str(e)}
 
+    LOG.error('[SMB] No es pot accedir a %s i no hi ha credencials configurades', dest_dir)
     return {'ok': False, 'error': f"No es pot accedir a {dest_dir}"}
 
 

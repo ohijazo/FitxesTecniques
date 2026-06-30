@@ -26,8 +26,11 @@ def _validar_art_codi(art_codi):
 
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'uploads')
 TEMP_IMG_DIR = os.path.join(UPLOAD_DIR, '_temp_imatges')
+TEMP_PDF_DIR = os.path.join(UPLOAD_DIR, '_temp_pdfs')
 
 ALLOWED_IMG_EXT = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'}
+
+MAX_PDF_SIZE = 20 * 1024 * 1024  # 20 MB
 
 
 def _ensure_upload_dir(art_codi, num_versio):
@@ -182,6 +185,23 @@ def _moure_imatges_temp(token, art_codi):
     return urls
 
 
+def _moure_pdf_temp(token, art_codi, num_versio):
+    """Mou un PDF temporal a uploads/<art_codi>/v<num_versio>/<art_codi>.pdf.
+    Retorna el path final o None si el token no és vàlid o el fitxer no existeix."""
+    if not token or not re.match(r'^[a-f0-9]{32}$', token):
+        return None
+    src = os.path.join(TEMP_PDF_DIR, f'{token}.pdf')
+    if not os.path.exists(src):
+        return None
+    dst_dir = _ensure_upload_dir(art_codi, num_versio)
+    dst = os.path.join(dst_dir, f'{art_codi}.pdf')
+    try:
+        shutil.move(src, dst)
+    except OSError:
+        return None
+    return dst
+
+
 SORT_COLS = {
     'art_codi': FitxaTecnica.art_codi,
     'nom_producte': FitxaTecnica.nom_producte,
@@ -286,11 +306,20 @@ def crear_fitxa():
     if FitxaTecnica.query.filter_by(art_codi=data['art_codi']).first():
         return jsonify({'error': f"Ja existeix una fitxa amb codi {data['art_codi']}"}), 409
 
+    tipus_producte = (data.get('tipus_producte') or 'elaborat').strip().lower()
+    if tipus_producte not in ('elaborat', 'comercialitzat'):
+        return jsonify({'error': "tipus_producte ha de ser 'elaborat' o 'comercialitzat'"}), 400
+
+    pdf_token = (data.get('pdf_temp_token') or '').strip()
+    if tipus_producte == 'comercialitzat' and not pdf_token:
+        return jsonify({'error': "Cal pujar el PDF abans de crear la fitxa (pdf_temp_token)"}), 400
+
     fitxa = FitxaTecnica(
         art_codi=data['art_codi'],
         nom_producte=data['nom_producte'],
         categoria=data.get('categoria', ''),
         estat='publicada',
+        tipus_producte=tipus_producte,
         created_by=request.usuari.get('email', ''),
     )
     db.session.add(fitxa)
@@ -301,11 +330,14 @@ def crear_fitxa():
     data_comp_dt = _parse_data(data.get('data_comprovacio'))
     num_versio = _parse_num_versio(data.get('rev'), default=1)
 
+    # Per a fitxes comercialitzades el contingut estructurat no aplica.
+    contingut_versio = {} if tipus_producte == 'comercialitzat' else data.get('contingut', {})
+
     versio = VersioFitxa(
         fitxa_id=fitxa.id,
         num_versio=num_versio,
         descripcio_canvi=data.get('descripcio_canvi', 'Creació inicial'),
-        contingut=data.get('contingut', {}),
+        contingut=contingut_versio,
         data_revisio=data_rev_dt,
         data_comprovacio=data_comp_dt,
         created_by=request.usuari.get('email', ''),
@@ -313,6 +345,16 @@ def crear_fitxa():
         estat_versio='publicada',
     )
     db.session.add(versio)
+    db.session.flush()
+
+    # Per a comercialitzades, moure el PDF temporal al lloc definitiu i associar-lo a la versió.
+    if tipus_producte == 'comercialitzat':
+        pdf_path = _moure_pdf_temp(pdf_token, fitxa.art_codi, num_versio)
+        if not pdf_path:
+            db.session.rollback()
+            return jsonify({'error': "PDF temporal no trobat o expirat. Torna a pujar-lo."}), 400
+        versio.fitxer_pdf = pdf_path
+
     db.session.commit()
 
     # Moure imatges del Word (si hi ha temp_token) a uploads/<art_codi>/img/
@@ -321,6 +363,97 @@ def crear_fitxa():
         _moure_imatges_temp(temp_token, fitxa.art_codi)
 
     return jsonify(fitxa.to_dict(include_versions=True)), 201
+
+
+@fitxes_bp.route('/fitxes/upload-pdf-temp', methods=['POST'])
+@rol_requerit('admin', 'editor')
+def upload_pdf_temp():
+    """Puja un PDF a un directori temporal i retorna un token. El consumeix
+    `POST /api/fitxes` (per a fitxes de producte comercialitzat) per moure el
+    fitxer a la ubicació definitiva un cop creada la fitxa."""
+    if 'file' not in request.files:
+        return jsonify({'error': "Cal enviar un fitxer PDF"}), 400
+    file = request.files['file']
+    if not file.filename:
+        return jsonify({'error': "Fitxer buit"}), 400
+    if not file.filename.lower().endswith('.pdf'):
+        return jsonify({'error': "El fitxer ha de ser .pdf"}), 400
+
+    file.seek(0, os.SEEK_END)
+    size = file.tell()
+    file.seek(0)
+    if size == 0:
+        return jsonify({'error': "El fitxer està buit"}), 400
+    if size > MAX_PDF_SIZE:
+        return jsonify({'error': f"El PDF supera el límit de {MAX_PDF_SIZE // (1024 * 1024)} MB"}), 413
+
+    os.makedirs(TEMP_PDF_DIR, exist_ok=True)
+    token = uuid.uuid4().hex
+    temp_path = os.path.join(TEMP_PDF_DIR, f'{token}.pdf')
+    file.save(temp_path)
+
+    return jsonify({'pdf_temp_token': token, 'mida': size}), 200
+
+
+@fitxes_bp.route('/fitxes/<int:fitxa_id>/versions/upload-pdf', methods=['POST'])
+@rol_requerit('admin', 'editor')
+def crear_versio_pdf(fitxa_id):
+    """Crea una nova versió pujant un PDF. Només per a fitxes de producte
+    comercialitzat: les versions anteriors es mantenen intactes (immutables);
+    aquesta crea una versió nova amb el PDF nou i la marca com a activa."""
+    fitxa = db.get_or_404(FitxaTecnica, fitxa_id)
+    if (fitxa.tipus_producte or 'elaborat') != 'comercialitzat':
+        return jsonify({'error': "Aquesta operació només aplica a fitxes de producte comercialitzat"}), 400
+
+    if 'file' not in request.files:
+        return jsonify({'error': "Cal enviar un fitxer PDF"}), 400
+    file = request.files['file']
+    if not file.filename:
+        return jsonify({'error': "Fitxer buit"}), 400
+    if not file.filename.lower().endswith('.pdf'):
+        return jsonify({'error': "El fitxer ha de ser .pdf"}), 400
+
+    file.seek(0, os.SEEK_END)
+    size = file.tell()
+    file.seek(0)
+    if size == 0:
+        return jsonify({'error': "El fitxer està buit"}), 400
+    if size > MAX_PDF_SIZE:
+        return jsonify({'error': f"El PDF supera el límit de {MAX_PDF_SIZE // (1024 * 1024)} MB"}), 413
+
+    descripcio = (request.form.get('descripcio_canvi') or '').strip()
+    if not descripcio:
+        return jsonify({'error': "Cal indicar descripcio_canvi"}), 400
+
+    ultima = VersioFitxa.query.filter_by(fitxa_id=fitxa_id)\
+        .order_by(VersioFitxa.num_versio.desc()).first()
+    nou_num = (ultima.num_versio + 1) if ultima else 1
+
+    VersioFitxa.query.filter_by(fitxa_id=fitxa_id, activa=True)\
+        .update({'activa': False})
+
+    versio = VersioFitxa(
+        fitxa_id=fitxa_id,
+        num_versio=nou_num,
+        descripcio_canvi=descripcio,
+        contingut={},
+        created_by=request.usuari.get('email', ''),
+        activa=True,
+        estat_versio='publicada',
+    )
+    db.session.add(versio)
+    db.session.flush()
+
+    upload_path = _ensure_upload_dir(fitxa.art_codi, nou_num)
+    filepath = os.path.join(upload_path, f'{fitxa.art_codi}.pdf')
+    file.save(filepath)
+    versio.fitxer_pdf = filepath
+
+    fitxa.estat = 'publicada'
+    fitxa.updated_at = datetime.now(timezone.utc)
+    db.session.commit()
+
+    return jsonify(versio.to_dict()), 201
 
 
 @fitxes_bp.route('/fitxes/upload-word', methods=['POST'])
@@ -755,6 +888,18 @@ def descarregar_pdf(fitxa_id):
                 download_name=f'{fitxa.art_codi}_original.pdf',
             )
         return jsonify({'error': "No hi ha PDF original"}), 404
+
+    # Per a fitxes de producte comercialitzat no es genera PDF: només es serveix
+    # el fitxer que l'usuari ha pujat (associat a la versió).
+    if (fitxa.tipus_producte or 'elaborat') == 'comercialitzat':
+        if versio.fitxer_pdf and os.path.exists(versio.fitxer_pdf):
+            return send_file(
+                versio.fitxer_pdf,
+                mimetype='application/pdf',
+                as_attachment=False,
+                download_name=f'{fitxa.art_codi}.pdf',
+            )
+        return jsonify({'error': "Aquesta versió no té cap PDF associat"}), 404
 
     # Comprovar cache: si existeix PDF generat per aquesta versió
     cache_dir = os.path.join(UPLOAD_DIR, fitxa.art_codi, f'v{versio.num_versio}')

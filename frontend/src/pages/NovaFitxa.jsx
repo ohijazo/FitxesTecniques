@@ -134,8 +134,28 @@ function NovaFitxa() {
             </p>
             <span style={{ color: 'var(--brand)' }}>Començar</span>
           </div>
+
+          <div className="option-card" onClick={() => setMode('pdf')}>
+            <h3>Producte comercialitzat (PDF)</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+              Per a productes revenuts: només es puja el PDF rebut del proveïdor, sense formulari.
+            </p>
+            <span style={{ color: 'var(--brand)' }}>Començar</span>
+          </div>
         </div>
       </>
+    );
+  }
+
+  if (mode === 'pdf') {
+    return (
+      <NovaFitxaPdf
+        onCreated={(fitxa) => { setNovaFitxaId(fitxa.id); setNovaFitxaCodi(fitxa.art_codi); }}
+        onBack={() => setMode(null)}
+        novaFitxaId={novaFitxaId}
+        novaFitxaCodi={novaFitxaCodi}
+        navigate={navigate}
+      />
     );
   }
 
@@ -172,6 +192,128 @@ function NovaFitxa() {
       {wordResult && <p style={{ color: 'var(--success)' }}>Dades extretes del Word correctament.</p>}
 
       <FitxaForm initialData={initialData} onSubmit={handleCrear} isNew={true} />
+
+      {novaFitxaId && (
+        <DistribuirModal
+          titol="Fitxa creada"
+          missatge={`La fitxa ${novaFitxaCodi} s'ha creat correctament.`}
+          onDistribuir={() => navigate(`/fitxes/${novaFitxaId}`, { state: { openDistribuir: true } })}
+          onNoDistribuir={() => navigate(`/fitxes/${novaFitxaId}`)}
+          onClose={() => navigate(`/fitxes/${novaFitxaId}`)}
+        />
+      )}
+    </>
+  );
+}
+
+function NovaFitxaPdf({ onCreated, onBack, novaFitxaId, novaFitxaCodi, navigate }) {
+  const toast = useToast();
+  const [artCodi, setArtCodi] = useState('');
+  const [nomProducte, setNomProducte] = useState('');
+  const [categoria, setCategoria] = useState('');
+  const [file, setFile] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!artCodi.trim() || !nomProducte.trim()) {
+      setError("Cal indicar el codi d'article i el nom del producte");
+      return;
+    }
+    if (!file) {
+      setError("Cal seleccionar el PDF");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { pdf_temp_token } = await api.uploadPdfTemp(file);
+      const fitxa = await api.crearFitxa({
+        art_codi: artCodi.trim(),
+        nom_producte: nomProducte.trim(),
+        categoria: categoria.trim(),
+        descripcio_canvi: 'Pujada inicial del PDF',
+        tipus_producte: 'comercialitzat',
+        pdf_temp_token,
+      });
+      toast.success('Fitxa comercialitzada creada correctament');
+      onCreated(fitxa);
+    } catch (err) {
+      setError(err.message);
+      toast.error(`Error creant: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="toolbar">
+        <button className="outline secondary btn-sm" onClick={onBack}>&larr; Tornar</button>
+        <h2 style={{ margin: 0 }}>Nova fitxa de producte comercialitzat</h2>
+      </div>
+
+      <form onSubmit={handleSubmit} style={{ maxWidth: 600 }}>
+        <label>
+          Codi d'article *
+          <input
+            type="text"
+            value={artCodi}
+            onChange={(e) => setArtCodi(e.target.value)}
+            placeholder="Ex: 60360"
+            required
+            disabled={loading}
+          />
+        </label>
+
+        <label>
+          Nom del producte *
+          <input
+            type="text"
+            value={nomProducte}
+            onChange={(e) => setNomProducte(e.target.value)}
+            placeholder="Ex: PBUK PUNJABI ATTA 10 KG"
+            required
+            disabled={loading}
+          />
+        </label>
+
+        <label>
+          Categoria
+          <input
+            type="text"
+            value={categoria}
+            onChange={(e) => setCategoria(e.target.value)}
+            placeholder="Opcional"
+            disabled={loading}
+          />
+        </label>
+
+        <label>
+          PDF *
+          <input
+            type="file"
+            accept=".pdf,application/pdf"
+            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            required
+            disabled={loading}
+          />
+          {file && (
+            <small style={{ color: 'var(--gray-500)' }}>
+              {file.name} ({(file.size / 1024).toFixed(0)} KB)
+            </small>
+          )}
+        </label>
+
+        {error && <p style={{ color: 'var(--danger)' }}>{error}</p>}
+
+        <button type="submit" disabled={loading} aria-busy={loading}>
+          {loading ? 'Creant...' : 'Crear fitxa'}
+        </button>
+      </form>
 
       {novaFitxaId && (
         <DistribuirModal

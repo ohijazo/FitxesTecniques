@@ -79,6 +79,59 @@ export const api = {
   distribuirDesti: (fitxaId, destiId) => request(`/fitxes/${fitxaId}/distribuir/${destiId}`, { method: 'POST' }),
   retirarDesti: (fitxaId, destiId, data) => request(`/fitxes/${fitxaId}/retirar/${destiId}`, { method: 'POST', body: JSON.stringify(data) }),
 
+  // Puja un PDF a un directori temporal i retorna pdf_temp_token (consumit per crearFitxa amb tipus_producte='comercialitzat').
+  uploadPdfTemp: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const token = getToken();
+    return fetch(`${API_BASE}/fitxes/upload-pdf-temp`, {
+      method: 'POST',
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: formData,
+    }).then(async (res) => {
+      if (res.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('usuari');
+        window.location.href = '/login';
+        throw new Error('Sessió expirada');
+      }
+      const raw = await res.text().catch(() => '');
+      let parsed = null;
+      try { parsed = raw ? JSON.parse(raw) : null; } catch { /* no JSON */ }
+      if (!res.ok) {
+        throw new Error((parsed && parsed.error) || `HTTP ${res.status}: ${raw.slice(0, 200)}`);
+      }
+      return parsed;
+    });
+  },
+
+  // Crea una nova versió pujant un PDF (fitxes de producte comercialitzat).
+  crearVersioPdf: (fitxaId, file, descripcioCanvi) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('descripcio_canvi', descripcioCanvi || '');
+    const token = getToken();
+    return fetch(`${API_BASE}/fitxes/${fitxaId}/versions/upload-pdf`, {
+      method: 'POST',
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: formData,
+    }).then(async (res) => {
+      if (res.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('usuari');
+        window.location.href = '/login';
+        throw new Error('Sessió expirada');
+      }
+      const raw = await res.text().catch(() => '');
+      let parsed = null;
+      try { parsed = raw ? JSON.parse(raw) : null; } catch { /* no JSON */ }
+      if (!res.ok) {
+        throw new Error((parsed && parsed.error) || `HTTP ${res.status}: ${raw.slice(0, 200)}`);
+      }
+      return parsed;
+    });
+  },
+
   // Importar PDF a edició (parser → JSON sense persistir)
   parsePdf: (fitxaId, file) => {
     const formData = new FormData();

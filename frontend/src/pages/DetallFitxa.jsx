@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useLocation, Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useToast } from '../components/Toast';
@@ -839,6 +839,7 @@ function DetallFitxa() {
   const usuari = JSON.parse(localStorage.getItem('usuari') || '{}');
   const [fitxa, setFitxa] = useState(null);
   const [distribucions, setDistribucions] = useState([]);
+  const [destins, setDestins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [pdfUrl, setPdfUrl] = useState(null);
@@ -848,6 +849,32 @@ function DetallFitxa() {
   const [showDistribuir, setShowDistribuir] = useState(openDist);
   const [verif, setVerif] = useState(null);
   const [showVerifDetails, setShowVerifDetails] = useState(false);
+  const [retirarDistDesti, setRetirarDistDesti] = useState(null);
+  const [showPujarPdf, setShowPujarPdf] = useState(false);
+
+  // Destins per id — per poder passar el desti complet (amb tipus) al RetirarDestiModal
+  // des de la taula d'historial de distribucions.
+  useEffect(() => {
+    api.llistarDestins().then(setDestins).catch(() => {});
+  }, []);
+  const destinsById = useMemo(() => {
+    const m = new Map();
+    for (const d of destins) m.set(d.id, d);
+    return m;
+  }, [destins]);
+
+  // Per destí, quina és l'última distribució 'ok' (per evitar permetre retirar una distribució antiga).
+  const ultimDistOkPerDesti = useMemo(() => {
+    const m = new Map();
+    for (const d of distribucions) {
+      if (d.estat !== 'ok' || !d.desti_id || !d.executat_at) continue;
+      const prev = m.get(d.desti_id);
+      if (!prev || new Date(d.executat_at) > new Date(prev.executat_at)) {
+        m.set(d.desti_id, d);
+      }
+    }
+    return m;
+  }, [distribucions]);
 
   const carregarDades = async () => {
     try {
@@ -886,7 +913,11 @@ function DetallFitxa() {
   };
 
   useEffect(() => { carregarDades(); }, [id]);
-  useEffect(() => { if (id) verificarAuto(); }, [id]);
+  useEffect(() => {
+    // La verificació compara contingut estructurat contra el PDF.
+    // No aplica a fitxes comercialitzades (sense contingut).
+    if (id && fitxa && fitxa.tipus_producte !== 'comercialitzat') verificarAuto();
+  }, [id, fitxa?.tipus_producte]);
 
   const publicarVersio = async (vid) => {
     try {
@@ -1058,9 +1089,15 @@ function DetallFitxa() {
         </div>
         <div className="detail-actions">
           {(usuari.rol === 'admin' || usuari.rol === 'editor') && (
-            <Link to={`/fitxes/${id}/editar`} role="button" className="outline">
-              Editar / Nova versió
-            </Link>
+            fitxa.tipus_producte === 'comercialitzat' ? (
+              <button className="outline" onClick={() => setShowPujarPdf(true)}>
+                Pujar nou PDF
+              </button>
+            ) : (
+              <Link to={`/fitxes/${id}/editar`} role="button" className="outline">
+                Editar / Nova versió
+              </Link>
+            )
           )}
           <button onClick={() => vistaPrevia()} className="outline">
             Vista prèvia PDF
@@ -1124,10 +1161,29 @@ function DetallFitxa() {
 
           {section === 'contingut' && (
             <>
-              {showVerifDetails && verif?.data && (
-                <VerificarPanel fitxaId={id} onClose={() => setShowVerifDetails(false)} />
+              {fitxa.tipus_producte === 'comercialitzat' ? (
+                <div className="card">
+                  <p style={{ marginTop: 0 }}>
+                    Aquesta fitxa correspon a un <strong>producte comercialitzat</strong>: només es desa el PDF
+                    rebut del proveïdor, sense contingut estructurat editable.
+                  </p>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <button className="outline" onClick={() => vistaPrevia()}>Vista prèvia del PDF</button>
+                    {(usuari.rol === 'admin' || usuari.rol === 'editor') && (
+                      <button onClick={() => setShowPujarPdf(true)}>
+                        Pujar nou PDF (nova versió)
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {showVerifDetails && verif?.data && (
+                    <VerificarPanel fitxaId={id} onClose={() => setShowVerifDetails(false)} />
+                  )}
+                  <PdfDocumentView contingut={contingut} versio={versioActiva} />
+                </>
               )}
-              <PdfDocumentView contingut={contingut} versio={versioActiva} />
             </>
           )}
 
@@ -1197,29 +1253,50 @@ function DetallFitxa() {
                       <th>Data</th>
                       <th>Usuari</th>
                       <th>Detall</th>
+                      <th>Accions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {distribucions.map((d) => (
-                      <tr key={d.id}>
-                        <td style={{ fontWeight: 500 }}>{d.desti}</td>
-                        <td style={{ textAlign: 'center', fontWeight: 600 }}>{d.num_versio != null ? d.num_versio : '-'}</td>
-                        <td><span className={`badge ${d.estat}`}>{d.estat}</span></td>
-                        <td style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>
-                          {d.executat_at ? new Date(d.executat_at).toLocaleString('ca') : 'Pendent'}
-                        </td>
-                        <td style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>{d.executat_by || '-'}</td>
-                        <td style={{ fontSize: '0.85rem' }}>
-                          {d.estat === 'ok' && d.missatge_error && d.missatge_error.startsWith('http') ? (
-                            <a href={d.missatge_error} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand)' }}>
-                              {d.missatge_error}
-                            </a>
-                          ) : d.estat === 'error' ? (
-                            <span style={{ color: 'var(--danger)' }}>{d.missatge_error || ''}</span>
-                          ) : null}
-                        </td>
-                      </tr>
-                    ))}
+                    {distribucions.map((d) => {
+                      const desti = d.desti_id ? destinsById.get(d.desti_id) : null;
+                      const esUltimaOk = d.desti_id && ultimDistOkPerDesti.get(d.desti_id)?.id === d.id;
+                      const potRetirar =
+                        (usuari.rol === 'admin' || usuari.rol === 'editor' || usuari.rol === 'distribuidor') &&
+                        esUltimaOk && desti;
+                      return (
+                        <tr key={d.id}>
+                          <td style={{ fontWeight: 500 }}>{d.desti}</td>
+                          <td style={{ textAlign: 'center', fontWeight: 600 }}>{d.num_versio != null ? d.num_versio : '-'}</td>
+                          <td><span className={`badge ${d.estat}`}>{d.estat}</span></td>
+                          <td style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>
+                            {d.executat_at ? new Date(d.executat_at).toLocaleString('ca') : 'Pendent'}
+                          </td>
+                          <td style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>{d.executat_by || '-'}</td>
+                          <td style={{ fontSize: '0.85rem' }}>
+                            {d.estat === 'ok' && d.missatge_error && d.missatge_error.startsWith('http') ? (
+                              <a href={d.missatge_error} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand)' }}>
+                                {d.missatge_error}
+                              </a>
+                            ) : d.estat === 'error' ? (
+                              <span style={{ color: 'var(--danger)' }}>{d.missatge_error || ''}</span>
+                            ) : null}
+                          </td>
+                          <td>
+                            {potRetirar && (
+                              <button
+                                type="button"
+                                className="outline btn-sm"
+                                onClick={() => setRetirarDistDesti(desti)}
+                                style={{ margin: 0, color: 'var(--danger)', borderColor: 'var(--danger)', fontSize: '0.78rem' }}
+                                title={`Retirar el PDF de ${d.desti}`}
+                              >
+                                Retirar
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               )}
@@ -1261,7 +1338,106 @@ function DetallFitxa() {
           onClose={() => setEstatAConfirmar(null)}
         />
       )}
+
+      {retirarDistDesti && (
+        <RetirarDestiModal
+          fitxaId={fitxa.id}
+          fitxaArtCodi={fitxa.art_codi}
+          desti={retirarDistDesti}
+          onDone={() => { setRetirarDistDesti(null); carregarDades(); }}
+          onClose={() => setRetirarDistDesti(null)}
+        />
+      )}
+
+      {showPujarPdf && (
+        <PujarPdfModal
+          fitxaId={fitxa.id}
+          fitxaArtCodi={fitxa.art_codi}
+          onDone={() => { setShowPujarPdf(false); carregarDades(); }}
+          onClose={() => setShowPujarPdf(false)}
+        />
+      )}
     </>
+  );
+}
+
+function PujarPdfModal({ fitxaId, fitxaArtCodi, onDone, onClose }) {
+  useEscapeKey(onClose);
+  const toast = useToast();
+  const [file, setFile] = useState(null);
+  const [descripcio, setDescripcio] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!file) { setError("Cal seleccionar un PDF"); return; }
+    if (!descripcio.trim()) { setError("Cal indicar el motiu del canvi"); return; }
+
+    setLoading(true);
+    setError(null);
+    try {
+      await api.crearVersioPdf(fitxaId, file, descripcio.trim());
+      toast.success(`Nova versió de ${fitxaArtCodi} creada amb el PDF pujat`);
+      onDone();
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3 style={{ margin: 0 }}>Pujar nou PDF — {fitxaArtCodi}</h3>
+          <button className="outline secondary btn-sm" onClick={onClose}>&times;</button>
+        </div>
+
+        <p style={{ fontSize: '0.88rem', color: 'var(--gray-600)', marginTop: 0 }}>
+          Es crearà una <strong>versió nova</strong> amb el PDF pujat. Les versions anteriors es mantenen intactes.
+        </p>
+
+        <form onSubmit={handleSubmit}>
+          <label>
+            PDF *
+            <input
+              type="file"
+              accept=".pdf,application/pdf"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              required
+              disabled={loading}
+            />
+            {file && (
+              <small style={{ color: 'var(--gray-500)' }}>
+                {file.name} ({(file.size / 1024).toFixed(0)} KB)
+              </small>
+            )}
+          </label>
+
+          <label>
+            Motiu del canvi *
+            <textarea
+              value={descripcio}
+              onChange={(e) => setDescripcio(e.target.value)}
+              required
+              placeholder="Ex: Actualització rebuda del proveïdor amb nova fitxa..."
+              rows={2}
+              disabled={loading}
+            />
+          </label>
+
+          {error && <p style={{ color: 'var(--danger)', fontSize: '0.88rem', marginBottom: '0.5rem' }}>{error}</p>}
+
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+            <button type="button" className="outline secondary" onClick={onClose}>Cancel·lar</button>
+            <button type="submit" disabled={loading} aria-busy={loading}>
+              {loading ? 'Pujant...' : 'Crear nova versió'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 
