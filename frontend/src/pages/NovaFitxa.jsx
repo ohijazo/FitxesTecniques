@@ -15,6 +15,11 @@ function NovaFitxa() {
   const [novaFitxaId, setNovaFitxaId] = useState(null);
   const [novaFitxaCodi, setNovaFitxaCodi] = useState('');
 
+  // Estat per al mode 'pdf' (fitxa comercialitzada)
+  const [pdfForm, setPdfForm] = useState({ art_codi: '', nom_producte: '', categoria: '', file: null });
+  const [creatingPdf, setCreatingPdf] = useState(false);
+  const [conflicte, setConflicte] = useState(null); // { existent: {id, nom, tipus_producte}, file }
+
   const handleWordUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -99,6 +104,62 @@ function NovaFitxa() {
     }
   };
 
+  const handleCrearComercialitzat = async (e) => {
+    e.preventDefault();
+    if (!pdfForm.art_codi.trim() || !pdfForm.nom_producte.trim() || !pdfForm.file) {
+      setError('Cal indicar codi, nom del producte i el PDF.');
+      return;
+    }
+    setCreatingPdf(true);
+    setError(null);
+    try {
+      const { pdf_temp_token } = await api.uploadPdfTemp(pdfForm.file);
+      const fitxa = await api.crearFitxa({
+        art_codi: pdfForm.art_codi.trim(),
+        nom_producte: pdfForm.nom_producte.trim(),
+        categoria: pdfForm.categoria.trim(),
+        tipus_producte: 'comercialitzat',
+        pdf_temp_token,
+        contingut: {},
+      });
+      toast.success('Fitxa comercialitzada creada correctament');
+      setNovaFitxaId(fitxa.id);
+      setNovaFitxaCodi(fitxa.art_codi);
+    } catch (err) {
+      // Si l'article ja existeix, oferir conversió o afegir com a nova versió
+      if (err.status === 409 && err.body?.existent) {
+        setConflicte({ existent: err.body.existent, file: pdfForm.file });
+      } else {
+        setError(err.message);
+        toast.error(`Error creant: ${err.message}`);
+      }
+    } finally {
+      setCreatingPdf(false);
+    }
+  };
+
+  const handleConfirmarConflicte = async () => {
+    if (!conflicte) return;
+    const { existent, file } = conflicte;
+    setCreatingPdf(true);
+    try {
+      if (existent.tipus_producte === 'comercialitzat') {
+        await api.crearVersioPdf(existent.id, file, 'Actualització PDF proveïdor');
+        toast.success(`Nova versió PDF de ${existent.nom_producte} creada`);
+      } else {
+        await api.convertirAComercialitzat(existent.id, file, 'Convertida a producte comercialitzat');
+        toast.success(`Fitxa ${existent.nom_producte} convertida a comercialitzada`);
+      }
+      setConflicte(null);
+      navigate(`/fitxes/${existent.id}`);
+    } catch (err) {
+      setError(err.message);
+      toast.error(`Error: ${err.message}`);
+    } finally {
+      setCreatingPdf(false);
+    }
+  };
+
   // Pantalla triar mode
   if (!mode) {
     return (
@@ -134,7 +195,109 @@ function NovaFitxa() {
             </p>
             <span style={{ color: 'var(--brand)' }}>Començar</span>
           </div>
+
+          <div className="option-card" onClick={() => setMode('pdf')}>
+            <h3>Producte comercialitzat (PDF)</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+              Puja directament el PDF d'una fitxa rebuda d'un proveïdor.
+            </p>
+            <span style={{ color: 'var(--brand)' }}>Començar</span>
+          </div>
         </div>
+      </>
+    );
+  }
+
+  if (mode === 'pdf') {
+    return (
+      <>
+        <div className="toolbar">
+          <button className="outline secondary btn-sm" onClick={() => { setMode(null); setPdfForm({ art_codi: '', nom_producte: '', categoria: '', file: null }); }}>
+            &larr; Tornar
+          </button>
+          <h2 style={{ margin: 0 }}>Nova fitxa comercialitzada</h2>
+        </div>
+        {error && <p style={{ color: 'var(--danger)' }}>{error}</p>}
+
+        <form onSubmit={handleCrearComercialitzat} className="card" style={{ maxWidth: '600px' }}>
+          <label>
+            Codi d'article *
+            <input
+              type="text"
+              value={pdfForm.art_codi}
+              onChange={(e) => setPdfForm((p) => ({ ...p, art_codi: e.target.value }))}
+              required
+              placeholder="ex: 60360"
+            />
+          </label>
+          <label>
+            Nom del producte *
+            <input
+              type="text"
+              value={pdfForm.nom_producte}
+              onChange={(e) => setPdfForm((p) => ({ ...p, nom_producte: e.target.value }))}
+              required
+              placeholder="ex: PBUK PUNJABI ATTA 10 KG"
+            />
+          </label>
+          <label>
+            Categoria
+            <input
+              type="text"
+              value={pdfForm.categoria}
+              onChange={(e) => setPdfForm((p) => ({ ...p, categoria: e.target.value }))}
+              placeholder="opcional"
+            />
+          </label>
+          <label>
+            Fitxer PDF *
+            <input
+              type="file"
+              accept=".pdf,application/pdf"
+              onChange={(e) => setPdfForm((p) => ({ ...p, file: e.target.files?.[0] || null }))}
+              required
+            />
+          </label>
+          <button type="submit" disabled={creatingPdf} aria-busy={creatingPdf}>
+            {creatingPdf ? 'Creant...' : 'Crear fitxa'}
+          </button>
+        </form>
+
+        {conflicte && (
+          <div className="modal-overlay" onClick={() => !creatingPdf && setConflicte(null)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <h3 style={{ margin: 0, marginBottom: '1rem' }}>Article ja existent</h3>
+              <p style={{ fontSize: '0.92rem', marginBottom: '1rem' }}>
+                L'article <strong>{pdfForm.art_codi}</strong> ja existeix a la BD com a{' '}
+                <strong>{conflicte.existent.tipus_producte === 'comercialitzat' ? 'comercialitzat' : 'elaborat'}</strong>
+                {' '}(<em>{conflicte.existent.nom_producte}</em>).
+              </p>
+              <p style={{ fontSize: '0.92rem', marginBottom: '1.25rem' }}>
+                {conflicte.existent.tipus_producte === 'comercialitzat'
+                  ? 'Vols afegir aquest PDF com a nova versió de la fitxa existent?'
+                  : 'Vols convertir-la a comercialitzada pujant aquest PDF? Es crearà una nova versió amb el PDF i les versions anteriors elaborades es preservaran a l\'historial.'}
+              </p>
+              <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                <button type="button" className="outline secondary" onClick={() => setConflicte(null)} disabled={creatingPdf}>
+                  Cancel·lar
+                </button>
+                <button type="button" onClick={handleConfirmarConflicte} disabled={creatingPdf} aria-busy={creatingPdf}>
+                  {creatingPdf ? 'Processant...' : (conflicte.existent.tipus_producte === 'comercialitzat' ? 'Afegir com a nova versió' : 'Convertir a comercialitzat')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {novaFitxaId && (
+          <DistribuirModal
+            titol="Fitxa creada"
+            missatge={`La fitxa ${novaFitxaCodi} s'ha creat correctament.`}
+            onDistribuir={() => navigate(`/fitxes/${novaFitxaId}`, { state: { openDistribuir: true } })}
+            onNoDistribuir={() => navigate(`/fitxes/${novaFitxaId}`)}
+            onClose={() => navigate(`/fitxes/${novaFitxaId}`)}
+          />
+        )}
       </>
     );
   }

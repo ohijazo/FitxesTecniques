@@ -23,6 +23,10 @@ function EditarFitxa() {
     const carregarFitxa = async () => {
       try {
         const f = await api.detallFitxa(id);
+        if ((f.tipus_producte || 'elaborat') === 'comercialitzat') {
+          navigate(`/fitxes/${id}`, { replace: true });
+          return;
+        }
         setFitxa(f);
       } catch (err) {
         setError(err.message);
@@ -31,7 +35,7 @@ function EditarFitxa() {
       }
     };
     carregarFitxa();
-  }, [id]);
+  }, [id, navigate]);
 
   const handleSubmit = async (formData) => {
     try {

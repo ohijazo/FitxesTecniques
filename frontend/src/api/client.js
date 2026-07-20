@@ -29,10 +29,15 @@ async function request(path, options = {}) {
     let parsed = null;
     try { parsed = raw ? JSON.parse(raw) : null; } catch { /* no JSON */ }
     if (parsed && parsed.error) {
-      throw new Error(parsed.error);
+      const err = new Error(parsed.error);
+      err.body = parsed;
+      err.status = response.status;
+      throw err;
     }
     const body = raw ? raw.slice(0, 300) : '(resposta buida)';
-    throw new Error(`HTTP ${response.status}: ${body}`);
+    const err = new Error(`HTTP ${response.status}: ${body}`);
+    err.status = response.status;
+    throw err;
   }
 
   return response.json();
@@ -85,6 +90,82 @@ export const api = {
     formData.append('pdf', file);
     const token = getToken();
     return fetch(`${API_BASE}/fitxes/${fitxaId}/parse-pdf`, {
+      method: 'POST',
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: formData,
+    }).then(async (res) => {
+      if (res.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('usuari');
+        window.location.href = '/login';
+        throw new Error('Sessió expirada');
+      }
+      const raw = await res.text().catch(() => '');
+      let parsed = null;
+      try { parsed = raw ? JSON.parse(raw) : null; } catch { /* no JSON */ }
+      if (!res.ok) {
+        throw new Error((parsed && parsed.error) || `HTTP ${res.status}: ${raw.slice(0, 200)}`);
+      }
+      return parsed;
+    });
+  },
+
+  // Pujada de PDF per a fitxes de producte comercialitzat
+  uploadPdfTemp: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const token = getToken();
+    return fetch(`${API_BASE}/fitxes/upload-pdf-temp`, {
+      method: 'POST',
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: formData,
+    }).then(async (res) => {
+      if (res.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('usuari');
+        window.location.href = '/login';
+        throw new Error('Sessió expirada');
+      }
+      const raw = await res.text().catch(() => '');
+      let parsed = null;
+      try { parsed = raw ? JSON.parse(raw) : null; } catch { /* no JSON */ }
+      if (!res.ok) {
+        throw new Error((parsed && parsed.error) || `HTTP ${res.status}: ${raw.slice(0, 200)}`);
+      }
+      return parsed;
+    });
+  },
+  crearVersioPdf: (fitxaId, file, descripcioCanvi) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('descripcio_canvi', descripcioCanvi || '');
+    const token = getToken();
+    return fetch(`${API_BASE}/fitxes/${fitxaId}/versions/upload-pdf`, {
+      method: 'POST',
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: formData,
+    }).then(async (res) => {
+      if (res.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('usuari');
+        window.location.href = '/login';
+        throw new Error('Sessió expirada');
+      }
+      const raw = await res.text().catch(() => '');
+      let parsed = null;
+      try { parsed = raw ? JSON.parse(raw) : null; } catch { /* no JSON */ }
+      if (!res.ok) {
+        throw new Error((parsed && parsed.error) || `HTTP ${res.status}: ${raw.slice(0, 200)}`);
+      }
+      return parsed;
+    });
+  },
+  convertirAComercialitzat: (fitxaId, file, descripcioCanvi) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (descripcioCanvi) formData.append('descripcio_canvi', descripcioCanvi);
+    const token = getToken();
+    return fetch(`${API_BASE}/fitxes/${fitxaId}/convertir-a-comercialitzat`, {
       method: 'POST',
       headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: formData,

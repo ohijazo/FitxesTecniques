@@ -101,6 +101,7 @@ class FitxaTecnica(db.Model):
     nom_producte = db.Column(db.String(200), nullable=False)
     categoria = db.Column(db.String(100))
     estat = db.Column(db.String(20), default='esborrany')
+    tipus_producte = db.Column(db.String(20), nullable=False, default='elaborat')
     es_client = db.Column(db.Boolean, default=False)
     observacions = db.Column(db.Text, default='')
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
@@ -121,6 +122,7 @@ class FitxaTecnica(db.Model):
             'nom_producte': self.nom_producte,
             'categoria': self.categoria,
             'estat': self.estat,
+            'tipus_producte': self.tipus_producte or 'elaborat',
             'es_client': self.es_client,
             'observacions': self.observacions or '',
             'created_at': self.created_at.isoformat() if self.created_at else None,

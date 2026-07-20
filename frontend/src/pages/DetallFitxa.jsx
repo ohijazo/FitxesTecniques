@@ -839,6 +839,7 @@ function DetallFitxa() {
   const usuari = JSON.parse(localStorage.getItem('usuari') || '{}');
   const [fitxa, setFitxa] = useState(null);
   const [distribucions, setDistribucions] = useState([]);
+  const [destins, setDestins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [pdfUrl, setPdfUrl] = useState(null);
@@ -848,6 +849,9 @@ function DetallFitxa() {
   const [showDistribuir, setShowDistribuir] = useState(openDist);
   const [verif, setVerif] = useState(null);
   const [showVerifDetails, setShowVerifDetails] = useState(false);
+  const [retirarModalDist, setRetirarModalDist] = useState(null);
+  const [substituirPdfOpen, setSubstituirPdfOpen] = useState(false);
+  const [convertirComercialitzatOpen, setConvertirComercialitzatOpen] = useState(false);
 
   const carregarDades = async () => {
     try {
@@ -887,6 +891,17 @@ function DetallFitxa() {
 
   useEffect(() => { carregarDades(); }, [id]);
   useEffect(() => { if (id) verificarAuto(); }, [id]);
+  useEffect(() => { api.llistarDestins().then(setDestins).catch(() => {}); }, []);
+
+  // Helper: retorna true si aquesta distribucio és l'última 'ok' vigent per al seu desti_id.
+  // Si sí, es pot retirar. Si hi ha una distribucio posterior (ok, error o retirat), no.
+  const esUltimaOkPerDesti = (dist) => {
+    if (!dist || dist.desti_id == null || dist.estat !== 'ok') return false;
+    const perDesti = distribucions
+      .filter((d) => d.desti_id === dist.desti_id && d.executat_at)
+      .sort((a, b) => new Date(b.executat_at) - new Date(a.executat_at));
+    return perDesti.length > 0 && perDesti[0].id === dist.id;
+  };
 
   const publicarVersio = async (vid) => {
     try {
@@ -1057,10 +1072,16 @@ function DetallFitxa() {
           </div>
         </div>
         <div className="detail-actions">
-          {(usuari.rol === 'admin' || usuari.rol === 'editor') && (
+          {(usuari.rol === 'admin' || usuari.rol === 'editor') && (fitxa.tipus_producte || 'elaborat') !== 'comercialitzat' && (
             <Link to={`/fitxes/${id}/editar`} role="button" className="outline">
               Editar / Nova versió
             </Link>
+          )}
+          {(usuari.rol === 'admin' || usuari.rol === 'editor') && (fitxa.tipus_producte || 'elaborat') === 'elaborat' && (
+            <button className="outline" onClick={() => setConvertirComercialitzatOpen(true)}
+              title="Convertir aquesta fitxa a producte comercialitzat pujant un PDF">
+              Convertir a comercialitzat
+            </button>
           )}
           <button onClick={() => vistaPrevia()} className="outline">
             Vista prèvia PDF
@@ -1127,7 +1148,23 @@ function DetallFitxa() {
               {showVerifDetails && verif?.data && (
                 <VerificarPanel fitxaId={id} onClose={() => setShowVerifDetails(false)} />
               )}
-              <PdfDocumentView contingut={contingut} versio={versioActiva} />
+              {(fitxa.tipus_producte || 'elaborat') === 'comercialitzat' ? (
+                <div className="card">
+                  <p style={{ color: 'var(--gray-600)' }}>
+                    <strong>Fitxa de producte comercialitzat.</strong> No té contingut estructurat editable —
+                    el PDF s'ha pujat directament del proveïdor.
+                  </p>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.75rem' }}>
+                    <button className="outline" onClick={() => vistaPrevia()}>Veure PDF actual</button>
+                    <button className="outline secondary" onClick={() => descarregarPdf()}>Descarregar PDF</button>
+                    {(usuari.rol === 'admin' || usuari.rol === 'editor') && (
+                      <button onClick={() => setSubstituirPdfOpen(true)}>Substituir per nou PDF</button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <PdfDocumentView contingut={contingut} versio={versioActiva} />
+              )}
             </>
           )}
 
@@ -1197,6 +1234,9 @@ function DetallFitxa() {
                       <th>Data</th>
                       <th>Usuari</th>
                       <th>Detall</th>
+                      {(usuari.rol === 'admin' || usuari.rol === 'editor' || usuari.rol === 'distribuidor') && (
+                        <th style={{ textAlign: 'right' }}>Accions</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
@@ -1218,6 +1258,21 @@ function DetallFitxa() {
                             <span style={{ color: 'var(--danger)' }}>{d.missatge_error || ''}</span>
                           ) : null}
                         </td>
+                        {(usuari.rol === 'admin' || usuari.rol === 'editor' || usuari.rol === 'distribuidor') && (
+                          <td style={{ textAlign: 'right' }}>
+                            {esUltimaOkPerDesti(d) && (
+                              <button
+                                type="button"
+                                className="outline btn-sm"
+                                onClick={() => setRetirarModalDist(d)}
+                                style={{ margin: 0, color: 'var(--danger)', borderColor: 'var(--danger)', fontSize: '0.78rem' }}
+                                title={`Retirar el PDF de ${d.desti}`}
+                              >
+                                Retirar
+                              </button>
+                            )}
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -1261,7 +1316,122 @@ function DetallFitxa() {
           onClose={() => setEstatAConfirmar(null)}
         />
       )}
+
+      {retirarModalDist && (() => {
+        const desti = destins.find((x) => x.id === retirarModalDist.desti_id) || {
+          id: retirarModalDist.desti_id,
+          nom: retirarModalDist.desti,
+          tipus: '',
+        };
+        return (
+          <RetirarDestiModal
+            fitxaId={id}
+            fitxaArtCodi={fitxa.art_codi}
+            desti={desti}
+            onDone={() => { setRetirarModalDist(null); carregarDades(); }}
+            onClose={() => setRetirarModalDist(null)}
+          />
+        );
+      })()}
+
+      {substituirPdfOpen && (
+        <PujarPdfModal
+          title="Substituir per nou PDF"
+          intro={<>Es crearà una nova versió de <strong>{fitxa.art_codi}</strong> amb el PDF pujat. La versió anterior es manté intacta a l'historial.</>}
+          submitLabel="Crear nova versió"
+          submitLoadingLabel="Pujant..."
+          successMessage={`Nova versió de ${fitxa.art_codi} creada amb el PDF pujat`}
+          onSubmit={(file, descripcio) => api.crearVersioPdf(id, file, descripcio)}
+          onDone={() => { setSubstituirPdfOpen(false); carregarDades(); }}
+          onClose={() => setSubstituirPdfOpen(false)}
+        />
+      )}
+
+      {convertirComercialitzatOpen && (
+        <PujarPdfModal
+          title="Convertir a producte comercialitzat"
+          intro={<>Es convertirà <strong>{fitxa.art_codi}</strong> ({fitxa.nom_producte}) a producte comercialitzat. Es crearà una nova versió amb el PDF que pugis i les versions anteriors elaborades es preservaran a l'historial.</>}
+          submitLabel="Convertir"
+          submitLoadingLabel="Convertint..."
+          successMessage={`Fitxa ${fitxa.art_codi} convertida a comercialitzada`}
+          onSubmit={(file, descripcio) => api.convertirAComercialitzat(id, file, descripcio)}
+          onDone={() => { setConvertirComercialitzatOpen(false); carregarDades(); }}
+          onClose={() => setConvertirComercialitzatOpen(false)}
+        />
+      )}
     </>
+  );
+}
+
+function PujarPdfModal({ title, intro, submitLabel, submitLoadingLabel, successMessage, onSubmit, onDone, onClose }) {
+  useEscapeKey(onClose);
+  const [file, setFile] = useState(null);
+  const [descripcio, setDescripcio] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const toast = useToast();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!file) { setError('Cal seleccionar un fitxer PDF'); return; }
+    if (!descripcio.trim()) { setError('Cal indicar la descripció del canvi'); return; }
+    setLoading(true);
+    setError(null);
+    try {
+      await onSubmit(file, descripcio.trim());
+      if (successMessage) toast.success(successMessage);
+      onDone();
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3 style={{ margin: 0 }}>{title}</h3>
+          <button className="outline secondary btn-sm" onClick={onClose}>&times;</button>
+        </div>
+
+        {intro && (
+          <p style={{ fontSize: '0.88rem', color: 'var(--gray-600)', marginBottom: '1rem' }}>{intro}</p>
+        )}
+
+        <form onSubmit={handleSubmit}>
+          <label>
+            Fitxer PDF *
+            <input
+              type="file"
+              accept=".pdf,application/pdf"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              required
+            />
+          </label>
+
+          <label>
+            Descripció del canvi *
+            <textarea
+              value={descripcio}
+              onChange={(e) => setDescripcio(e.target.value)}
+              required
+              placeholder="Ex: Actualització rebuda del proveïdor el 20/07/2026"
+              rows={3}
+            />
+          </label>
+
+          {error && <p style={{ color: 'var(--danger)', fontSize: '0.88rem', marginBottom: '0.5rem' }}>{error}</p>}
+
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+            <button type="button" className="outline secondary" onClick={onClose}>Cancel·lar</button>
+            <button type="submit" disabled={loading} aria-busy={loading}>
+              {loading ? (submitLoadingLabel || 'Pujant...') : (submitLabel || 'Confirmar')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 

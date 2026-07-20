@@ -255,6 +255,11 @@ function LlistaFitxes({ usuari }) {
                       <Link to={`/fitxes/${f.id}`} style={{ color: 'var(--gray-800)' }}>
                         {f.nom_producte}
                       </Link>
+                      {f.tipus_producte === 'comercialitzat' && (
+                        <span className="badge" style={{ marginLeft: '0.5rem', background: '#e0f2fe', color: '#075985', fontSize: '0.7rem', padding: '0.1rem 0.4rem' }} title="Producte comercialitzat (PDF pujat del proveïdor)">
+                          Comercial
+                        </span>
+                      )}
                     </td>
                     <td style={{ textAlign: 'center', color: 'var(--gray-600)', fontWeight: 600 }}>
                       {f.versio_activa != null ? f.versio_activa : '-'}
