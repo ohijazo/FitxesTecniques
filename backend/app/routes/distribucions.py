@@ -82,6 +82,41 @@ def _executar_distribucio(dist, fitxa, versio, desti, executat_by=None):
             dist.estat = 'error'
             dist.missatge_error = result['error']
 
+    elif desti.tipus == 'sftp':
+        from app.services.sftp_distributor import distribuir_sftp
+
+        pdf_path = versio.fitxer_pdf
+        if not pdf_path or not os.path.exists(pdf_path):
+            from app.services.pdf_generator import generar_pdf
+            contingut = versio.contingut or {}
+            if 'codi_referencia' not in contingut:
+                contingut['codi_referencia'] = fitxa.art_codi
+            if 'denominacio_comercial' not in contingut:
+                contingut['denominacio_comercial'] = fitxa.nom_producte
+            data_rev = versio.created_at.strftime('%d/%m/%Y') if versio.created_at else ''
+            data_comp = versio.data_comprovacio.strftime('%d/%m/%Y') if versio.data_comprovacio else data_rev
+
+            pdf_bytes = generar_pdf(contingut, versio.num_versio, data_rev, data_comp)
+
+            upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'uploads',
+                                       fitxa.art_codi, f'v{versio.num_versio}')
+            os.makedirs(upload_dir, exist_ok=True)
+            pdf_path = os.path.join(upload_dir, f'{fitxa.art_codi}.pdf')
+            with open(pdf_path, 'wb') as f:
+                f.write(pdf_bytes)
+            versio.fitxer_pdf = pdf_path
+
+        config = desti.configuracio or {}
+        filename = _generar_nom_fitxer(desti.patro_nom_fitxer, fitxa, versio)
+        result = distribuir_sftp(pdf_path, fitxa.art_codi, config, filename)
+
+        if result['ok']:
+            dist.estat = 'ok'
+            dist.missatge_error = result.get('url', '')
+        else:
+            dist.estat = 'error'
+            dist.missatge_error = result['error']
+
     elif desti.tipus == 'xarxa':
         from app.services.smb_distributor import distribuir_xarxa
 
@@ -261,6 +296,9 @@ def retirar_desti(fitxa_id, desti_id):
     if desti.tipus == 'ftp':
         from app.services.ftp_distributor import eliminar_ftp
         result = eliminar_ftp(fitxa.art_codi, config, filename)
+    elif desti.tipus == 'sftp':
+        from app.services.sftp_distributor import eliminar_sftp
+        result = eliminar_sftp(fitxa.art_codi, config, filename)
     elif desti.tipus == 'xarxa':
         from app.services.smb_distributor import eliminar_xarxa
         result = eliminar_xarxa(fitxa.art_codi, config, filename)

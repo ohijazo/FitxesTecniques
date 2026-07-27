@@ -10,6 +10,14 @@ const CONFIG_FIELDS = {
     { nom: 'path', label: 'Ruta destí', type: 'text', placeholder: '/ (arrel)' },
     { nom: 'tls', label: 'Usar TLS (FTPS)', type: 'checkbox' },
   ],
+  sftp: [
+    { nom: 'host', label: 'Host', type: 'text', placeholder: '192.168.50.245' },
+    { nom: 'port', label: 'Port', type: 'number', placeholder: '22' },
+    { nom: 'user', label: 'Usuari', type: 'text', placeholder: 'gestor_fitxes_tec' },
+    { nom: 'password', label: 'Contrasenya', type: 'password' },
+    { nom: 'path', label: 'Ruta destí', type: 'text', placeholder: '/ (arrel)' },
+    { nom: 'url_publica', label: 'URL pública (opcional)', type: 'text', placeholder: 'https://webapp.local/fitxes' },
+  ],
   xarxa: [
     { nom: 'ruta_base', label: 'Ruta carpeta de xarxa (UNC)', type: 'text', placeholder: '\\\\servidor\\compartit' },
     { nom: 'subcarpeta', label: 'Subcarpeta (opcional)', type: 'text', placeholder: 'FitxesTecniques' },
@@ -181,6 +189,7 @@ function AdminDestins() {
               Tipus *
               <select value={form.tipus} onChange={(e) => setForm({ ...form, tipus: e.target.value, configuracio: {} })}>
                 <option value="ftp">FTP</option>
+                <option value="sftp">SFTP (SSH)</option>
                 <option value="xarxa">Carpeta de xarxa</option>
                 <option value="sharepoint">SharePoint Online</option>
                 <option value="sap">SAP Business One</option>

@@ -269,6 +269,9 @@ def esborrar_ultima_versio(fitxa_id):
                 if desti.tipus == 'ftp':
                     from app.services.ftp_distributor import eliminar_ftp
                     result = eliminar_ftp(fitxa.art_codi, config, fname)
+                elif desti.tipus == 'sftp':
+                    from app.services.sftp_distributor import eliminar_sftp
+                    result = eliminar_sftp(fitxa.art_codi, config, fname)
                 elif desti.tipus == 'xarxa':
                     from app.services.smb_distributor import eliminar_xarxa
                     result = eliminar_xarxa(fitxa.art_codi, config, fname)

@@ -298,8 +298,8 @@ def crear_desti():
     if not data or not data.get('nom') or not data.get('tipus'):
         return jsonify({'error': "Camps obligatoris: nom, tipus"}), 400
 
-    if data['tipus'] not in ('ftp', 'xarxa', 'sap', 'sharepoint'):
-        return jsonify({'error': "Tipus no valid. Opcions: ftp, xarxa, sap, sharepoint"}), 400
+    if data['tipus'] not in ('ftp', 'sftp', 'xarxa', 'sap', 'sharepoint'):
+        return jsonify({'error': "Tipus no valid. Opcions: ftp, sftp, xarxa, sap, sharepoint"}), 400
 
     desti = DestiDistribucio(
         nom=data['nom'],
@@ -330,7 +330,7 @@ def editar_desti(did):
     if 'nom' in data:
         desti.nom = data['nom']
     if 'tipus' in data:
-        if data['tipus'] not in ('ftp', 'xarxa', 'sap', 'sharepoint'):
+        if data['tipus'] not in ('ftp', 'sftp', 'xarxa', 'sap', 'sharepoint'):
             return jsonify({'error': "Tipus no valid"}), 400
         desti.tipus = data['tipus']
     if 'configuracio' in data:
