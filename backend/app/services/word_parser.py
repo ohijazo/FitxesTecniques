@@ -314,6 +314,18 @@ def parse_docx(file_path):
 
     for table in doc.tables:
         table_type = _identify_table(table)
+        if table_type == 'pesticidas_taula':
+            # Taula amb estructura títol + text (fila 0 = "Pesticidas / Pesticides",
+            # files següents = contingut bilingüe). No és paràmetre/valor.
+            text_parts = []
+            for row in table.rows[1:]:
+                for cell in row.cells:
+                    t = cell.text.strip()
+                    if t and t not in text_parts:
+                        text_parts.append(t)
+            if text_parts and not contingut.get('pesticidas'):
+                contingut['pesticidas'] = '\n'.join(text_parts)
+            continue
         if table_type and table_type in tables_data:
             rows = _parse_param_table(table)
             tables_data[table_type].extend(rows)
