@@ -11,6 +11,51 @@ function arrayMove(arr, from, to) {
 }
 
 /* ============================================================
+   FORMAT TEXT SECUNDARI (peu legal/context) — paritat amb backend
+   pdf_generator.py param_html: linies que comencen amb prefix
+   regulatori es renderitzen en gris cursiva petita.
+   ============================================================ */
+const SECONDARY_PREFIXES = [
+  'según', 'segons', 'se recomienda', 'es recomana', 'de acuerdo',
+  'establec', 'establert', 'los valores', 'els valors',
+  'conforme a', 'conforme els', 'como sistema', 'com a sistema',
+];
+
+function isSecondaryLine(line) {
+  if (!line) return false;
+  const stripped = line.replace(/<[^>]+>/g, '').trim().toLowerCase();
+  return SECONDARY_PREFIXES.some((p) => stripped.startsWith(p));
+}
+
+function splitParagraphs(text) {
+  if (!text) return [];
+  let s = String(text).trim();
+  if (!s) return [];
+  const pMatches = [...s.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)];
+  if (pMatches.length > 0) {
+    s = pMatches.map((m) => m[1]).join('\n');
+  }
+  s = s.replace(/<br\s*\/?>/gi, '\n');
+  return s.split('\n').map((l) => l.trim()).filter((l) => l && l !== '&nbsp;');
+}
+
+function formatWithSecondary(text) {
+  const paragraphs = splitParagraphs(text);
+  if (paragraphs.length === 0) return '';
+  if (paragraphs.length === 1) return paragraphs[0];
+  const parts = [paragraphs[0]];
+  for (let i = 1; i < paragraphs.length; i++) {
+    const p = paragraphs[i];
+    if (isSecondaryLine(p)) {
+      parts.push(`<br/><span style="font-size: 0.85em; color: #595959; font-style: italic;">${p}</span>`);
+    } else {
+      parts.push(`<br/>${p}`);
+    }
+  }
+  return parts.join('');
+}
+
+/* ============================================================
    DEFAULT SECTIONS
    ============================================================ */
 export const DEFAULT_SECTIONS = [
@@ -152,15 +197,11 @@ function ItemToolbar({ onMoveUp, onMoveDown, onMoveToSection, onRemove, canUp, c
 function EditableField({ label, value, onChange, onRemove, multiline, readOnly, toolbar, bulkVaries, bulkCount }) {
   if (readOnly) {
     if (!value || !String(value).trim()) return null;
-    const hasHtml = typeof value === 'string' && value.includes('<');
+    const html = DOMPurify.sanitize(formatWithSecondary(value));
     return (
       <div className="pdf-field">
         <div className="pdf-field-label">{label}</div>
-        {hasHtml ? (
-          <div className="pdf-field-value" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(value) }} />
-        ) : (
-          <div className="pdf-field-value">{value}</div>
-        )}
+        <div className="pdf-field-value" dangerouslySetInnerHTML={{ __html: html }} />
       </div>
     );
   }
@@ -211,17 +252,11 @@ function EditableTable({ label, rows, onChange, onRemove, readOnly, toolbar, tab
           )}
           <tbody>
             {rows.map((row, i) => {
-              const paramHtml = (row.parametre || '').includes('<')
-                ? DOMPurify.sanitize(row.parametre)
-                : row.parametre || '';
-              const hasHtml = (row.parametre || '').includes('<');
+              const paramHtml = DOMPurify.sanitize(formatWithSecondary(row.parametre || ''));
               return (
                 <tr key={i}>
                   <td className={row.sub ? 'sub-param' : ''} style={{ padding: '5px 10px' }}>
-                    {hasHtml
-                      ? <div dangerouslySetInnerHTML={{ __html: paramHtml }} className="param-rich-content" />
-                      : row.parametre
-                    }
+                    <div dangerouslySetInnerHTML={{ __html: paramHtml }} className="param-rich-content" />
                   </td>
                   <td style={{ padding: '5px 10px' }}>{row.valor}</td>
                 </tr>
