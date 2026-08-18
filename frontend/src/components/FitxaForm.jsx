@@ -499,8 +499,7 @@ const TABLE_NOTES = {
   alcaloides: 'Según Reglamento 2023/915 relativo a los límites máximos de determinados contaminantes en los alimentos y posteriores modificaciones que pueda haber. / Segons Reglament 2023/915 relatiu als límits màxims de determinats contaminants en els aliments i posteriors modificacions que hi pugui haver.',
   metalls_pesants: 'Según Reglamento 2023/915 relativo a los límites máximos de determinados contaminantes en los alimentos y posteriores modificaciones que pueda haber. / Segons Reglament 2023/915 relatiu als límits màxims de determinats contaminants en els aliments i posteriors modificacions que hi pugui haver.',
   valors_nutricionals: 'Los valores pueden variar al tratarse de producto natural. / Els valors poden variar en tractar-se de producte natural.',
-  fisicoquimiques: 'Según RD 677/2016 / Segons RD 677/2016.',
-  reologiques: 'Según RD 677/2016 / Segons RD 677/2016.',
+  // fisicoquimiques i reologiques: sense peu per defecte (les notes van dins les cel·les al Word original)
 };
 
 /* ============================================================
