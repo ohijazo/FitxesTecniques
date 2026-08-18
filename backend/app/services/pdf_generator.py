@@ -77,21 +77,19 @@ def _is_secondary(line):
 
 
 def _split_paragraphs(text):
-    """Separa un text en llista de paràgrafs, gestionant tant HTML <p>
-    com text pla amb \\n / <br>."""
+    """Separa un text en llista de línies/paràgrafs, gestionant HTML <p>,
+    <br> (inclús dins d'un mateix <p>) i text pla amb \\n."""
     text = str(text or '').strip()
     if not text:
         return []
-    # HTML amb <p>: extreure contingut de cada <p>
+    # HTML amb <p>: concatenar contingut de cada <p> amb \n
     p_matches = re.findall(r'<p[^>]*>(.*?)</p>', text, re.DOTALL | re.IGNORECASE)
     if p_matches:
-        return [p.strip() for p in p_matches if p.strip() and p.strip() != '&nbsp;']
-    # Text amb <br>: separar
-    if re.search(r'<br\s*/?>', text, re.IGNORECASE):
-        parts = re.split(r'<br\s*/?>', text, flags=re.IGNORECASE)
-        return [p.strip() for p in parts if p.strip()]
-    # Text pla amb \n
-    return [line.strip() for line in text.split('\n') if line.strip()]
+        text = '\n'.join(p_matches)
+    # Normalitzar <br> a \n perquè el split final ho tracti tot igual
+    text = re.sub(r'<br\s*/?>', '\n', text, flags=re.IGNORECASE)
+    lines = [line.strip() for line in text.split('\n')]
+    return [line for line in lines if line and line != '&nbsp;']
 
 
 def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
