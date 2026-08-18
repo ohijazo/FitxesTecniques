@@ -85,7 +85,8 @@ def _parse_header(doc):
     info = {'rev': '', 'data_revisio': '', 'data_comprovacio': ''}
 
     def _check_cell(text):
-        if 'Rev.:' in text or 'Rev:' in text:
+        # Rev.: número — excloent "Fecha/Data Rev: dd/mm/aaaa" que també conté "Rev:"
+        if ('Rev.:' in text or 'Rev:' in text) and 'Fecha' not in text and 'Data' not in text:
             import re
             m = re.search(r'Rev\.?:\s*(\d+)', text)
             if m:
