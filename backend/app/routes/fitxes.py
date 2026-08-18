@@ -54,8 +54,8 @@ def _parse_data(val):
         return datetime.fromisoformat(s.replace('Z', '+00:00'))
     except ValueError:
         pass
-    # dd/mm/aaaa
-    for fmt in ('%d/%m/%Y', '%d-%m-%Y', '%Y-%m-%d'):
+    # dd/mm/aaaa i dd/mm/aa (any de 2 dígits: 00-68 → 20xx, 69-99 → 19xx segons %y)
+    for fmt in ('%d/%m/%Y', '%d-%m-%Y', '%Y-%m-%d', '%d/%m/%y', '%d-%m-%y'):
         try:
             return datetime.strptime(s, fmt)
         except ValueError:
