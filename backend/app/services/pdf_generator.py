@@ -76,6 +76,27 @@ def _is_secondary(line):
     return stripped.startswith(SECONDARY_PREFIXES)
 
 
+# Patró per separar peu regulatori embedded al final d'un paràgraf
+# Ex: "Este producto... . Según Directiva 1999/2/CE" → ["Este producto...", "Según Directiva 1999/2/CE"]
+_INLINE_SECONDARY_RE = re.compile(
+    r'\.\s+((?:Seg[úu]n|Segons|Se\s+recomienda|Es\s+recomana|De\s+acuerdo|Conforme\s+a|Conforme\s+els|Como\s+sistema|Com\s+a\s+sistema|Establec|Establert|Los\s+valores|Els\s+valors)\b.+)',
+    re.IGNORECASE,
+)
+
+
+def _split_inline_secondary(line):
+    """Si la línia conté un peu regulatori embedded (ex: 'text. Según...'),
+    la separa en dues parts: [principal, secundari]."""
+    if not line:
+        return [line] if line else []
+    m = _INLINE_SECONDARY_RE.search(line)
+    if m:
+        primary = line[:m.start() + 1].strip()  # inclou el punt
+        secondary = m.group(1).strip()
+        return [primary, secondary]
+    return [line]
+
+
 def _split_paragraphs(text):
     """Separa un text en llista de línies/paràgrafs, gestionant HTML <p>,
     <br> (inclús dins d'un mateix <p>) i text pla amb \\n."""
@@ -105,19 +126,34 @@ def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
     def param_html(text):
         """Renderitza text amb línies/paràgrafs secundaris (que comencen amb
         'Según', 'Se recomienda', 'Conforme a'...) en gris cursiva petita.
-        Suporta text pla amb \\n, HTML amb <p> (RichEditor) i <br>."""
+        Suporta text pla amb \\n, HTML amb <p> (RichEditor) i <br>.
+        També detecta peus regulatoris embedded al final d'un paràgraf."""
         if not text:
             return Markup('')
         paragraphs = _split_paragraphs(text)
         if not paragraphs:
             return Markup('')
+        # Expandir cada línia per detectar peus regulatoris embedded
+        expanded = []
+        for p in paragraphs:
+            expanded.extend(_split_inline_secondary(p))
+        paragraphs = expanded
+
+        secondary_style = 'font-size: 8pt; color: #595959; font-style: italic;'
+
+        # Cas especial: un únic paràgraf que ÉS secundari sencer (ex: Pesticidas)
         if len(paragraphs) == 1:
-            return Markup(paragraphs[0])
-        # Primer paràgraf normal; els següents en gris cursiva si són secundaris
-        parts = [paragraphs[0]]
+            p = paragraphs[0]
+            if _is_secondary(p):
+                return Markup(f'<span style="{secondary_style}">{p}</span>')
+            return Markup(p)
+
+        # Primer paràgraf: normal o secundari segons el text
+        first = paragraphs[0]
+        parts = [f'<span style="{secondary_style}">{first}</span>' if _is_secondary(first) else first]
         for p in paragraphs[1:]:
             if _is_secondary(p):
-                parts.append(f'<br><span style="font-size: 8pt; color: #595959; font-style: italic;">{p}</span>')
+                parts.append(f'<br><span style="{secondary_style}">{p}</span>')
             else:
                 parts.append(f'<br>{p}')
         return Markup(''.join(parts))

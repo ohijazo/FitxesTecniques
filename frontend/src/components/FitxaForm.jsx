@@ -27,6 +27,21 @@ function isSecondaryLine(line) {
   return SECONDARY_PREFIXES.some((p) => stripped.startsWith(p));
 }
 
+// Patró per separar peu regulatori embedded al final d'un paràgraf
+// Ex: "Este producto... . Según Directiva 1999/2/CE" → ["Este producto...", "Según Directiva 1999/2/CE"]
+const INLINE_SECONDARY_RE = /\.\s+((?:Seg[úu]n|Segons|Se\s+recomienda|Es\s+recomana|De\s+acuerdo|Conforme\s+a|Conforme\s+els|Como\s+sistema|Com\s+a\s+sistema|Establec|Establert|Los\s+valores|Els\s+valors)\b.+)/i;
+
+function splitInlineSecondary(line) {
+  if (!line) return line ? [line] : [];
+  const m = line.match(INLINE_SECONDARY_RE);
+  if (m) {
+    const primary = line.slice(0, m.index + 1).trim(); // inclou el punt
+    const secondary = m[1].trim();
+    return [primary, secondary];
+  }
+  return [line];
+}
+
 function splitParagraphs(text) {
   if (!text) return [];
   let s = String(text).trim();
@@ -39,15 +54,27 @@ function splitParagraphs(text) {
   return s.split('\n').map((l) => l.trim()).filter((l) => l && l !== '&nbsp;');
 }
 
+const SECONDARY_STYLE = 'font-size: 0.85em; color: #595959; font-style: italic;';
+
 function formatWithSecondary(text) {
-  const paragraphs = splitParagraphs(text);
+  let paragraphs = splitParagraphs(text);
   if (paragraphs.length === 0) return '';
-  if (paragraphs.length === 1) return paragraphs[0];
-  const parts = [paragraphs[0]];
+  // Expandir per detectar peus embedded (ex: "text. Según Directiva...")
+  const expanded = [];
+  for (const p of paragraphs) expanded.push(...splitInlineSecondary(p));
+  paragraphs = expanded;
+
+  if (paragraphs.length === 1) {
+    const p = paragraphs[0];
+    return isSecondaryLine(p) ? `<span style="${SECONDARY_STYLE}">${p}</span>` : p;
+  }
+
+  const first = paragraphs[0];
+  const parts = [isSecondaryLine(first) ? `<span style="${SECONDARY_STYLE}">${first}</span>` : first];
   for (let i = 1; i < paragraphs.length; i++) {
     const p = paragraphs[i];
     if (isSecondaryLine(p)) {
-      parts.push(`<br/><span style="font-size: 0.85em; color: #595959; font-style: italic;">${p}</span>`);
+      parts.push(`<br/><span style="${SECONDARY_STYLE}">${p}</span>`);
     } else {
       parts.push(`<br/>${p}`);
     }
