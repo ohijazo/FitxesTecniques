@@ -222,10 +222,10 @@
 <div class="field-value">{{ alergens }}</div>
 
 <div class="field-label">OGM</div>
-<div class="field-value">{{ ogm }}</div>
+<div class="field-value">{{ ogm|param_html }}</div>
 
 <div class="field-label">Irradiación – Ionización / Irradiació – Ionització</div>
-<div class="field-value">{{ irradiacio }}</div>
+<div class="field-value">{{ irradiacio|param_html }}</div>
 
 <!-- Característiques -->
 <div class="section-title">Características organolépticas / Característiques organolèptiques</div>
@@ -238,7 +238,7 @@
   <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor }}</td></tr>
   {% endfor %}
 </table>
-<div class="note">Según RD 677/2016 / Segons RD 677/2016.</div>
+{% if fisicoquimiques_note %}<div class="note">{{ fisicoquimiques_note }}</div>{% endif %}
 
 <div class="section-title">Características reológicas / Característiques reològiques</div>
 <table class="param-table">
@@ -247,7 +247,7 @@
   <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor }}</td></tr>
   {% endfor %}
 </table>
-<div class="note">Según RD 677/2016 / Segons RD 677/2016.</div>
+{% if reologiques_note %}<div class="note">{{ reologiques_note }}</div>{% endif %}
 
 <div class="section-title">Características Microbiológicas / Característiques microbiològiques</div>
 <table class="param-table">
@@ -257,7 +257,7 @@
   <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor }}</td></tr>
   {% endfor %}
 </table>
-<div class="note">Establecidos como criterio interno en base RD 1286/1984 actualmente derogado. / Establerts com a criteri intern en base RD 1286/1984 actualment derogat.</div>
+{% if microbiologiques_note %}<div class="note">{{ microbiologiques_note }}</div>{% endif %}
 
 <!-- Contaminants -->
 <div class="section-title">Parámetros de Contaminantes / Paràmetres de contaminants</div>
@@ -269,7 +269,7 @@
   <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor }}</td></tr>
   {% endfor %}
 </table>
-<div class="note">Según Reglamento 2023/915 relativo a los límites máximos de determinados contaminantes en los alimentos y posteriores modificaciones que pueda haber. / Segons Reglament 2023/915 relatiu als límits màxims de determinats contaminants en els aliments i posteriors modificacions que hi pugui haver.</div>
+{% if micotoxines_note %}<div class="note">{{ micotoxines_note }}</div>{% endif %}
 
 <table class="param-table">
   <tr><td colspan="2" class="table-subtitle">Alcaloides del cornezuelo / Alcaloides del sègol banyut</td></tr>
@@ -278,7 +278,7 @@
   <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor }}</td></tr>
   {% endfor %}
 </table>
-<div class="note">Según Reglamento 2023/915 / Segons Reglament 2023/915.</div>
+{% if alcaloides_note %}<div class="note">{{ alcaloides_note }}</div>{% endif %}
 
 <table class="param-table">
   <tr><td colspan="2" class="table-subtitle">Metales pesados / Metalls pesants</td></tr>
@@ -287,10 +287,10 @@
   <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor }}</td></tr>
   {% endfor %}
 </table>
-<div class="note">Según Reglamento 2023/915 / Segons Reglament 2023/915.</div>
+{% if metalls_pesants_note %}<div class="note">{{ metalls_pesants_note }}</div>{% endif %}
 
 <div class="section-title">Pesticidas / Pesticides</div>
-<div class="field-value">{{ pesticidas }}</div>
+<div class="field-value">{{ pesticidas|param_html }}</div>
 
 <!-- Valors nutricionals -->
 <div class="section-title">Valores nutricionales / Valors nutricionals</div>
@@ -304,17 +304,17 @@
   </tr>
   {% endfor %}
 </table>
-<div class="note">Los valores pueden variar al tratarse de producto natural. / Els valors poden variar en tractar-se de producte natural.</div>
+{% if valors_nutricionals_note %}<div class="note">{{ valors_nutricionals_note }}</div>{% endif %}
 
 <!-- Informació comercial -->
 <div class="section-title">Presentación – envase / Presentació – envàs</div>
-<div class="field-value">{{ presentacio_envase }}</div>
+<div class="field-value">{{ presentacio_envase|param_html }}</div>
 
 <div class="section-title">Uso previsto / Ús previst</div>
 <div class="field-value">{{ us_previst }}</div>
 
 <div class="section-title">Condiciones de almacenaje / Condicions d'emmagatzematge</div>
-<div class="field-value">{{ condicions_emmagatzematge }}</div>
+<div class="field-value">{{ condicions_emmagatzematge|param_html }}</div>
 
 <div class="section-title">Condiciones de transporte / Condicions de transport</div>
 <div class="field-value">{{ condicions_transport }}</div>

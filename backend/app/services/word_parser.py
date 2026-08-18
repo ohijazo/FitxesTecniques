@@ -7,6 +7,9 @@ El document segueix l'estructura estàndard de Farinera Coromina:
 """
 import os
 from docx import Document
+from docx.oxml.ns import qn
+from docx.text.paragraph import Paragraph
+from docx.table import Table
 
 
 def _extract_images(doc):
@@ -249,6 +252,32 @@ def _identify_table(table):
     return None
 
 
+def _iter_body_items(doc):
+    """Itera els elements del body en ordre de document: (kind, obj)
+    on kind és 'p' (paràgraf) o 't' (taula)."""
+    body = doc.element.body
+    for child in body.iterchildren():
+        tag = child.tag
+        if tag == qn('w:p'):
+            yield ('p', Paragraph(child, doc))
+        elif tag == qn('w:tbl'):
+            yield ('t', Table(child, doc))
+
+
+def _match_field_label(text):
+    """Retorna el nom del camp si el text coincideix amb una etiqueta, o None."""
+    text_for_match = _extract_bilingual_for_match(text).lower().rstrip('.')
+    for label, field_name in FIELD_MAP.items():
+        if text_for_match.startswith(label) or label.startswith(text_for_match):
+            return field_name
+    return None
+
+
+def _is_section_title(text):
+    text_for_match = _extract_bilingual_for_match(text).lower().rstrip('.')
+    return text_for_match in SECTION_TITLES
+
+
 def parse_docx(file_path):
     """Parseja un fitxer .docx de fitxa tècnica i retorna un dict amb les dades.
 
@@ -266,42 +295,8 @@ def parse_docx(file_path):
     # 1. Capçalera
     header_info = _parse_header(doc)
 
-    # 2. Paràgrafs (camps de text)
+    # 2. Iterar en ordre de document: paràgrafs + taules barrejats
     contingut = {}
-    current_field = None
-
-    for para in doc.paragraphs:
-        text = para.text.strip()
-        if not text:
-            current_field = None
-            continue
-
-        # Comprovar si és una etiqueta (fer match amb part castellana)
-        text_for_match = _extract_bilingual_for_match(text).lower().rstrip('.')
-        matched = False
-        for label, field_name in FIELD_MAP.items():
-            if text_for_match.startswith(label) or label.startswith(text_for_match):
-                current_field = field_name
-                matched = True
-                break
-
-        if matched:
-            continue
-
-        # Comprovar si és un títol de secció a ignorar
-        if text_for_match in SECTION_TITLES:
-            current_field = None
-            continue
-
-        # Si tenim un camp actiu, assignar el valor
-        if current_field:
-            existing = contingut.get(current_field, '')
-            if existing:
-                contingut[current_field] = existing + '\n' + text
-            else:
-                contingut[current_field] = text
-
-    # 3. Taules
     tables_data = {
         'fisicoquimiques': [],
         'reologiques': [],
@@ -311,24 +306,63 @@ def parse_docx(file_path):
         'metalls_pesants': [],
         'valors_nutricionals': [],
     }
+    current_field = None       # camp de text actiu (per paràgrafs següents)
+    last_table_key = None      # última taula processada (per capturar el peu)
 
-    for table in doc.tables:
-        table_type = _identify_table(table)
-        if table_type == 'pesticidas_taula':
-            # Taula amb estructura títol + text (fila 0 = "Pesticidas / Pesticides",
-            # files següents = contingut bilingüe). No és paràmetre/valor.
-            text_parts = []
-            for row in table.rows[1:]:
-                for cell in row.cells:
-                    t = cell.text.strip()
-                    if t and t not in text_parts:
-                        text_parts.append(t)
-            if text_parts and not contingut.get('pesticidas'):
-                contingut['pesticidas'] = '\n'.join(text_parts)
-            continue
-        if table_type and table_type in tables_data:
-            rows = _parse_param_table(table)
-            tables_data[table_type].extend(rows)
+    for kind, item in _iter_body_items(doc):
+        if kind == 'p':
+            text = item.text.strip()
+            if not text:
+                continue  # línia en blanc: NO resetejar current_field
+
+            # Nova etiqueta → canvi de camp
+            field = _match_field_label(text)
+            if field is not None:
+                current_field = field
+                last_table_key = None
+                continue
+
+            # Títol de secció → reset (però mantenir last_table_key per notes)
+            if _is_section_title(text):
+                current_field = None
+                continue
+
+            # Text lliure: prioritzar peu de taula si acabem de processar una taula
+            if last_table_key and current_field is None:
+                note_key = f'{last_table_key}_note'
+                existing = contingut.get(note_key, '')
+                contingut[note_key] = (existing + '\n' + text) if existing else text
+                continue
+
+            # Assignar al camp de text actiu
+            if current_field:
+                existing = contingut.get(current_field, '')
+                contingut[current_field] = (existing + '\n' + text) if existing else text
+
+        elif kind == 't':
+            table_type = _identify_table(item)
+            current_field = None  # una taula tanca el camp de text actiu
+
+            if table_type == 'pesticidas_taula':
+                # Taula amb estructura títol + text (fila 0 = "Pesticidas / Pesticides",
+                # files següents = contingut bilingüe). No és paràmetre/valor.
+                text_parts = []
+                for row in item.rows[1:]:
+                    for cell in row.cells:
+                        t = cell.text.strip()
+                        if t and t not in text_parts:
+                            text_parts.append(t)
+                if text_parts and not contingut.get('pesticidas'):
+                    contingut['pesticidas'] = '\n'.join(text_parts)
+                last_table_key = None
+                continue
+
+            if table_type and table_type in tables_data:
+                rows = _parse_param_table(item)
+                tables_data[table_type].extend(rows)
+                last_table_key = table_type
+            else:
+                last_table_key = None
 
     contingut.update(tables_data)
 

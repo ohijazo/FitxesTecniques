@@ -50,6 +50,50 @@ def _process_value(value):
     return value
 
 
+# Peus de taula per defecte (paritat amb frontend TABLE_NOTES a FitxaForm.jsx)
+TABLE_NOTES_DEFAULTS = {
+    'microbiologiques': 'Establecidos como criterio interno en base RD 1286/1984 actualmente derogado. / Establerts com a criteri intern en base RD 1286/1984 actualment derogat.',
+    'micotoxines': 'Según Reglamento 2023/915 relativo a los límites máximos de determinados contaminantes en los alimentos y posteriores modificaciones que pueda haber. / Segons Reglament 2023/915 relatiu als límits màxims de determinats contaminants en els aliments i posteriors modificacions que hi pugui haver.',
+    'alcaloides': 'Según Reglamento 2023/915 relativo a los límites máximos de determinados contaminantes en los alimentos y posteriores modificaciones que pueda haber. / Segons Reglament 2023/915 relatiu als límits màxims de determinats contaminants en els aliments i posteriors modificacions que hi pugui haver.',
+    'metalls_pesants': 'Según Reglamento 2023/915 relativo a los límites máximos de determinados contaminantes en los alimentos y posteriores modificaciones que pueda haber. / Segons Reglament 2023/915 relatiu als límits màxims de determinats contaminants en els aliments i posteriors modificacions que hi pugui haver.',
+    'valors_nutricionals': 'Los valores pueden variar al tratarse de producto natural. / Els valors poden variar en tractar-se de producte natural.',
+    # fisicoquimiques i reologiques: sense default (les notes van dins les cel·les al Word original)
+}
+
+# Prefixos que indiquen text secundari (peu legal/context) → gris cursiva
+SECONDARY_PREFIXES = (
+    'según', 'segons', 'se recomienda', 'es recomana', 'de acuerdo',
+    'establec', 'establert', 'los valores', 'els valors',
+    'conforme a', 'conforme els', 'como sistema', 'com a sistema',
+)
+
+
+def _is_secondary(line):
+    """Determina si una línia és text secundari (peu regulatori/context)."""
+    if not line:
+        return False
+    stripped = re.sub(r'<[^>]+>', '', line).strip().lower()
+    return stripped.startswith(SECONDARY_PREFIXES)
+
+
+def _split_paragraphs(text):
+    """Separa un text en llista de paràgrafs, gestionant tant HTML <p>
+    com text pla amb \\n / <br>."""
+    text = str(text or '').strip()
+    if not text:
+        return []
+    # HTML amb <p>: extreure contingut de cada <p>
+    p_matches = re.findall(r'<p[^>]*>(.*?)</p>', text, re.DOTALL | re.IGNORECASE)
+    if p_matches:
+        return [p.strip() for p in p_matches if p.strip() and p.strip() != '&nbsp;']
+    # Text amb <br>: separar
+    if re.search(r'<br\s*/?>', text, re.IGNORECASE):
+        parts = re.split(r'<br\s*/?>', text, flags=re.IGNORECASE)
+        return [p.strip() for p in parts if p.strip()]
+    # Text pla amb \n
+    return [line.strip() for line in text.split('\n') if line.strip()]
+
+
 def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
     """Genera un PDF a partir del contingut JSONB d'una versió de fitxa tècnica.
 
@@ -59,23 +103,26 @@ def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
     template_dir = os.path.join(current_app.root_path, 'templates')
     env = Environment(loader=FileSystemLoader(template_dir))
 
-    # Filtre per renderitzar paràmetres amb notes en cursiva
+    # Filtre per renderitzar text amb notes secundàries en gris cursiva
     def param_html(text):
-        """Renderitza un paràmetre: si conté HTML el passa directament,
-        si és text pla amb \\n mostra sublínies en cursiva."""
+        """Renderitza text amb línies/paràgrafs secundaris (que comencen amb
+        'Según', 'Se recomienda', 'Conforme a'...) en gris cursiva petita.
+        Suporta text pla amb \\n, HTML amb <p> (RichEditor) i <br>."""
         if not text:
             return Markup('')
-        text = str(text)
-        # Si ja conté HTML (del RichEditor), passar-lo directament
-        if '<' in text and '>' in text:
-            return Markup(text)
-        # Text pla amb salts de línia: sublínies en cursiva
-        lines = text.split('\n')
-        result = lines[0]
-        for line in lines[1:]:
-            if line.strip():
-                result += f'<br><i style="font-size: 8pt; color: #595959;">{line.strip()}</i>'
-        return Markup(result)
+        paragraphs = _split_paragraphs(text)
+        if not paragraphs:
+            return Markup('')
+        if len(paragraphs) == 1:
+            return Markup(paragraphs[0])
+        # Primer paràgraf normal; els següents en gris cursiva si són secundaris
+        parts = [paragraphs[0]]
+        for p in paragraphs[1:]:
+            if _is_secondary(p):
+                parts.append(f'<br><span style="font-size: 8pt; color: #595959; font-style: italic;">{p}</span>')
+            else:
+                parts.append(f'<br>{p}')
+        return Markup(''.join(parts))
     env.filters['param_html'] = param_html
 
     template = env.get_template('fitxa_tecnica.html')
@@ -152,6 +199,13 @@ def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
         'fabricat_per': contingut.get('fabricat_per', ''),
         'vigencia_document': contingut.get('vigencia_document', defaults['vigencia_document']),
     }
+
+    # Peus de taula: prioritzar valor guardat, si no existeix usar default
+    for key, default_note in TABLE_NOTES_DEFAULTS.items():
+        ctx[f'{key}_note'] = contingut.get(f'{key}_note') or default_note
+    # Fisicoquímiques i reològiques: només si l'usuari ha guardat una nota
+    for key in ('fisicoquimiques', 'reologiques'):
+        ctx[f'{key}_note'] = contingut.get(f'{key}_note') or ''
 
     # Convertir superíndex/subíndex Unicode a HTML <sup>/<sub>
     for key in ctx:
