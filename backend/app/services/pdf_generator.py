@@ -89,25 +89,26 @@ def _already_secondary(line):
     return bool(line and _ALREADY_SECONDARY_RE.match(line))
 
 
-# Patró per separar peu regulatori embedded al final d'un paràgraf
-# Ex: "Este producto... . Según Directiva 1999/2/CE" → ["Este producto...", "Según Directiva 1999/2/CE"]
+# Patró per detectar peu regulatori embedded al final d'un paràgraf
+# Ex: "Este producto... . Según Directiva 1999/2/CE"
 _INLINE_SECONDARY_RE = re.compile(
     r'\.\s+((?:Seg[úu]n|Segons|Se\s+recomienda|Es\s+recomana|De\s+acuerdo|Conforme\s+a|Conforme\s+els|Como\s+sistema|Com\s+a\s+sistema|Establec|Establert|Los\s+valores|Els\s+valors)\b.+)',
     re.IGNORECASE,
 )
 
 
-def _split_inline_secondary(line):
-    """Si la línia conté un peu regulatori embedded (ex: 'text. Según...'),
-    la separa en dues parts: [principal, secundari]."""
+def _apply_inline_secondary(line, secondary_style):
+    """Si la línia conté un peu regulatori embedded, embolcalla la part final
+    amb un span inline sense trencar en dos paràgrafs (preserva la maquetació
+    del Word: text normal i secundari junts al mateix bloc visual)."""
     if not line:
-        return [line] if line else []
+        return line
     m = _INLINE_SECONDARY_RE.search(line)
     if m:
-        primary = line[:m.start() + 1].strip()  # inclou el punt
-        secondary = m.group(1).strip()
-        return [primary, secondary]
-    return [line]
+        primary = line[:m.start() + 1]
+        secondary = m.group(1)
+        return f'{primary} <span style="{secondary_style}">{secondary}</span>'
+    return line
 
 
 def _split_paragraphs(text):
@@ -146,11 +147,6 @@ def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
         paragraphs = _split_paragraphs(text)
         if not paragraphs:
             return Markup('')
-        # Expandir cada línia per detectar peus regulatoris embedded
-        expanded = []
-        for p in paragraphs:
-            expanded.extend(_split_inline_secondary(p))
-        paragraphs = expanded
 
         secondary_style = 'font-size: 8pt; color: #595959; font-style: italic;'
 
@@ -159,7 +155,8 @@ def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
                 return p
             if _is_secondary(p):
                 return f'<span style="{secondary_style}">{p}</span>'
-            return p
+            # Peu regulatori embedded al mig del paràgraf: span inline sense trencar línia
+            return _apply_inline_secondary(p, secondary_style)
 
         if len(paragraphs) == 1:
             return Markup(_render(paragraphs[0]))

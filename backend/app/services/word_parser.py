@@ -386,20 +386,20 @@ def parse_docx(file_path):
                 current_field = None
                 continue
 
-            # Preservar format de text secundari (cursiva + gris al Word)
-            text = _wrap_secondary(text, _is_secondary_paragraph(item))
-
-            # Text lliure: prioritzar peu de taula si acabem de processar una taula
+            # Text lliure: prioritzar peu de taula si acabem de processar una taula.
+            # Els peus s'emmagatzemen com a text pla (el frontend/PDF els estilitza
+            # ja com a secundari per convenció).
             if last_table_key and current_field is None:
                 note_key = f'{last_table_key}_note'
                 existing = contingut.get(note_key, '')
                 contingut[note_key] = (existing + '\n' + text) if existing else text
                 continue
 
-            # Assignar al camp de text actiu
+            # Camps de text lliure: preservar format secundari del Word amb span
             if current_field:
+                wrapped = _wrap_secondary(text, _is_secondary_paragraph(item))
                 existing = contingut.get(current_field, '')
-                contingut[current_field] = (existing + '\n' + text) if existing else text
+                contingut[current_field] = (existing + '\n' + wrapped) if existing else wrapped
 
         elif kind == 't':
             table_type = _identify_table(item)

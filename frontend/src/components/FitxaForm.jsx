@@ -21,6 +21,8 @@ const SECONDARY_PREFIXES = [
   'conforme a', 'conforme els', 'como sistema', 'com a sistema',
 ];
 
+const SECONDARY_STYLE = 'font-size: 0.85em; color: #595959; font-style: italic;';
+
 function isSecondaryLine(line) {
   if (!line) return false;
   const stripped = line.replace(/<[^>]+>/g, '').trim().toLowerCase();
@@ -35,19 +37,18 @@ function isAlreadySecondary(line) {
   return !!line && ALREADY_SECONDARY_RE.test(line);
 }
 
-// Patró per separar peu regulatori embedded al final d'un paràgraf
-// Ex: "Este producto... . Según Directiva 1999/2/CE" → ["Este producto...", "Según Directiva 1999/2/CE"]
+// Patró per detectar peu regulatori embedded al final d'un paràgraf
 const INLINE_SECONDARY_RE = /\.\s+((?:Seg[úu]n|Segons|Se\s+recomienda|Es\s+recomana|De\s+acuerdo|Conforme\s+a|Conforme\s+els|Como\s+sistema|Com\s+a\s+sistema|Establec|Establert|Los\s+valores|Els\s+valors)\b.+)/i;
 
-function splitInlineSecondary(line) {
-  if (!line) return line ? [line] : [];
+function applyInlineSecondary(line) {
+  if (!line) return line;
   const m = line.match(INLINE_SECONDARY_RE);
   if (m) {
-    const primary = line.slice(0, m.index + 1).trim(); // inclou el punt
-    const secondary = m[1].trim();
-    return [primary, secondary];
+    const primary = line.slice(0, m.index + 1);
+    const secondary = m[1];
+    return `${primary} <span style="${SECONDARY_STYLE}">${secondary}</span>`;
   }
-  return [line];
+  return line;
 }
 
 function splitParagraphs(text) {
@@ -62,20 +63,15 @@ function splitParagraphs(text) {
   return s.split('\n').map((l) => l.trim()).filter((l) => l && l !== '&nbsp;');
 }
 
-const SECONDARY_STYLE = 'font-size: 0.85em; color: #595959; font-style: italic;';
-
 function formatWithSecondary(text) {
-  let paragraphs = splitParagraphs(text);
+  const paragraphs = splitParagraphs(text);
   if (paragraphs.length === 0) return '';
-  // Expandir per detectar peus embedded (ex: "text. Según Directiva...")
-  const expanded = [];
-  for (const p of paragraphs) expanded.push(...splitInlineSecondary(p));
-  paragraphs = expanded;
 
   const render = (p) => {
     if (isAlreadySecondary(p)) return p;
     if (isSecondaryLine(p)) return `<span style="${SECONDARY_STYLE}">${p}</span>`;
-    return p;
+    // Peu regulatori embedded al mig del paràgraf: span inline sense trencar línia
+    return applyInlineSecondary(p);
   };
 
   if (paragraphs.length === 1) return render(paragraphs[0]);
