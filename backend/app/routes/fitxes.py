@@ -1015,6 +1015,18 @@ def descarregar_pdf(fitxa_id):
     cache_path = os.path.join(cache_dir, f'{fitxa.art_codi}_generat.pdf')
     force_regen = request.args.get('regen', '0') == '1'
 
+    # Invalidar el cache si el template o el generador s'han modificat
+    # despres de generar el PDF (per exemple, després d'un desplegament amb
+    # canvis a la maquetació).
+    if os.path.exists(cache_path):
+        cache_mtime = os.path.getmtime(cache_path)
+        template_path = os.path.join(current_app.root_path, 'templates', 'fitxa_tecnica.html')
+        generator_path = os.path.join(current_app.root_path, 'services', 'pdf_generator.py')
+        for src in (template_path, generator_path):
+            if os.path.exists(src) and os.path.getmtime(src) > cache_mtime:
+                force_regen = True
+                break
+
     if force_regen and os.path.exists(cache_path):
         os.remove(cache_path)
 
