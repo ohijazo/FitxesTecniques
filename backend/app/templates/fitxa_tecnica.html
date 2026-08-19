@@ -5,7 +5,15 @@
 <style>
   @page {
     size: A4;
-    margin: 18mm 18mm 25mm 18mm;
+    margin: 45mm 18mm 25mm 18mm;
+
+    @frame header {
+      -pdf-frame-content: page-header;
+      top: 10mm;
+      left: 18mm;
+      right: 18mm;
+      height: 28mm;
+    }
 
     @frame footer {
       -pdf-frame-content: page-footer;
@@ -160,22 +168,24 @@
   </div>
 </div>
 
-<!-- Capçalera (només una vegada) -->
-<table class="header-table">
-  <tr>
-    <td class="header-logo" rowspan="3">
-      <img src="{{ logo_path }}" alt="Logo">
-    </td>
-    <td class="header-title" rowspan="3">FICHA TÉCNICA / FITXA TÈCNICA</td>
-    <td class="header-meta">Rev.: {{ rev }}</td>
-  </tr>
-  <tr>
-    <td class="header-meta">Fecha/Data Rev: {{ data_revisio }}</td>
-  </tr>
-  <tr>
-    <td class="header-meta">Fecha/Data Comprov.: {{ data_comprovacio }}</td>
-  </tr>
-</table>
+<!-- Capçalera repetida a totes les pàgines -->
+<div id="page-header">
+  <table class="header-table">
+    <tr>
+      <td class="header-logo" rowspan="3">
+        <img src="{{ logo_path }}" alt="Logo">
+      </td>
+      <td class="header-title" rowspan="3">FICHA TÉCNICA / FITXA TÈCNICA</td>
+      <td class="header-meta">Rev.: {{ rev }}</td>
+    </tr>
+    <tr>
+      <td class="header-meta">Fecha/Data Rev: {{ data_revisio }}</td>
+    </tr>
+    <tr>
+      <td class="header-meta">Fecha/Data Comprov.: {{ data_comprovacio }}</td>
+    </tr>
+  </table>
+</div>
 
 {% if imatges %}
 <table style="width: 100%; margin-bottom: 6px;">
