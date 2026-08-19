@@ -256,7 +256,7 @@ def _identify_table(table):
 
 # Estil per text secundari (peu regulatori). Ha de coincidir amb SECONDARY_STYLE
 # de frontend/src/components/FitxaForm.jsx per garantir la paritat visual.
-SECONDARY_STYLE = 'font-size: 0.85em; color: #595959; font-style: italic;'
+SECONDARY_STYLE = 'font-size: 0.75em; color: #595959; font-style: italic;'
 
 # Tokens que identifiquen un character style equivalent a "Subtle Emphasis"
 # (cursiva + gris). Cobreix ÉnfasisSutil (ES), SubtleEmphasis (EN), i variants

@@ -21,7 +21,7 @@ const SECONDARY_PREFIXES = [
   'conforme a', 'conforme els', 'como sistema', 'com a sistema',
 ];
 
-const SECONDARY_STYLE = 'font-size: 0.85em; color: #595959; font-style: italic;';
+const SECONDARY_STYLE = 'font-size: 0.75em; color: #595959; font-style: italic;';
 
 function isSecondaryLine(line) {
   if (!line) return false;
@@ -68,7 +68,10 @@ function formatWithSecondary(text) {
   if (paragraphs.length === 0) return '';
 
   const render = (p) => {
-    if (isAlreadySecondary(p)) return p;
+    if (isAlreadySecondary(p)) {
+      // Normalitzar l'estil (fitxes velles poden portar mides diferents)
+      return p.replace(/<span[^>]*>/, `<span style="${SECONDARY_STYLE}">`);
+    }
     if (isSecondaryLine(p)) return `<span style="${SECONDARY_STYLE}">${p}</span>`;
     // Peu regulatori embedded al mig del paràgraf: span inline sense trencar línia
     return applyInlineSecondary(p);

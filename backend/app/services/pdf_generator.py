@@ -148,11 +148,13 @@ def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
         if not paragraphs:
             return Markup('')
 
-        secondary_style = 'font-size: 8pt; color: #595959; font-style: italic;'
+        secondary_style = 'font-size: 0.75em; color: #595959; font-style: italic;'
 
         def _render(p):
             if _already_secondary(p):
-                return p
+                # Normalitzar l'estil per uniformar mida amb la resta (les fitxes
+                # importades amb versions anteriors poden portar mides diferents).
+                return re.sub(r'<span[^>]*>', f'<span style="{secondary_style}">', p, count=1)
             if _is_secondary(p):
                 return f'<span style="{secondary_style}">{p}</span>'
             # Peu regulatori embedded al mig del paràgraf: span inline sense trencar línia
