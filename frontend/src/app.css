@@ -922,6 +922,16 @@ fieldset legend {
   margin-bottom: 1.5rem;
   border: 1px solid #000;
 }
+
+/* En mode vista (lectura), la capçalera queda visible al top mentre l'usuari
+   fa scroll dins d'una secció llarga (simula la capçalera repetida a cada
+   pàgina del PDF real). */
+.pdf-view-mode .pdf-header {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 10;
+}
 .pdf-header td {
   border: 1px solid #000;
   vertical-align: middle;
