@@ -50,35 +50,8 @@ def _process_value(value):
     return value
 
 
-# Peus de taula per defecte (paritat amb frontend TABLE_NOTES a FitxaForm.jsx)
-TABLE_NOTES_DEFAULTS = {
-    'microbiologiques': 'Establecidos como criterio interno en base RD 1286/1984 actualmente derogado. / Establerts com a criteri intern en base RD 1286/1984 actualment derogat.',
-    'micotoxines': 'Según Reglamento 2023/915 relativo a los límites máximos de determinados contaminantes en los alimentos y posteriores modificaciones que pueda haber. / Segons Reglament 2023/915 relatiu als límits màxims de determinats contaminants en els aliments i posteriors modificacions que hi pugui haver.',
-    'alcaloides': 'Según Reglamento 2023/915 relativo a los límites máximos de determinados contaminantes en los alimentos y posteriores modificaciones que pueda haber. / Segons Reglament 2023/915 relatiu als límits màxims de determinats contaminants en els aliments i posteriors modificacions que hi pugui haver.',
-    'metalls_pesants': 'Según Reglamento 2023/915 relativo a los límites máximos de determinados contaminantes en los alimentos y posteriores modificaciones que pueda haber. / Segons Reglament 2023/915 relatiu als límits màxims de determinats contaminants en els aliments i posteriors modificacions que hi pugui haver.',
-    'valors_nutricionals': 'Los valores pueden variar al tratarse de producto natural. / Els valors poden variar en tractar-se de producte natural.',
-    # fisicoquimiques i reologiques: sense default (les notes van dins les cel·les al Word original)
-}
-
-# Prefixos que indiquen text secundari (peu legal/context) → gris cursiva
-SECONDARY_PREFIXES = (
-    'según', 'segons', 'se recomienda', 'es recomana', 'de acuerdo',
-    'establec', 'establert', 'los valores', 'els valors',
-    'conforme a', 'conforme els', 'como sistema', 'com a sistema',
-)
-
-
-def _is_secondary(line):
-    """Determina si una línia és text secundari (peu regulatori/context)."""
-    if not line:
-        return False
-    stripped = re.sub(r'<[^>]+>', '', line).strip().lower()
-    return stripped.startswith(SECONDARY_PREFIXES)
-
-
-# Detecta línies que ja arriben embolcallades com a text secundari (marcades
-# pel parser Word al importar). Evita el doble embolcallament que faria que
-# el font-size interior es multipliqués pel exterior i el text sortís massa petit.
+# Detecta línies que arriben embolcallades com a text secundari (marcades pel
+# parser Word al importar via character style EnfasisSutil/cursiva-gris).
 _ALREADY_SECONDARY_RE = re.compile(
     r'^\s*<span[^>]*color\s*:\s*#595959[^>]*>[\s\S]*</span>\s*$',
     re.IGNORECASE,
@@ -114,12 +87,10 @@ def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
     template_dir = os.path.join(current_app.root_path, 'templates')
     env = Environment(loader=FileSystemLoader(template_dir))
 
-    # Filtre per renderitzar text amb notes secundàries en gris cursiva
+    # Filtre per renderitzar text preservant els paràgrafs (\n → <br>) i
+    # normalitzant la mida dels spans de text secundari que ja venen marcats
+    # pel parser Word (character style EnfasisSutil / cursiva-gris).
     def param_html(text):
-        """Renderitza text amb línies/paràgrafs secundaris (que comencen amb
-        'Según', 'Se recomienda', 'Conforme a'...) en gris cursiva petita.
-        Suporta text pla amb \\n, HTML amb <p> (RichEditor) i <br>.
-        També detecta peus regulatoris embedded al final d'un paràgraf."""
         if not text:
             return Markup('')
         paragraphs = _split_paragraphs(text)
@@ -133,8 +104,6 @@ def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
                 # Normalitzar l'estil per uniformar mida amb la resta (les fitxes
                 # importades amb versions anteriors poden portar mides diferents).
                 return re.sub(r'<span[^>]*>', f'<span style="{secondary_style}">', p, count=1)
-            if _is_secondary(p):
-                return f'<span style="{secondary_style}">{p}</span>'
             return p
 
         if len(paragraphs) == 1:
@@ -154,38 +123,6 @@ def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
         logo_b64 = base64.b64encode(f.read()).decode('utf-8')
     logo_uri = f'data:image/png;base64,{logo_b64}'
 
-    defaults = {
-        'ogm': (
-            'Este producto no ha estado elaborado a partir de OGM ni con OGM. '
-            'Conforme a los Reglamentos (CE) Núm. 1829/2003 y 1830/2003.'
-        ),
-        'irradiacio': (
-            'Este producto no ha estado tratado con irradiación ionizante '
-            'y no contiene ingredientes irradiados. '
-            'Según Directiva 1999/2/CE'
-        ),
-        'pesticidas': (
-            'De acuerdo con el Reglamento (CE) 396/2005 de 23 de febrero, '
-            'relativo a los límites máximos de residuos de plaguicidas en alimentos '
-            'y Piensos de origen vegetal y animal; y posteriores modificaciones.'
-        ),
-        'vigencia_document': (
-            'Esta ficha técnica tiene una validez de 2 años a partir de la fecha '
-            'de comprobación que aparece en la cabecera del documento.'
-        ),
-    }
-
-    default_nutricionals = [
-        {'parametre': 'Valor energético', 'valor': '--', 'sub': False},
-        {'parametre': 'Grasas', 'valor': '--', 'sub': False},
-        {'parametre': 'De las cuales saturadas', 'valor': '--', 'sub': True},
-        {'parametre': 'Hidratos de Carbono', 'valor': '--', 'sub': False},
-        {'parametre': 'De los cuales azúcares', 'valor': '--', 'sub': True},
-        {'parametre': 'Proteína', 'valor': '--', 'sub': False},
-        {'parametre': 'Fibra alimentaria', 'valor': '--', 'sub': False},
-        {'parametre': 'Sal', 'valor': '--', 'sub': False},
-    ]
-
     ctx = {
         'logo_path': logo_uri,
         'rev': rev,
@@ -200,8 +137,8 @@ def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
         'origen': contingut.get('origen', ''),
         'ingredients': contingut.get('ingredients', ''),
         'alergens': contingut.get('alergens', ''),
-        'ogm': contingut.get('ogm', defaults['ogm']),
-        'irradiacio': contingut.get('irradiacio', defaults['irradiacio']),
+        'ogm': contingut.get('ogm', ''),
+        'irradiacio': contingut.get('irradiacio', ''),
         'caract_organoleptiques': contingut.get('caract_organoleptiques', ''),
         'fisicoquimiques': contingut.get('fisicoquimiques', []),
         'reologiques': contingut.get('reologiques', []),
@@ -209,8 +146,8 @@ def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
         'micotoxines': contingut.get('micotoxines', []),
         'alcaloides': contingut.get('alcaloides', []),
         'metalls_pesants': contingut.get('metalls_pesants', []),
-        'pesticidas': contingut.get('pesticidas', defaults['pesticidas']),
-        'valors_nutricionals': contingut.get('valors_nutricionals', default_nutricionals),
+        'pesticidas': contingut.get('pesticidas', ''),
+        'valors_nutricionals': contingut.get('valors_nutricionals', []),
         'presentacio_envase': contingut.get('presentacio_envase', ''),
         'us_previst': contingut.get('us_previst', ''),
         'condicions_emmagatzematge': contingut.get('condicions_emmagatzematge', ''),
@@ -218,14 +155,13 @@ def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
         'vida_util': contingut.get('vida_util', ''),
         'legislacio_aplicable': contingut.get('legislacio_aplicable', ''),
         'fabricat_per': contingut.get('fabricat_per', ''),
-        'vigencia_document': contingut.get('vigencia_document', defaults['vigencia_document']),
+        'vigencia_document': contingut.get('vigencia_document', ''),
     }
 
-    # Peus de taula: prioritzar valor guardat, si no existeix usar default
-    for key, default_note in TABLE_NOTES_DEFAULTS.items():
-        ctx[f'{key}_note'] = contingut.get(f'{key}_note') or default_note
-    # Fisicoquímiques i reològiques: només si l'usuari ha guardat una nota
-    for key in ('fisicoquimiques', 'reologiques'):
+    # Peus de taula: només si estan explícitament guardats
+    for key in ('fisicoquimiques', 'reologiques', 'microbiologiques',
+                'micotoxines', 'alcaloides', 'metalls_pesants',
+                'valors_nutricionals'):
         ctx[f'{key}_note'] = contingut.get(f'{key}_note') or ''
 
     # Convertir superíndex/subíndex Unicode a HTML <sup>/<sub>

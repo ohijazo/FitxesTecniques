@@ -11,31 +11,13 @@ function arrayMove(arr, from, to) {
 }
 
 /* ============================================================
-   FORMAT TEXT SECUNDARI (peu legal/context) — paritat amb backend
-   pdf_generator.py param_html: linies que comencen amb prefix
-   regulatori es renderitzen en gris cursiva petita.
+   FORMAT TEXT SECUNDARI (peu legal/context)
+   El parser Word ja marca el text secundari amb spans inline
+   (character style EnfasisSutil → cursiva-gris). Al render només
+   normalitzem la mida del span perquè sigui consistent.
    ============================================================ */
-const SECONDARY_PREFIXES = [
-  'según', 'segons', 'se recomienda', 'es recomana', 'de acuerdo',
-  'establec', 'establert', 'los valores', 'els valors',
-  'conforme a', 'conforme els', 'como sistema', 'com a sistema',
-];
-
 const SECONDARY_STYLE = 'font-size: 0.75em; color: #595959; font-style: italic;';
-
-function isSecondaryLine(line) {
-  if (!line) return false;
-  const stripped = line.replace(/<[^>]+>/g, '').trim().toLowerCase();
-  return SECONDARY_PREFIXES.some((p) => stripped.startsWith(p));
-}
-
-// Detecta línies ja embolcallades com a secundari (marcades pel parser Word
-// al importar). Evita el doble embolcallament que faria compondre el font-size.
 const ALREADY_SECONDARY_RE = /^\s*<span[^>]*color\s*:\s*#595959[^>]*>[\s\S]*<\/span>\s*$/i;
-
-function isAlreadySecondary(line) {
-  return !!line && ALREADY_SECONDARY_RE.test(line);
-}
 
 function splitParagraphs(text) {
   if (!text) return [];
@@ -54,11 +36,9 @@ function formatWithSecondary(text) {
   if (paragraphs.length === 0) return '';
 
   const render = (p) => {
-    if (isAlreadySecondary(p)) {
-      // Normalitzar l'estil (fitxes velles poden portar mides diferents)
+    if (ALREADY_SECONDARY_RE.test(p)) {
       return p.replace(/<span[^>]*>/, `<span style="${SECONDARY_STYLE}">`);
     }
-    if (isSecondaryLine(p)) return `<span style="${SECONDARY_STYLE}">${p}</span>`;
     return p;
   };
 
@@ -504,14 +484,9 @@ function PdfPageFooter({ page, totalPages }) {
 /* ============================================================
    NOTES REGULATÒRIES per taula (com al PDF real)
    ============================================================ */
-const TABLE_NOTES = {
-  microbiologiques: 'Establecidos como criterio interno en base RD 1286/1984 actualmente derogado. / Establerts com a criteri intern en base RD 1286/1984 actualment derogat.',
-  micotoxines: 'Según Reglamento 2023/915 relativo a los límites máximos de determinados contaminantes en los alimentos y posteriores modificaciones que pueda haber. / Segons Reglament 2023/915 relatiu als límits màxims de determinats contaminants en els aliments i posteriors modificacions que hi pugui haver.',
-  alcaloides: 'Según Reglamento 2023/915 relativo a los límites máximos de determinados contaminantes en los alimentos y posteriores modificaciones que pueda haber. / Segons Reglament 2023/915 relatiu als límits màxims de determinats contaminants en els aliments i posteriors modificacions que hi pugui haver.',
-  metalls_pesants: 'Según Reglamento 2023/915 relativo a los límites máximos de determinados contaminantes en los alimentos y posteriores modificaciones que pueda haber. / Segons Reglament 2023/915 relatiu als límits màxims de determinats contaminants en els aliments i posteriors modificacions que hi pugui haver.',
-  valors_nutricionals: 'Los valores pueden variar al tratarse de producto natural. / Els valors poden variar en tractar-se de producte natural.',
-  // fisicoquimiques i reologiques: sense peu per defecte (les notes van dins les cel·les al Word original)
-};
+// Sense peus de taula per defecte: es mostra únicament el que ve del docx
+// importat, per garantir fidelitat 1:1 amb l'original.
+const TABLE_NOTES = {};
 
 /* ============================================================
    PDF DOCUMENT VIEW (mode lectura - exportat per DetallFitxa)

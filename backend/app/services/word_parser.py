@@ -367,7 +367,18 @@ def parse_docx(file_path):
     header_info = _parse_header(doc)
 
     # 2. Iterar en ordre de document: paràgrafs + taules barrejats
-    contingut = {}
+    # Inicialitzem tots els _note a buit per garantir que en re-importar sobre
+    # una fitxa existent els peus vells no es queden a la BD si el docx nou no
+    # els inclou.
+    contingut = {
+        'fisicoquimiques_note': '',
+        'reologiques_note': '',
+        'microbiologiques_note': '',
+        'micotoxines_note': '',
+        'alcaloides_note': '',
+        'metalls_pesants_note': '',
+        'valors_nutricionals_note': '',
+    }
     tables_data = {
         'fisicoquimiques': [],
         'reologiques': [],
