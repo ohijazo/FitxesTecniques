@@ -37,20 +37,6 @@ function isAlreadySecondary(line) {
   return !!line && ALREADY_SECONDARY_RE.test(line);
 }
 
-// Patró per detectar peu regulatori embedded al final d'un paràgraf
-const INLINE_SECONDARY_RE = /\.\s+((?:Seg[úu]n|Segons|Se\s+recomienda|Es\s+recomana|De\s+acuerdo|Conforme\s+a|Conforme\s+els|Como\s+sistema|Com\s+a\s+sistema|Establec|Establert|Los\s+valores|Els\s+valors)\b.+)/i;
-
-function applyInlineSecondary(line) {
-  if (!line) return line;
-  const m = line.match(INLINE_SECONDARY_RE);
-  if (m) {
-    const primary = line.slice(0, m.index + 1);
-    const secondary = m[1];
-    return `${primary} <span style="${SECONDARY_STYLE}">${secondary}</span>`;
-  }
-  return line;
-}
-
 function splitParagraphs(text) {
   if (!text) return [];
   let s = String(text).trim();
@@ -73,8 +59,7 @@ function formatWithSecondary(text) {
       return p.replace(/<span[^>]*>/, `<span style="${SECONDARY_STYLE}">`);
     }
     if (isSecondaryLine(p)) return `<span style="${SECONDARY_STYLE}">${p}</span>`;
-    // Peu regulatori embedded al mig del paràgraf: span inline sense trencar línia
-    return applyInlineSecondary(p);
+    return p;
   };
 
   if (paragraphs.length === 1) return render(paragraphs[0]);

@@ -89,28 +89,6 @@ def _already_secondary(line):
     return bool(line and _ALREADY_SECONDARY_RE.match(line))
 
 
-# Patró per detectar peu regulatori embedded al final d'un paràgraf
-# Ex: "Este producto... . Según Directiva 1999/2/CE"
-_INLINE_SECONDARY_RE = re.compile(
-    r'\.\s+((?:Seg[úu]n|Segons|Se\s+recomienda|Es\s+recomana|De\s+acuerdo|Conforme\s+a|Conforme\s+els|Como\s+sistema|Com\s+a\s+sistema|Establec|Establert|Los\s+valores|Els\s+valors)\b.+)',
-    re.IGNORECASE,
-)
-
-
-def _apply_inline_secondary(line, secondary_style):
-    """Si la línia conté un peu regulatori embedded, embolcalla la part final
-    amb un span inline sense trencar en dos paràgrafs (preserva la maquetació
-    del Word: text normal i secundari junts al mateix bloc visual)."""
-    if not line:
-        return line
-    m = _INLINE_SECONDARY_RE.search(line)
-    if m:
-        primary = line[:m.start() + 1]
-        secondary = m.group(1)
-        return f'{primary} <span style="{secondary_style}">{secondary}</span>'
-    return line
-
-
 def _split_paragraphs(text):
     """Separa un text en llista de línies/paràgrafs, gestionant HTML <p>,
     <br> (inclús dins d'un mateix <p>) i text pla amb \\n."""
@@ -157,8 +135,7 @@ def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
                 return re.sub(r'<span[^>]*>', f'<span style="{secondary_style}">', p, count=1)
             if _is_secondary(p):
                 return f'<span style="{secondary_style}">{p}</span>'
-            # Peu regulatori embedded al mig del paràgraf: span inline sense trencar línia
-            return _apply_inline_secondary(p, secondary_style)
+            return p
 
         if len(paragraphs) == 1:
             return Markup(_render(paragraphs[0]))
