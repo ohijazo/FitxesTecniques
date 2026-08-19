@@ -5,6 +5,7 @@ El document segueix l'estructura estàndard de Farinera Coromina:
 - Paràgrafs amb etiqueta + valor
 - Taules de paràmetres (fisicoquímiques, reològiques, etc.)
 """
+import html
 import os
 from docx import Document
 from docx.oxml.ns import qn
@@ -253,6 +254,63 @@ def _identify_table(table):
     return None
 
 
+# Estil per text secundari (peu regulatori). Ha de coincidir amb SECONDARY_STYLE
+# de frontend/src/components/FitxaForm.jsx per garantir la paritat visual.
+SECONDARY_STYLE = 'font-size: 0.85em; color: #595959; font-style: italic;'
+
+# Tokens que identifiquen un character style equivalent a "Subtle Emphasis"
+# (cursiva + gris). Cobreix ÉnfasisSutil (ES), SubtleEmphasis (EN), i variants
+# retornades per python-docx (ex: 'nfasissutil' amb la lletra inicial no ASCII).
+_SUBTLE_EMPHASIS_TOKENS = ('emphasis', 'subtle', 'sutil', 'nfasissutil')
+
+
+def _run_is_secondary(rPr):
+    """True si el run té formatació de text secundari (cursiva + gris)."""
+    if rPr is None:
+        return False
+    rStyle = rPr.find(qn('w:rStyle'))
+    if rStyle is not None:
+        style_id = (rStyle.get(qn('w:val')) or '').lower()
+        if any(tok in style_id for tok in _SUBTLE_EMPHASIS_TOKENS):
+            return True
+    if rPr.find(qn('w:i')) is not None:
+        return True
+    color = rPr.find(qn('w:color'))
+    if color is not None:
+        val = (color.get(qn('w:val')) or '').lower().lstrip('#')
+        if len(val) == 6:
+            try:
+                r, g, b = int(val[0:2], 16), int(val[2:4], 16), int(val[4:6], 16)
+            except ValueError:
+                return False
+            if abs(r - g) <= 8 and abs(g - b) <= 8 and 0x30 <= r <= 0xA0:
+                return True
+    return False
+
+
+def _is_secondary_paragraph(p):
+    """True si tots els runs amb text no buit d'un paràgraf estan en cursiva-gris."""
+    p_elem = p._element if hasattr(p, '_element') else p
+    total = 0
+    secondary = 0
+    for run in p_elem.findall(qn('w:r')):
+        text_parts = run.findall(qn('w:t'))
+        run_text = ''.join(t.text or '' for t in text_parts)
+        if not run_text.strip():
+            continue
+        total += 1
+        if _run_is_secondary(run.find(qn('w:rPr'))):
+            secondary += 1
+    return total > 0 and secondary == total
+
+
+def _wrap_secondary(text, is_secondary):
+    """Embolcalla el text amb el span de text secundari si escau, escapant HTML."""
+    if not is_secondary:
+        return text
+    return f'<span style="{SECONDARY_STYLE}">{html.escape(text, quote=False)}</span>'
+
+
 def _iter_body_items(doc):
     """Itera els elements del body en ordre de document: (kind, obj)
     on kind és 'p' (paràgraf) o 't' (taula)."""
@@ -327,6 +385,9 @@ def parse_docx(file_path):
             if _is_section_title(text):
                 current_field = None
                 continue
+
+            # Preservar format de text secundari (cursiva + gris al Word)
+            text = _wrap_secondary(text, _is_secondary_paragraph(item))
 
             # Text lliure: prioritzar peu de taula si acabem de processar una taula
             if last_table_key and current_field is None:
