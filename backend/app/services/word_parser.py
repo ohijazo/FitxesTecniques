@@ -420,14 +420,18 @@ def parse_docx(file_path):
             if table_type == 'pesticidas_taula':
                 # Taula amb estructura títol + text (fila 0 = "Pesticidas / Pesticides",
                 # files següents = contingut bilingüe). No és paràmetre/valor.
+                # Preserva format secundari (EnfasisSutil al Word) de cada paràgraf.
                 text_parts = []
+                seen = set()
                 for row in item.rows[1:]:
                     for cell in row.cells:
-                        t = cell.text.strip()
-                        if t and t not in text_parts:
-                            text_parts.append(t)
+                        cell_html = _cell_parametre_html(cell)
+                        plain = cell.text.strip()
+                        if cell_html and plain not in seen:
+                            text_parts.append(cell_html)
+                            seen.add(plain)
                 if text_parts and not contingut.get('pesticidas'):
-                    contingut['pesticidas'] = '\n'.join(text_parts)
+                    contingut['pesticidas'] = '<br>'.join(text_parts)
                 last_table_key = None
                 continue
 
