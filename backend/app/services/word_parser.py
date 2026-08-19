@@ -128,39 +128,51 @@ def _parse_header(doc):
     return info
 
 
+def _cell_parametre_html(cell):
+    """Extreu el text d'una cel·la de paràmetre preservant els paràgrafs i
+    marcant els que estan en cursiva-gris al Word (peus regulatoris com
+    'Según RD 677/2016') amb el span de text secundari."""
+    parts = []
+    for p in cell.paragraphs:
+        text = p.text.strip()
+        if not text:
+            continue
+        parts.append(_wrap_secondary(text, _is_secondary_paragraph(p)))
+    return '<br>'.join(parts)
+
+
 def _parse_param_table(table):
     """Extreu files parametre/valor d'una taula estàndard.
     Manté el text complet bilingüe dels paràmetres i notes."""
     rows = []
     for row in table.rows:
-        cells = [cell.text.strip() for cell in row.cells]
-        # Dedup merged cells
-        deduped = []
+        cells_param = [_cell_parametre_html(cell) for cell in row.cells]
+        cells_plain = [cell.text.strip() for cell in row.cells]
+        # Dedup merged cells (comparant text pla)
+        deduped_param = []
+        deduped_valor = []
         prev = None
-        for c in cells:
-            if c != prev:
-                deduped.append(c)
-            prev = c
+        for cp, ct in zip(cells_param, cells_plain):
+            if ct != prev:
+                deduped_param.append(cp)
+                deduped_valor.append(ct)
+            prev = ct
 
-        if len(deduped) < 2:
+        if len(deduped_param) < 2:
             continue
 
-        param = deduped[0]
-        valor = deduped[1]
+        param = deduped_param[0]
+        valor = deduped_valor[1]
 
-        # Saltar capçaleres de taula
-        param_lower = param.lower().strip()
+        # Saltar capçaleres de taula (comparem sobre text pla, sense HTML)
+        param_plain = deduped_valor[0].lower().strip()
         skip = ['parámetro', 'parámetro / paràmetre', 'valor', 'valor límite']
-        if param_lower in skip:
+        if param_plain in skip:
             continue
-        if not param or param == valor:
+        if not param or deduped_valor[0] == valor:
             continue
 
-        # Mantenir text complet (bilingüe + notes com Según RD...)
-        # Netejar espais excessius però conservar salts de línia significatius
-        param_clean = '\n'.join(line.strip() for line in param.split('\n') if line.strip())
-
-        rows.append({'parametre': param_clean, 'valor': valor})
+        rows.append({'parametre': param, 'valor': valor})
 
     return rows
 
