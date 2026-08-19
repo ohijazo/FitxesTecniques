@@ -76,6 +76,19 @@ def _is_secondary(line):
     return stripped.startswith(SECONDARY_PREFIXES)
 
 
+# Detecta línies que ja arriben embolcallades com a text secundari (marcades
+# pel parser Word al importar). Evita el doble embolcallament que faria que
+# el font-size interior es multipliqués pel exterior i el text sortís massa petit.
+_ALREADY_SECONDARY_RE = re.compile(
+    r'^\s*<span[^>]*color\s*:\s*#595959[^>]*>[\s\S]*</span>\s*$',
+    re.IGNORECASE,
+)
+
+
+def _already_secondary(line):
+    return bool(line and _ALREADY_SECONDARY_RE.match(line))
+
+
 # Patró per separar peu regulatori embedded al final d'un paràgraf
 # Ex: "Este producto... . Según Directiva 1999/2/CE" → ["Este producto...", "Según Directiva 1999/2/CE"]
 _INLINE_SECONDARY_RE = re.compile(
@@ -141,21 +154,19 @@ def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
 
         secondary_style = 'font-size: 8pt; color: #595959; font-style: italic;'
 
-        # Cas especial: un únic paràgraf que ÉS secundari sencer (ex: Pesticidas)
-        if len(paragraphs) == 1:
-            p = paragraphs[0]
+        def _render(p):
+            if _already_secondary(p):
+                return p
             if _is_secondary(p):
-                return Markup(f'<span style="{secondary_style}">{p}</span>')
-            return Markup(p)
+                return f'<span style="{secondary_style}">{p}</span>'
+            return p
 
-        # Primer paràgraf: normal o secundari segons el text
-        first = paragraphs[0]
-        parts = [f'<span style="{secondary_style}">{first}</span>' if _is_secondary(first) else first]
+        if len(paragraphs) == 1:
+            return Markup(_render(paragraphs[0]))
+
+        parts = [_render(paragraphs[0])]
         for p in paragraphs[1:]:
-            if _is_secondary(p):
-                parts.append(f'<br><span style="{secondary_style}">{p}</span>')
-            else:
-                parts.append(f'<br>{p}')
+            parts.append(f'<br>{_render(p)}')
         return Markup(''.join(parts))
     env.filters['param_html'] = param_html
 

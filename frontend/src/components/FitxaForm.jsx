@@ -27,6 +27,14 @@ function isSecondaryLine(line) {
   return SECONDARY_PREFIXES.some((p) => stripped.startsWith(p));
 }
 
+// Detecta línies ja embolcallades com a secundari (marcades pel parser Word
+// al importar). Evita el doble embolcallament que faria compondre el font-size.
+const ALREADY_SECONDARY_RE = /^\s*<span[^>]*color\s*:\s*#595959[^>]*>[\s\S]*<\/span>\s*$/i;
+
+function isAlreadySecondary(line) {
+  return !!line && ALREADY_SECONDARY_RE.test(line);
+}
+
 // Patró per separar peu regulatori embedded al final d'un paràgraf
 // Ex: "Este producto... . Según Directiva 1999/2/CE" → ["Este producto...", "Según Directiva 1999/2/CE"]
 const INLINE_SECONDARY_RE = /\.\s+((?:Seg[úu]n|Segons|Se\s+recomienda|Es\s+recomana|De\s+acuerdo|Conforme\s+a|Conforme\s+els|Como\s+sistema|Com\s+a\s+sistema|Establec|Establert|Los\s+valores|Els\s+valors)\b.+)/i;
@@ -64,22 +72,14 @@ function formatWithSecondary(text) {
   for (const p of paragraphs) expanded.push(...splitInlineSecondary(p));
   paragraphs = expanded;
 
-  if (paragraphs.length === 1) {
-    const p = paragraphs[0];
-    return isSecondaryLine(p) ? `<span style="${SECONDARY_STYLE}">${p}</span>` : p;
-  }
+  const render = (p) => {
+    if (isAlreadySecondary(p)) return p;
+    if (isSecondaryLine(p)) return `<span style="${SECONDARY_STYLE}">${p}</span>`;
+    return p;
+  };
 
-  const first = paragraphs[0];
-  const parts = [isSecondaryLine(first) ? `<span style="${SECONDARY_STYLE}">${first}</span>` : first];
-  for (let i = 1; i < paragraphs.length; i++) {
-    const p = paragraphs[i];
-    if (isSecondaryLine(p)) {
-      parts.push(`<br/><span style="${SECONDARY_STYLE}">${p}</span>`);
-    } else {
-      parts.push(`<br/>${p}`);
-    }
-  }
-  return parts.join('');
+  if (paragraphs.length === 1) return render(paragraphs[0]);
+  return paragraphs.map((p, i) => (i === 0 ? '' : '<br/>') + render(p)).join('');
 }
 
 /* ============================================================
