@@ -62,6 +62,23 @@ def _already_secondary(line):
     return bool(line and _ALREADY_SECONDARY_RE.match(line))
 
 
+# Prefixos regulatoris: quan un paràgraf sencer editat manualment comença amb
+# un d'aquests tokens, es marca automàticament com a text secundari (cursiva
+# gris petita). No s'aplica a fragments embedded al mig d'un paràgraf per
+# evitar falsos positius quan un text normal casualment conté "Se recomienda".
+SECONDARY_PREFIXES = (
+    'según', 'segons', 'se recomienda', 'es recomana', 'de acuerdo',
+    'd\'acord', 'conforme a', 'conforme els',
+)
+
+
+def _starts_with_secondary_prefix(line):
+    if not line:
+        return False
+    stripped = re.sub(r'<[^>]+>', '', line).strip().lower()
+    return stripped.startswith(SECONDARY_PREFIXES)
+
+
 def _split_paragraphs(text):
     """Separa un text en llista de línies/paràgrafs, gestionant HTML <p>,
     <br> (inclús dins d'un mateix <p>) i text pla amb \\n."""
@@ -104,6 +121,8 @@ def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
                 # Normalitzar l'estil per uniformar mida amb la resta (les fitxes
                 # importades amb versions anteriors poden portar mides diferents).
                 return re.sub(r'<span[^>]*>', f'<span style="{secondary_style}">', p, count=1)
+            if _starts_with_secondary_prefix(p):
+                return f'<span style="{secondary_style}">{p}</span>'
             return p
 
         if len(paragraphs) == 1:

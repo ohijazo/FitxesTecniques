@@ -12,12 +12,23 @@ function arrayMove(arr, from, to) {
 
 /* ============================================================
    FORMAT TEXT SECUNDARI (peu legal/context)
-   El parser Word ja marca el text secundari amb spans inline
-   (character style EnfasisSutil → cursiva-gris). Al render només
-   normalitzem la mida del span perquè sigui consistent.
+   El parser Word marca el text secundari amb spans inline (character
+   style EnfasisSutil → cursiva-gris). Al render també apliquem l'efecte
+   quan un paràgraf sencer editat manualment comença amb un prefix
+   regulatori conegut (Según, Se recomienda, Conforme a...).
    ============================================================ */
 const SECONDARY_STYLE = 'font-size: 0.75em; color: #595959; font-style: italic;';
 const ALREADY_SECONDARY_RE = /^\s*<span[^>]*color\s*:\s*#595959[^>]*>[\s\S]*<\/span>\s*$/i;
+const SECONDARY_PREFIXES = [
+  'según', 'segons', 'se recomienda', 'es recomana', 'de acuerdo',
+  "d'acord", 'conforme a', 'conforme els',
+];
+
+function startsWithSecondaryPrefix(line) {
+  if (!line) return false;
+  const stripped = line.replace(/<[^>]+>/g, '').trim().toLowerCase();
+  return SECONDARY_PREFIXES.some((p) => stripped.startsWith(p));
+}
 
 function splitParagraphs(text) {
   if (!text) return [];
@@ -38,6 +49,9 @@ function formatWithSecondary(text) {
   const render = (p) => {
     if (ALREADY_SECONDARY_RE.test(p)) {
       return p.replace(/<span[^>]*>/, `<span style="${SECONDARY_STYLE}">`);
+    }
+    if (startsWithSecondaryPrefix(p)) {
+      return `<span style="${SECONDARY_STYLE}">${p}</span>`;
     }
     return p;
   };
