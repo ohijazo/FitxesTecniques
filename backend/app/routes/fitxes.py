@@ -161,17 +161,18 @@ def _seguent_clau_cert_img(contingut):
 
 def _moure_imatges_temp(token, art_codi):
     """Mou imatges del directori temporal a uploads/<art_codi>/img/.
-    Retorna llista d'URLs finals."""
+    Retorna {nom_original: nom_final}: el nom original permet reconciliar les
+    URLs de previsualització temporals que el formulari ja tenia al contingut."""
     if not token:
-        return []
+        return {}
     temp_dir = os.path.join(TEMP_IMG_DIR, token)
     if not os.path.isdir(temp_dir):
-        return []
+        return {}
 
     img_dir = os.path.join(UPLOAD_DIR, art_codi, 'img')
     os.makedirs(img_dir, exist_ok=True)
 
-    urls = []
+    moguts = {}
     for filename in os.listdir(temp_dir):
         ext = os.path.splitext(filename)[1].lower()
         if ext not in ALLOWED_IMG_EXT:
@@ -188,7 +189,7 @@ def _moure_imatges_temp(token, art_codi):
             shutil.move(src, dest)
         except OSError:
             continue
-        urls.append(dest_name)
+        moguts[filename] = dest_name
 
     # Netejar directori temp
     try:
@@ -196,7 +197,7 @@ def _moure_imatges_temp(token, art_codi):
     except OSError:
         pass
 
-    return urls
+    return moguts
 
 
 def _guardar_pdf_temp(file_storage):
@@ -397,14 +398,31 @@ def crear_fitxa():
     # Moure imatges del Word (si hi ha temp_token) a uploads/<art_codi>/img/
     temp_token = data.get('imatges_temp_token')
     if temp_token:
-        noms = _moure_imatges_temp(temp_token, fitxa.art_codi)
-        if noms:
+        moguts = _moure_imatges_temp(temp_token, fitxa.art_codi)
+        if moguts:
             # Registrar-les al contingut: sense aquesta referència la imatge
             # queda al disc però no es veu ni a la fitxa ni al PDF generat.
             contingut_nou = dict(versio.contingut or {})
-            for nom in noms:
+            pendents = dict(moguts)
+            prefix_temp = f'/api/fitxes/imatges-temp/{temp_token}/'
+
+            # Les que el formulari ja mostrava amb la URL temporal: substituir-la
+            # per la definitiva a la mateixa clau, per no duplicar la imatge.
+            for clau, val in list(contingut_nou.items()):
+                if not isinstance(val, str) or prefix_temp not in val:
+                    continue
+                original = val.rsplit('/', 1)[-1]
+                final = pendents.pop(original, None)
+                if final:
+                    contingut_nou[clau] = f'/api/fitxes/{fitxa.id}/imatges/{final}'
+                else:
+                    del contingut_nou[clau]
+
+            # La resta (mai previsualitzades): afegir-les al final.
+            for final in pendents.values():
                 clau = _seguent_clau_cert_img(contingut_nou)
-                contingut_nou[clau] = f'/api/fitxes/{fitxa.id}/imatges/{nom}'
+                contingut_nou[clau] = f'/api/fitxes/{fitxa.id}/imatges/{final}'
+
             versio.contingut = contingut_nou
             db.session.commit()
 
@@ -441,6 +459,11 @@ def upload_word():
 
     # Guardar imatges incrustades a directori temporal
     imatges_token, imatges_noms = _guardar_imatges_temp(result.get('imatges', []))
+    # URLs de previsualització: permeten veure la imatge al formulari abans de
+    # desar, quan encara no hi ha id de fitxa per construir la URL definitiva.
+    imatges_urls = [
+        f'/api/fitxes/imatges-temp/{imatges_token}/{n}' for n in imatges_noms
+    ] if imatges_token else []
 
     # Comprovar si la fitxa ja existeix
     fitxa_existent = FitxaTecnica.query.filter_by(art_codi=art_codi).first()
@@ -457,6 +480,7 @@ def upload_word():
             'data_comprovacio': result['data_comprovacio'],
             'imatges_temp_token': imatges_token,
             'imatges_temp_noms': imatges_noms,
+            'imatges_temp_urls': imatges_urls,
             'message': f"La fitxa {art_codi} ja existeix. Vols crear una nova versió?",
         }), 200
 
@@ -472,6 +496,7 @@ def upload_word():
         'nom_producte': result['contingut'].get('denominacio_comercial', ''),
         'imatges_temp_token': imatges_token,
         'imatges_temp_noms': imatges_noms,
+        'imatges_temp_urls': imatges_urls,
     }), 200
 
 
@@ -948,9 +973,32 @@ def imatges_from_temp(fitxa_id):
 
     nous = _moure_imatges_temp(token, fitxa.art_codi)
     urls = [
-        {'filename': n, 'url': f'/api/fitxes/{fitxa_id}/imatges/{n}'} for n in nous
+        {'filename': n, 'url': f'/api/fitxes/{fitxa_id}/imatges/{n}'}
+        for n in nous.values()
     ]
     return jsonify({'imatges': urls, 'total': len(urls)}), 200
+
+
+@fitxes_bp.route('/fitxes/imatges-temp/<token>/<path:filename>', methods=['GET'])
+def servir_imatge_temp(token, filename):
+    """Serveix una imatge extreta d'un .docx que encara no té fitxa associada.
+
+    Necessari per previsualitzar-la al formulari de fitxa nova: fins que no es
+    desa no hi ha id de fitxa i, per tant, no hi ha URL definitiva. Igual que
+    servir_imatge, no porta @login_required perquè el navegador la demana des
+    d'un <img> (sense capçalera Authorization); el token UUID fa de clau."""
+    if not re.match(r'^[a-f0-9]{32}$', token or ''):
+        return jsonify({'error': 'Token invàlid'}), 400
+
+    nom = secure_filename(filename)
+    if os.path.splitext(nom)[1].lower() not in ALLOWED_IMG_EXT:
+        return jsonify({'error': 'Extensió no permesa'}), 400
+
+    filepath = os.path.join(TEMP_IMG_DIR, token, nom)
+    if not os.path.exists(filepath):
+        return jsonify({'error': 'Imatge no trobada'}), 404
+
+    return send_file(filepath)
 
 
 @fitxes_bp.route('/fitxes/<int:fitxa_id>/imatges/<path:filename>', methods=['GET'])

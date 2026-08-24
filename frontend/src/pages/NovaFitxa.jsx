@@ -5,6 +5,16 @@ import { useToast } from '../components/Toast';
 import FitxaForm from '../components/FitxaForm';
 import DistribuirModal from '../components/DistribuirModal';
 
+/* Claus de certificacio a partir d'una llista d'URLs d'imatge.
+   Mateixa convencio que CertImageEditor (components/FitxaForm.jsx):
+   certificacio_img, certificacio_img_2, certificacio_img_3... */
+function clausCertificacio(urls) {
+  if (!urls || !urls.length) return {};
+  return Object.fromEntries(
+    urls.map((url, i) => [i === 0 ? 'certificacio_img' : `certificacio_img_${i + 1}`, url]),
+  );
+}
+
 function NovaFitxa() {
   const navigate = useNavigate();
   const toast = useToast();
@@ -53,9 +63,7 @@ function NovaFitxa() {
               if (res.total > 0) {
                 // Referenciar-les al contingut (mateixa convencio que CertImageEditor):
                 // sense aixo la imatge queda al disc pero no es veu enlloc.
-                res.imatges.forEach((img, i) => {
-                  imatgesCert[i === 0 ? 'certificacio_img' : `certificacio_img_${i + 1}`] = img.url;
-                });
+                Object.assign(imatgesCert, clausCertificacio(res.imatges.map((im) => im.url)));
                 toast.success(`${res.total} imatge(s) del Word associades a la fitxa`);
               }
             } catch (err) {
@@ -317,6 +325,9 @@ function NovaFitxa() {
         descripcio_canvi: 'Creació inicial',
         contingut: {
           ...(wordResult.dades_extretes || {}),
+          // Previsualitzacio: URLs temporals, el backend les substitueix per les
+          // definitives en desar (la fitxa encara no te id en aquest punt).
+          ...clausCertificacio(wordResult.imatges_temp_urls),
           rev: wordResult.rev || '',
           data_revisio: wordResult.data_revisio || '',
           data_comprovacio: wordResult.data_comprovacio || '',
