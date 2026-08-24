@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import DOMPurify from 'dompurify';
 import RichEditor from './RichEditor';
 import { api } from '../api/client';
+import { useToast } from './Toast';
+import ConfirmDialog from './ConfirmDialog';
 
 function arrayMove(arr, from, to) {
   const next = [...arr];
@@ -366,6 +368,7 @@ function UploadButton({ className, style, title, children, onFile, disabled }) {
    ============================================================ */
 function EditableImage({ label, value, onChange, readOnly, toolbar, fitxaId, idioma }) {
   const [uploading, setUploading] = useState(false);
+  const toast = useToast();
   const shownLabel = bil(label, idioma);
 
   if (readOnly) {
@@ -388,7 +391,7 @@ function EditableImage({ label, value, onChange, readOnly, toolbar, fitxaId, idi
       const result = await api.pujarImatge(fitxaId, file);
       onChange(result.url);
     } catch (err) {
-      alert(`Error pujant imatge: ${err.message}`);
+      toast.error(`No s'ha pogut pujar la imatge: ${err.message}`);
     } finally {
       setUploading(false);
     }
@@ -423,12 +426,14 @@ function AddItemInline({ onAdd }) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState(null);
   const [label, setLabel] = useState('');
+  const [errorCamp, setErrorCamp] = useState('');
 
   const confirm = () => {
     if (!label.trim()) return;
     const key = label.trim().toLowerCase().replace(/[^a-z0-9\u00e0\u00e8\u00e9\u00ed\u00f2\u00f3\u00fa\u00ef\u00fc\u00e7 ]/g, '').replace(/\s+/g, '_');
-    onAdd(key, label.trim(), mode);
-    setLabel(''); setMode(null); setOpen(false);
+    const err = onAdd(key, label.trim(), mode);
+    if (err) { setErrorCamp(err); return; }
+    setLabel(''); setMode(null); setOpen(false); setErrorCamp('');
   };
 
   if (!open) return (
@@ -443,14 +448,25 @@ function AddItemInline({ onAdd }) {
     </div>
   );
   return (
-    <div className="pdf-add-element-panel">
-      <input type="text" value={label} onChange={(e) => setLabel(e.target.value)}
+    <div>
+      <div className="pdf-add-element-panel">
+      <input type="text" value={label}
+        onChange={(e) => { setLabel(e.target.value); setErrorCamp(''); }}
         aria-label="Nom del camp nou"
+        aria-invalid={errorCamp ? 'true' : undefined}
+        aria-describedby={errorCamp ? 'error-camp-nou' : undefined}
         placeholder="Nom (ex: Vitamines, Niquel...)" autoFocus
         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirm(); } }}
         style={{ flex: 1, margin: 0 }} />
       <button type="button" className="btn-sm" onClick={confirm}>Afegir</button>
-      <button type="button" className="outline secondary btn-sm" onClick={() => { setMode(null); setLabel(''); }}>Cancel\u00b7lar</button>
+      <button type="button" className="outline secondary btn-sm" onClick={() => { setMode(null); setLabel(''); setErrorCamp(''); }}>Cancel\u00b7lar</button>
+      </div>
+      {errorCamp && (
+        <p id="error-camp-nou" role="alert"
+          style={{ color: 'var(--danger)', fontSize: '0.82rem', margin: '0.3rem 0 0' }}>
+          {errorCamp}
+        </p>
+      )}
     </div>
   );
 }
@@ -685,6 +701,7 @@ function IdiomaSelector({ idioma, onChange }) {
    ============================================================ */
 function CertImageEditor({ contingut, onChange, fitxaId }) {
   const [uploading, setUploading] = useState(false);
+  const toast = useToast();
   const imgs = Object.entries(contingut)
     .filter(([k, v]) => k.startsWith('certificacio_img') && v && typeof v === 'string')
     .map(([k, v]) => ({ key: k, url: v }));
@@ -701,7 +718,7 @@ function CertImageEditor({ contingut, onChange, fitxaId }) {
       const result = await api.pujarImatge(fitxaId, file);
       onChange(key, result.url);
     } catch (err) {
-      alert(`Error pujant imatge: ${err.message}`);
+      toast.error(`No s'ha pogut pujar la imatge: ${err.message}`);
     } finally {
       setUploading(false);
     }
@@ -718,7 +735,7 @@ function CertImageEditor({ contingut, onChange, fitxaId }) {
       const key = existing.length === 0 ? 'certificacio_img' : `certificacio_img_${nextIdx}`;
       onChange(key, result.url);
     } catch (err) {
-      alert(`Error pujant imatge: ${err.message}`);
+      toast.error(`No s'ha pogut pujar la imatge: ${err.message}`);
     } finally {
       setUploading(false);
     }
@@ -896,7 +913,8 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext 
   const formRef = useRef(null);
   const c = initialData.contingut || {};
   const draftKey = _draftKey({ bulkContext, isNew, fitxaId });
-  const [draftDisponible, setDraftDisponible] = useState(null);  // {savedAt} si hi ha draft a recuperar
+  const [draftDisponible, setDraftDisponible] = useState(null);
+  const [errorDesar, setErrorDesar] = useState('');  // {savedAt} si hi ha draft a recuperar
 
   // Capçalera: prioritzar valors de la versió (BD), després initialData (Word), després contingut
   const initialRev = (
@@ -1047,7 +1065,7 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext 
   };
 
   const addItemToSection = (sectionId, key, label, type) => {
-    if (key in contingut) { alert(`El camp "${key}" ja existeix.`); return; }
+    if (key in contingut) return `Ja hi ha un camp que es diu "${label}". Posa-li un altre nom.`;
     setSections((prev) => prev.map((s) =>
       s.id === sectionId ? { ...s, items: [...s.items, { key, label, type, id: `item_${sectionId}_${key}_${Date.now()}` }] } : s
     ));
@@ -1056,10 +1074,15 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext 
       [key]: type === 'table' ? [{ parametre: '', valor: '' }] : '',
     }));
     setDirty(true);
+    return null;
   };
 
-  const removeSection = (sectionId) => {
-    if (!confirm('Eliminar la secció i tots els seus camps?')) return;
+  const [seccioAEliminar, setSeccioAEliminar] = useState(null);
+  const [nouNomSeccio, setNouNomSeccio] = useState(null);  // null = diàleg tancat
+
+  const removeSection = () => {
+    const sectionId = seccioAEliminar?.id;
+    setSeccioAEliminar(null);
     const section = sections.find((s) => s.id === sectionId);
     if (!section) return;
     setContingut((prev) => {
@@ -1072,7 +1095,8 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext 
   };
 
   const addSection = () => {
-    const label = prompt('Nom de la nova secció:');
+    const label = nouNomSeccio;
+    setNouNomSeccio(null);
     if (!label || !label.trim()) return;
     const id = `custom_${Date.now()}`;
     setSections((prev) => [...prev, { id, label: label.trim(), items: [] }]);
@@ -1128,7 +1152,12 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext 
       return;
     }
 
-    if (!form.descripcio_canvi.trim()) { alert('Cal indicar la descripció del canvi.'); return; }
+    if (!form.descripcio_canvi.trim()) {
+      setErrorDesar('Cal indicar què has canviat en aquesta versió.');
+      formRef.current?.querySelector('[name="descripcio_canvi"]')?.focus();
+      return;
+    }
+    setErrorDesar('');
     setSaving(true);
     try {
       // El contingut ja no ha de portar rev/data_revisio/data_comprovacio
@@ -1202,9 +1231,16 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext 
           {!bulkContext ? (
             <label style={{ flex: 1, margin: 0 }}>
               Descripció del canvi *
-              <textarea value={form.descripcio_canvi} onChange={(e) => updateForm({ ...form, descripcio_canvi: e.target.value })}
+              <textarea name="descripcio_canvi" value={form.descripcio_canvi}
+                onChange={(e) => { updateForm({ ...form, descripcio_canvi: e.target.value }); setErrorDesar(''); }}
                 required placeholder="Ex: S'actualitzen els valors de W i P/L. S'afegeix el niquel als contaminants."
+                aria-invalid={errorDesar ? 'true' : undefined}
+                aria-describedby={errorDesar ? 'error-descripcio-canvi' : undefined}
                 rows={2} style={{ resize: 'vertical', minHeight: '46px' }} />
+              {errorDesar && (
+                <span id="error-descripcio-canvi" role="alert"
+                  style={{ color: 'var(--danger)', fontSize: '0.8rem' }}>{errorDesar}</span>
+              )}
             </label>
           ) : (
             <div style={{ flex: 1, fontSize: '0.88rem', color: 'var(--gray-600)' }}>
@@ -1270,7 +1306,7 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext 
                     title="Pujar secció" aria-label={`Pujar la secció ${section.label}`}>&#9650;</button>
                   <button type="button" disabled={si === sections.length - 1} onClick={() => moveSectionDown(si)}
                     title="Baixar secció" aria-label={`Baixar la secció ${section.label}`}>&#9660;</button>
-                  <button type="button" onClick={() => removeSection(section.id)} className="remove"
+                  <button type="button" onClick={() => setSeccioAEliminar(section)} className="remove"
                     title="Eliminar secció" aria-label={`Eliminar la secció ${section.label}`}>&times;</button>
                 </div>
               )}
@@ -1347,7 +1383,7 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext 
           {/* Afegir secció */}
           {!bulkContext && (
             <div style={{ marginTop: '1.5rem' }}>
-              <button type="button" className="pdf-add-section-btn" onClick={addSection}>+ Afegir secció</button>
+              <button type="button" className="pdf-add-section-btn" onClick={() => setNouNomSeccio('')}>+ Afegir secció</button>
             </div>
           )}
 
@@ -1357,6 +1393,37 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext 
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        obert={Boolean(seccioAEliminar)}
+        titol="Eliminar la secció"
+        textConfirmar="Eliminar"
+        destructiu
+        onConfirmar={removeSection}
+        onCancelar={() => setSeccioAEliminar(null)}
+      >
+        <p style={{ margin: 0 }}>
+          S'eliminarà la secció <strong>{seccioAEliminar?.label}</strong> i els seus{' '}
+          <strong>{seccioAEliminar?.items?.length || 0} camps</strong> d'aquesta fitxa.
+          El canvi no es desa fins que premis Desar.
+        </p>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        obert={nouNomSeccio !== null}
+        titol="Nova secció"
+        textConfirmar="Afegir"
+        potConfirmar={Boolean(nouNomSeccio && nouNomSeccio.trim())}
+        onConfirmar={addSection}
+        onCancelar={() => setNouNomSeccio(null)}
+      >
+        <label style={{ margin: 0 }}>
+          Nom de la secció
+          <input type="text" data-focus-inicial value={nouNomSeccio || ''}
+            onChange={(e) => setNouNomSeccio(e.target.value)}
+            placeholder="Ex: Informació addicional" style={{ margin: '0.3rem 0 0' }} />
+        </label>
+      </ConfirmDialog>
     </form>
   );
 }

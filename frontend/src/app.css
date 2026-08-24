@@ -1628,6 +1628,12 @@ textarea.pdf-field-input {
   background: var(--gray-200) !important;
 }
 .pdf-cert-add-empty {
+  background: none !important;
+  border: 2px dashed var(--gray-300) !important;
+  color: var(--gray-600) !important;
+  width: 100%;
+  margin: 0;
+  font-family: inherit;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1640,9 +1646,9 @@ textarea.pdf-field-input {
   transition: var(--transition);
 }
 .pdf-cert-add-empty:hover {
-  border-color: var(--brand);
+  border-color: var(--brand) !important;
   color: var(--brand);
-  background: var(--brand-50);
+  background: var(--brand-50) !important;
 }
 .pdf-cert-item {
   position: relative;
@@ -1679,6 +1685,11 @@ textarea.pdf-field-input {
   color: var(--danger) !important;
 }
 .pdf-cert-add {
+  background: none !important;
+  border: 2px dashed var(--gray-300) !important;
+  color: var(--gray-600) !important;
+  margin: 0;
+  font-family: inherit;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1708,6 +1719,9 @@ textarea.pdf-field-input {
   border-radius: var(--radius);
 }
 .pdf-image-upload {
+  width: 100%;
+  margin: 0;
+  font-family: inherit;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1718,12 +1732,14 @@ textarea.pdf-field-input {
   color: var(--gray-500);
   font-size: 0.88rem;
   transition: var(--transition);
-  background: var(--gray-50);
+  background: var(--gray-50) !important;
+  border: 2px dashed var(--gray-300) !important;
+  color: var(--gray-600) !important;
 }
 .pdf-image-upload:hover {
-  border-color: var(--brand);
+  border-color: var(--brand) !important;
   color: var(--brand);
-  background: var(--brand-50);
+  background: var(--brand-50) !important;
 }
 
 /* Peu del document — replica PDF */

@@ -20,6 +20,7 @@ function ConfirmDialog({
   textCancelar = 'Cancel·lar',
   destructiu = false,
   ocupat = false,
+  potConfirmar = true,
   onConfirmar,
   onCancelar,
 }) {
@@ -28,27 +29,57 @@ function ConfirmDialog({
   const focusPrevi = useRef(null);
   const titolId = useId();
 
+  // Els callbacks arriben com a funcions inline i canvien a cada render. Si
+  // entressin a les dependències de l'efecte, aquest es reexecutaria sempre i
+  // la neteja robaria el focus.
+  const accions = useRef({ onConfirmar, onCancelar });
   useEffect(() => {
-    if (!obert) return;
+    accions.current = { onConfirmar, onCancelar };
+  }, [onConfirmar, onCancelar]);
+
+  // Focus: entrar-hi en obrir i tornar-lo al botó que l'ha obert en tancar.
+  useEffect(() => {
+    if (!obert) return undefined;
 
     focusPrevi.current = document.activeElement;
-    // El focus va al botó de cancel·lar per defecte en accions destructives,
-    // per no confirmar sense voler amb un Enter.
-    const inicial = destructiu ? dialogRef.current?.querySelector('[data-cancelar]') : confirmarRef.current;
+    // Si el diàleg demana una dada, el focus hi va. Si no, va al botó de
+    // cancel·lar en accions destructives, per no confirmar sense voler amb un
+    // Enter, i al de confirmar en la resta.
+    const camp = dialogRef.current?.querySelector('[data-focus-inicial]');
+    const inicial = camp
+      || (destructiu ? dialogRef.current?.querySelector('[data-cancelar]') : confirmarRef.current);
     inicial?.focus();
+    if (camp && typeof camp.select === 'function') camp.select();
+
+    const previ = focusPrevi.current;
+    return () => {
+      if (previ && document.contains(previ)) previ.focus();
+    };
+  }, [obert, destructiu]);
+
+  // Escape tanca; Enter dins d'un camp confirma (com feia el prompt() natiu);
+  // Tab no ha de poder sortir del diàleg.
+  useEffect(() => {
+    if (!obert) return undefined;
+    const node = dialogRef.current;
+    if (!node) return undefined;
 
     const onKeyDown = (e) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        onCancelar?.();
+        accions.current.onCancelar?.();
+        return;
+      }
+      if (e.key === 'Enter' && e.target?.matches?.('input:not([type=checkbox])')) {
+        e.preventDefault();
+        accions.current.onConfirmar?.();
         return;
       }
       if (e.key !== 'Tab') return;
-      // Retenir el focus: sense això es tabula cap a la pàgina de sota.
-      const focusables = dialogRef.current?.querySelectorAll(
+      const focusables = node.querySelectorAll(
         'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
       );
-      if (!focusables || focusables.length === 0) return;
+      if (focusables.length === 0) return;
       const primer = focusables[0];
       const ultim = focusables[focusables.length - 1];
       if (e.shiftKey && document.activeElement === primer) {
@@ -60,13 +91,9 @@ function ConfirmDialog({
       }
     };
 
-    const node = dialogRef.current;
-    node?.addEventListener('keydown', onKeyDown);
-    return () => {
-      node?.removeEventListener('keydown', onKeyDown);
-      focusPrevi.current?.focus?.();
-    };
-  }, [obert, destructiu, onCancelar]);
+    node.addEventListener('keydown', onKeyDown);
+    return () => node.removeEventListener('keydown', onKeyDown);
+  }, [obert]);
 
   if (!obert) return null;
 
@@ -83,7 +110,8 @@ function ConfirmDialog({
           </button>
           <button type="button" ref={confirmarRef}
             className={destructiu ? 'btn-danger' : ''}
-            style={{ margin: 0 }} onClick={onConfirmar} aria-busy={ocupat} disabled={ocupat}>
+            style={{ margin: 0 }} onClick={onConfirmar} aria-busy={ocupat}
+            disabled={ocupat || !potConfirmar}>
             {textConfirmar}
           </button>
         </div>

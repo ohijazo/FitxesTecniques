@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api/client';
 import { useToast } from '../components/Toast';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 const COLOR_PRESETS = [
   { color: '#fef3c7', color_text: '#92400e', nom: 'Groc' },
@@ -88,8 +89,12 @@ function AdminEstats() {
     }
   };
 
-  const eliminar = async (estat) => {
-    if (!confirm(`Eliminar l'estat "${estat.nom}"?`)) return;
+  const [aEliminar, setAEliminar] = useState(null);
+
+  const eliminar = async () => {
+    const estat = aEliminar;
+    setAEliminar(null);
+    if (!estat) return;
     try {
       await api.eliminarEstat(estat.id);
       toast.success('Estat eliminat');
@@ -155,7 +160,7 @@ function AdminEstats() {
                           <button
                             className="outline btn-sm"
                             style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
-                            onClick={() => eliminar(e)}>
+                            onClick={() => setAEliminar(e)}>
                             Eliminar
                           </button>
                         )}
@@ -259,6 +264,19 @@ function AdminEstats() {
           </div>
         </form>
       )}
+      <ConfirmDialog
+        obert={Boolean(aEliminar)}
+        titol="Eliminar l'estat"
+        textConfirmar="Eliminar"
+        destructiu
+        onConfirmar={eliminar}
+        onCancelar={() => setAEliminar(null)}
+      >
+        <p style={{ margin: 0 }}>
+          S'eliminarà l'estat <strong>{aEliminar?.nom}</strong>. Les fitxes que el tinguin
+          assignat el conservaran fins que se'ls en posi un altre.
+        </p>
+      </ConfirmDialog>
     </>
   );
 }

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useToast } from '../components/Toast';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 const ESTATS_TERMINALS = new Set(['acabat', 'interromput', 'error']);
 const REFRESH_MS = 3000;
@@ -80,8 +81,10 @@ function JobDetail() {
     }
   };
 
+  const [confirmantArxivar, setConfirmantArxivar] = useState(false);
+
   const arxivar = async () => {
-    if (!confirm('Arxivar aquest job? No s\'esborra, només es treu del llistat principal.')) return;
+    setConfirmantArxivar(false);
     try {
       await api.arxivarJob(id);
       toast.success('Job arxivat');
@@ -119,7 +122,7 @@ function JobDetail() {
             </button>
           )}
           {ESTATS_TERMINALS.has(job.estat) && !job.arxivat && (
-            <button className="outline secondary" onClick={arxivar}>Arxivar</button>
+            <button className="outline secondary" onClick={() => setConfirmantArxivar(true)}>Arxivar</button>
           )}
         </div>
       </div>
@@ -208,6 +211,19 @@ function JobDetail() {
           </tbody>
         </table>
       </div>
+
+      <ConfirmDialog
+        obert={confirmantArxivar}
+        titol="Arxivar el job"
+        textConfirmar="Arxivar"
+        onConfirmar={arxivar}
+        onCancelar={() => setConfirmantArxivar(false)}
+      >
+        <p style={{ margin: 0 }}>
+          El job es treu del llistat principal. No s'esborra: el registre i el seu resultat
+          es conserven.
+        </p>
+      </ConfirmDialog>
     </>
   );
 }

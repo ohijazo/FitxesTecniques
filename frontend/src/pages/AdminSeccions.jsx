@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../api/client';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 const TIPUS_CAMP = ['text', 'textarea', 'number', 'date', 'select', 'taula'];
 
@@ -42,8 +43,10 @@ function AdminSeccions() {
     } catch (err) { setError(err.message); }
   };
 
+  // {tipus: 'seccio'|'camp', id, nom}
+  const [aEliminar, setAEliminar] = useState(null);
+
   const eliminarSeccio = async (id) => {
-    if (!confirm('Segur que vols eliminar aquesta secció i tots els seus camps?')) return;
     try {
       await api.eliminarSeccio(id);
       setMsg('Secció eliminada');
@@ -87,12 +90,19 @@ function AdminSeccions() {
   };
 
   const eliminarCamp = async (id) => {
-    if (!confirm('Segur que vols eliminar aquest camp?')) return;
     try {
       await api.eliminarCamp(id);
       setMsg('Camp eliminat');
       carregarSeccions();
     } catch (err) { setError(err.message); }
+  };
+
+  const confirmarEliminacio = async () => {
+    const item = aEliminar;
+    setAEliminar(null);
+    if (!item) return;
+    if (item.tipus === 'seccio') await eliminarSeccio(item.id);
+    else await eliminarCamp(item.id);
   };
 
   const seccioSeleccionada = seccions.find((s) => s.id === seccioActiva);
@@ -133,7 +143,9 @@ function AdminSeccions() {
                 <span style={{ fontWeight: seccioActiva === s.id ? 600 : 400, fontSize: '0.9rem' }}>
                   {s.titol} <small style={{ color: 'var(--text-muted)' }}>({(s.camps || []).length})</small>
                 </span>
-                <button className="btn-remove" onClick={(e) => { e.stopPropagation(); eliminarSeccio(s.id); }}>×</button>
+                <button className="btn-remove" title="Eliminar la secció"
+                  aria-label={`Eliminar la secció ${s.nom}`}
+                  onClick={(e) => { e.stopPropagation(); setAEliminar({ tipus: 'seccio', id: s.id, nom: s.nom }); }}>×</button>
               </div>
             ))}
           </div>
@@ -169,7 +181,9 @@ function AdminSeccions() {
                           <td>
                             <div style={{ display: 'flex', gap: '0.25rem' }}>
                               <button className="outline secondary btn-sm" onClick={() => editarCamp(camp)}>Editar</button>
-                              <button className="btn-remove" onClick={() => eliminarCamp(camp.id)}>×</button>
+                              <button className="btn-remove" title="Eliminar el camp"
+                                aria-label={`Eliminar el camp ${camp.label || camp.nom}`}
+                                onClick={() => setAEliminar({ tipus: 'camp', id: camp.id, nom: camp.label || camp.nom })}>×</button>
                             </div>
                           </td>
                         </tr>
@@ -225,6 +239,24 @@ function AdminSeccions() {
           )}
         </div>
       </div>
+      <ConfirmDialog
+        obert={Boolean(aEliminar)}
+        titol={aEliminar?.tipus === 'seccio' ? 'Eliminar la secció' : 'Eliminar el camp'}
+        textConfirmar="Eliminar"
+        destructiu
+        onConfirmar={confirmarEliminacio}
+        onCancelar={() => setAEliminar(null)}
+      >
+        <p style={{ margin: 0 }}>
+          {aEliminar?.tipus === 'seccio' ? (
+            <>S'eliminarà la secció <strong>{aEliminar?.nom}</strong> i <strong>tots els seus
+              camps</strong>. Les fitxes ja creades conserven el contingut que hi tinguessin.</>
+          ) : (
+            <>S'eliminarà el camp <strong>{aEliminar?.nom}</strong> de la plantilla. Les fitxes
+              ja creades conserven el valor que hi tinguessin.</>
+          )}
+        </p>
+      </ConfirmDialog>
     </>
   );
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api/client';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 const CONFIG_FIELDS = {
   ftp: [
@@ -99,8 +100,12 @@ function AdminDestins() {
     setMode('form');
   };
 
-  const eliminar = async (d) => {
-    if (!confirm(`Segur que vols eliminar el destí "${d.nom}"?`)) return;
+  const [aEliminar, setAEliminar] = useState(null);
+
+  const eliminar = async () => {
+    const d = aEliminar;
+    setAEliminar(null);
+    if (!d) return;
     try {
       await api.eliminarDesti(d.id);
       setMsg('Destí eliminat');
@@ -143,7 +148,7 @@ function AdminDestins() {
                   </div>
                   <div className="toolbar" style={{ margin: 0 }}>
                     <button className="outline secondary btn-sm" onClick={() => editar(d)}>Editar</button>
-                    <button className="outline btn-sm" style={{ color: '#dc3545', borderColor: '#dc3545' }} onClick={() => eliminar(d)}>Eliminar</button>
+                    <button className="outline btn-sm" style={{ color: '#dc3545', borderColor: '#dc3545' }} onClick={() => setAEliminar(d)}>Eliminar</button>
                   </div>
                 </div>
                 <div style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
@@ -247,6 +252,19 @@ function AdminDestins() {
           </div>
         </form>
       </div>
+      <ConfirmDialog
+        obert={Boolean(aEliminar)}
+        titol="Eliminar el destí"
+        textConfirmar="Eliminar"
+        destructiu
+        onConfirmar={eliminar}
+        onCancelar={() => setAEliminar(null)}
+      >
+        <p style={{ margin: 0 }}>
+          S'eliminarà el destí <strong>{aEliminar?.nom}</strong> i la seva configuració.
+          Les fitxes que ja s'hi han distribuït no es tocaran, però no s'hi podrà tornar a distribuir.
+        </p>
+      </ConfirmDialog>
     </>
   );
 }

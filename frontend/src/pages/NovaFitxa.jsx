@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useToast } from '../components/Toast';
+import ConfirmDialog from '../components/ConfirmDialog';
 import FitxaForm from '../components/FitxaForm';
 import DistribuirModal from '../components/DistribuirModal';
 
@@ -22,6 +23,7 @@ function NovaFitxa() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   const [wordResult, setWordResult] = useState(null);
+  const [wordExistent, setWordExistent] = useState(null);
   const [novaFitxaId, setNovaFitxaId] = useState(null);
   const [novaFitxaCodi, setNovaFitxaCodi] = useState('');
 
@@ -54,32 +56,7 @@ function NovaFitxa() {
       }
 
       if (data.existent) {
-        if (confirm(data.message)) {
-          // Si hi havia imatges al Word, associar-les a la fitxa existent
-          const imatgesCert = {};
-          if (data.imatges_temp_token) {
-            try {
-              const res = await api.imatgesFromTemp(data.fitxa.id, data.imatges_temp_token);
-              if (res.total > 0) {
-                // Referenciar-les al contingut (mateixa convencio que CertImageEditor):
-                // sense aixo la imatge queda al disc pero no es veu enlloc.
-                Object.assign(imatgesCert, clausCertificacio(res.imatges.map((im) => im.url)));
-                toast.success(`${res.total} imatge(s) del Word associades a la fitxa`);
-              }
-            } catch (err) {
-              toast.error(`Error associant imatges: ${err.message}`);
-            }
-          }
-          navigate(`/fitxes/${data.fitxa.id}/editar`, {
-            state: { dadesWord: {
-              ...data.dades_extretes,
-              ...imatgesCert,
-              rev: data.rev || '',
-              data_revisio: data.data_revisio || '',
-              data_comprovacio: data.data_comprovacio || '',
-            }},
-          });
-        }
+        setWordExistent(data);
       } else {
         setWordResult(data);
         setMode('manual');
@@ -89,6 +66,38 @@ function NovaFitxa() {
     } finally {
       setUploading(false);
     }
+  };
+
+  /** Confirmat que la fitxa ja existeix: crear-hi una versió nova des del Word. */
+  const continuarAmbFitxaExistent = async () => {
+    const data = wordExistent;
+    setWordExistent(null);
+    if (!data) return;
+
+    // Si hi havia imatges al Word, associar-les a la fitxa existent
+    const imatgesCert = {};
+    if (data.imatges_temp_token) {
+      try {
+        const res = await api.imatgesFromTemp(data.fitxa.id, data.imatges_temp_token);
+        if (res.total > 0) {
+          // Referenciar-les al contingut (mateixa convencio que CertImageEditor):
+          // sense aixo la imatge queda al disc pero no es veu enlloc.
+          Object.assign(imatgesCert, clausCertificacio(res.imatges.map((im) => im.url)));
+          toast.success(`${res.total} imatge(s) del Word associades a la fitxa`);
+        }
+      } catch (err) {
+        toast.error(`Error associant imatges: ${err.message}`);
+      }
+    }
+    navigate(`/fitxes/${data.fitxa.id}/editar`, {
+      state: { dadesWord: {
+        ...data.dades_extretes,
+        ...imatgesCert,
+        rev: data.rev || '',
+        data_revisio: data.data_revisio || '',
+        data_comprovacio: data.data_comprovacio || '',
+      }},
+    });
   };
 
   const handleCrear = async (formData) => {
@@ -219,6 +228,23 @@ function NovaFitxa() {
             <span style={{ color: 'var(--brand)' }}>Començar</span>
           </div>
         </div>
+
+        <ConfirmDialog
+          obert={Boolean(wordExistent)}
+          titol="Aquesta fitxa ja existeix"
+          textConfirmar="Crear una versió nova"
+          onConfirmar={continuarAmbFitxaExistent}
+          onCancelar={() => setWordExistent(null)}
+        >
+          <p style={{ margin: '0 0 0.5rem' }}>
+            Ja hi ha una fitxa amb el codi <strong>{wordExistent?.fitxa?.art_codi}</strong>
+            {wordExistent?.fitxa?.nom_producte ? <> ({wordExistent.fitxa.nom_producte})</> : null}.
+          </p>
+          <p style={{ margin: 0 }}>
+            Es pot obrir l'editor amb les dades d'aquest Word per crear-hi una versió nova.
+            La versió actual es conserva a l'historial.
+          </p>
+        </ConfirmDialog>
       </>
     );
   }

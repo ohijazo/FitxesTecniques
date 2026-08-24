@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api/client';
 import { useToast } from '../components/Toast';
+import ConfirmDialog from '../components/ConfirmDialog';
 import FitxaForm from '../components/FitxaForm';
 import DistribuirModal from '../components/DistribuirModal';
 
@@ -16,6 +17,7 @@ function EditarFitxa() {
   const [showDistModal, setShowDistModal] = useState(false);
   const [importedPdf, setImportedPdf] = useState(null);
   const [importingPdf, setImportingPdf] = useState(false);
+  const [pdfPendent, setPdfPendent] = useState(null);
   const [formKey, setFormKey] = useState(0);
   const pdfInputRef = useRef(null);
 
@@ -66,11 +68,14 @@ function EditarFitxa() {
     if (!file) return;
 
     if (importedPdf || (ultimaVersio?.contingut && Object.keys(ultimaVersio.contingut).length > 0)) {
-      if (!window.confirm("El formulari actual es sobreescriurà amb el contingut del PDF. Vols continuar?")) {
-        return;
-      }
+      setPdfPendent(file);
+      return;
     }
+    await importarPdf(file);
+  };
 
+  const importarPdf = async (file) => {
+    setPdfPendent(null);
     setImportingPdf(true);
     try {
       const res = await api.parsePdf(id, file);
@@ -144,6 +149,21 @@ function EditarFitxa() {
       )}
 
       <FitxaForm key={formKey} initialData={initialData} onSubmit={handleSubmit} isNew={false} versio={ultimaVersio} fitxaId={id} />
+
+      <ConfirmDialog
+        obert={Boolean(pdfPendent)}
+        titol="Substituir el formulari amb el PDF"
+        textConfirmar="Substituir"
+        destructiu
+        onConfirmar={() => importarPdf(pdfPendent)}
+        onCancelar={() => setPdfPendent(null)}
+      >
+        <p style={{ margin: 0 }}>
+          El contingut que ara hi ha al formulari es substituirà pel que s'extregui de{' '}
+          <strong>{pdfPendent?.name}</strong>. La versió desada de la fitxa no es toca: pots
+          revisar el resultat abans de desar.
+        </p>
+      </ConfirmDialog>
 
       {showDistModal && (
         <DistribuirModal

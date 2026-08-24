@@ -1,6 +1,5 @@
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import Underline from '@tiptap/extension-underline';
 import { useEffect } from 'react';
 
 function ToolbarButton({ active, onClick, title, children }) {
@@ -10,6 +9,8 @@ function ToolbarButton({ active, onClick, title, children }) {
       className={`rich-tb-btn ${active ? 'active' : ''}`}
       onClick={onClick}
       title={title}
+      aria-label={title}
+      aria-pressed={active ? 'true' : 'false'}
     >
       {children}
     </button>
@@ -26,7 +27,6 @@ export default function RichEditor({ value, onChange, compact }) {
         horizontalRule: false,
         code: false,
       }),
-      Underline,
     ],
     content: value || '',
     onUpdate: ({ editor }) => {

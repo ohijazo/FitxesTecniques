@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../api/client';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 function AdminUsuaris() {
   const [usuaris, setUsuaris] = useState([]);
@@ -50,8 +51,12 @@ function AdminUsuaris() {
     setForm({ email: u.email, nom: u.nom, password: '', rol: u.rol });
   };
 
-  const eliminar = async (u) => {
-    if (!confirm(`Segur que vols eliminar l'usuari ${u.nom}?`)) return;
+  const [aEliminar, setAEliminar] = useState(null);
+
+  const eliminar = async () => {
+    const u = aEliminar;
+    setAEliminar(null);
+    if (!u) return;
     try {
       await api.eliminarUsuari(u.id);
       setMsg('Usuari eliminat');
@@ -134,13 +139,26 @@ function AdminUsuaris() {
               <td>
                 <div style={{ display: 'flex', gap: '0.25rem' }}>
                   <button className="outline secondary btn-sm" onClick={() => editar(u)}>Editar</button>
-                  <button className="outline btn-sm" style={{ color: '#dc3545', borderColor: '#dc3545' }} onClick={() => eliminar(u)}>Eliminar</button>
+                  <button className="outline btn-sm" style={{ color: '#dc3545', borderColor: '#dc3545' }} onClick={() => setAEliminar(u)}>Eliminar</button>
                 </div>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+      <ConfirmDialog
+        obert={Boolean(aEliminar)}
+        titol="Eliminar l'usuari"
+        textConfirmar="Eliminar"
+        destructiu
+        onConfirmar={eliminar}
+        onCancelar={() => setAEliminar(null)}
+      >
+        <p style={{ margin: 0 }}>
+          <strong>{aEliminar?.nom}</strong> ({aEliminar?.email}) deixarà de poder entrar a
+          l'aplicació. El seu nom es conserva a l'historial de versions i distribucions.
+        </p>
+      </ConfirmDialog>
     </>
   );
 }
