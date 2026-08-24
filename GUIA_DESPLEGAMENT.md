@@ -510,21 +510,25 @@ Quan es lliuri una nova versio:
 cd /var/www/fitxes-tecniques
 sudo git pull
 
-# 2. Actualitzar dependencies backend
+# 2. Restaurar permisos
+#    Cal fer-ho JUST DESPRES del pull: git l'ha executat com a root i els
+#    fitxers nous queden en propietat de root. Si es deixa per al final,
+#    l'`npm install` peta amb EACCES en escriure package-lock.json.
+sudo chown -R www-data:www-data /var/www/fitxes-tecniques
+
+# 3. Actualitzar dependencies backend
 cd backend
 sudo -u www-data venv/bin/pip install -r requirements.txt
 sudo -u www-data venv/bin/flask db upgrade
 
-# 3. Recompilar frontend
+# 4. Recompilar frontend
 cd ../frontend
 sudo -u www-data npm install
 sudo -u www-data npm run build
 
-# 4. Restaurar permisos
-sudo chown -R www-data:www-data /var/www/fitxes-tecniques
-
 # 5. Reiniciar backend
 sudo systemctl restart fitxes-tecniques
+sudo systemctl status fitxes-tecniques --no-pager
 ```
 
 ### Rotacio de logs
