@@ -92,6 +92,13 @@ function ControlRevisions() {
 
   useEffect(() => { setPage(1); }, [cerca, filtreEstat, filtreCaducada, filtreAtencio]);
 
+  const esborrarFiltres = () => {
+    setCerca('');
+    setFiltreEstat('');
+    setFiltreCaducada(false);
+    setFiltreAtencio(false);
+  };
+
   if (loading) return <p aria-busy="true">Carregant control de revisions...</p>;
   if (error) return <p style={{ color: 'var(--danger)' }}>{error}</p>;
 
@@ -171,7 +178,14 @@ function ControlRevisions() {
       </div>
 
       {dadesFiltrades.length === 0 ? (
-        <div className="empty-state">No hi ha fitxes amb els filtres seleccionats.</div>
+        <div className="empty-state">
+          <p style={{ marginBottom: '0.5rem' }}>Cap fitxa coincideix amb els filtres</p>
+          <p>
+            <button type="button" className="link-button" onClick={esborrarFiltres}>
+              Esborrar els filtres
+            </button>
+          </p>
+        </div>
       ) : (() => {
         const totalPages = Math.ceil(dadesFiltrades.length / perPage);
         const paginades = dadesFiltrades.slice((page - 1) * perPage, page * perPage);

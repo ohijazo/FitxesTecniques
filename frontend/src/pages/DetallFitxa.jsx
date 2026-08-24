@@ -165,7 +165,12 @@ function DistribuirPanel({ fitxaId, fitxaArtCodi, distribucions, onDone, onClose
       </div>
 
       {destins.length === 0 ? (
-        <p style={{ color: 'var(--gray-500)' }}>No hi ha destins de distribució configurats. Configura'ls a Admin &gt; Destins.</p>
+        <div className="empty-state">
+          <p style={{ marginBottom: '0.5rem' }}>Encara no hi ha cap destí de distribució</p>
+          <p>Un destí és el lloc on es publica el PDF de la fitxa (FTP, carpeta de xarxa...).{' '}
+            <Link to="/admin/destins">Configurar destins &rarr;</Link>
+          </p>
+        </div>
       ) : (
         <>
           <p style={{ fontSize: '0.88rem', color: 'var(--gray-500)', marginBottom: '1rem' }}>
@@ -450,7 +455,12 @@ function VersionsSection({ fitxa, fitxaId, onPublicar, onVistaPrevia, onRefresh 
   };
 
   if (versions.length === 0) {
-    return <p style={{ color: 'var(--gray-500)' }}>Cap versió.</p>;
+    return (
+      <div className="empty-state">
+        <p style={{ marginBottom: '0.5rem' }}>Aquesta fitxa encara no té cap versió</p>
+        <p>Les versions es creen en desar canvis des de l'editor.</p>
+      </div>
+    );
   }
 
   return (
@@ -1240,7 +1250,11 @@ function DetallFitxa() {
 
               <h3 style={{ fontSize: '1rem', marginBottom: '0.75rem' }}>Historial de distribucions</h3>
               {distribucions.length === 0 ? (
-                <p style={{ color: 'var(--gray-500)' }}>Cap distribució registrada.</p>
+                <div className="empty-state">
+                  <p style={{ marginBottom: '0.5rem' }}>Aquesta fitxa no s'ha distribuït mai</p>
+                  <p>Quan es distribueixi, aquí hi quedarà el registre de cada enviament,
+                    amb el destí, la revisió i el resultat.</p>
+                </div>
               ) : (
                 <table>
                   <thead>

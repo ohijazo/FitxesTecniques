@@ -47,7 +47,9 @@ function Jobs() {
         <p aria-busy="true">Carregant jobs...</p>
       ) : jobs.length === 0 ? (
         <div className="empty-state">
-          <p>No hi ha jobs.</p>
+          <p style={{ marginBottom: '0.5rem' }}>Encara no s'ha executat cap operació massiva</p>
+          <p>Els jobs apareixen aquí quan es fa una edició o una distribució massiva
+            des de la llista de fitxes.</p>
         </div>
       ) : (
         <div className="table-wrapper">
