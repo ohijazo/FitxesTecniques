@@ -21,3 +21,7 @@ Thumbs.db
 
 # Claude
 .claude/
+
+# Skills i eines d'agents
+.agents/
+.playwright-mcp/

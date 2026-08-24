@@ -91,7 +91,8 @@ nav.container-fluid li {
 }
 nav.container-fluid > ul > li > a,
 nav.container-fluid > ul > li > strong,
-nav.container-fluid a.nav-dropdown-trigger {
+nav.container-fluid .nav-dropdown-trigger,
+nav.container-fluid .nav-logout {
   color: rgba(255,255,255,0.9) !important;
   font-size: 0.88rem;
   text-decoration: none;
@@ -100,10 +101,27 @@ nav.container-fluid a.nav-dropdown-trigger {
   transition: var(--transition);
   white-space: nowrap;
 }
+nav.container-fluid .nav-dropdown-trigger,
+nav.container-fluid .nav-logout {
+  background: none !important;
+  border: none !important;
+  border-radius: 0;
+  font-family: inherit;
+  line-height: inherit;
+  width: auto;
+  margin: 0;
+}
 nav.container-fluid > ul > li > a:hover,
-nav.container-fluid a.nav-dropdown-trigger:hover {
+nav.container-fluid .nav-dropdown-trigger:hover,
+nav.container-fluid .nav-logout:hover {
   color: #fff !important;
-  background: rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.1) !important;
+}
+/* Pàgina on ets: abans no hi havia cap indicació */
+nav.container-fluid > ul > li > a.nav-link.actiu {
+  color: #fff !important;
+  background: rgba(255,255,255,0.12);
+  box-shadow: inset 0 -3px 0 var(--brand);
 }
 nav.container-fluid strong {
   font-size: 0.95rem;
@@ -114,7 +132,7 @@ nav.container-fluid strong {
 }
 nav .user-info {
   font-size: 0.8rem;
-  color: rgba(255,255,255,0.5);
+  color: rgba(255,255,255,0.72);
   margin-right: 0.5rem;
 }
 

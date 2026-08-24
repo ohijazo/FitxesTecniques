@@ -65,7 +65,7 @@ Sistema web únic on el departament de qualitat:
 | Backend       | Python + Flask + Flask-SQLAlchemy |
 | Base de dades | PostgreSQL                        |
 | Frontend      | React + React Router + Vite       |
-| CSS           | PicoCSS (CDN) + custom CSS        |
+| CSS           | CSS propi (frontend/src/app.css)  |
 | CORS          | Flask-CORS                        |
 | Autenticació  | MSAL (Microsoft Authentication Library) |
 | Generació PDF | WeasyPrint o LibreOffice headless |

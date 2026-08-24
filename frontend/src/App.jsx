@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { BrowserRouter, Routes, Route, Link, NavLink, Navigate, useLocation } from 'react-router-dom';
 import { api } from './api/client';
 import { ToastProvider } from './components/Toast';
 import Login from './pages/Login';
@@ -22,13 +22,86 @@ import Ajuda from './pages/Ajuda';
 function ProtectedRoute({ children, usuari, rolsPermesos }) {
   if (!usuari) return <Navigate to="/login" />;
   if (rolsPermesos && !rolsPermesos.includes(usuari.rol)) {
-    return <p>No tens permisos per accedir a aquesta pagina.</p>;
+    return (
+      <div className="empty-state">
+        <h2>Aquesta pàgina no és per al teu perfil</h2>
+        <p>El teu rol és <strong>{usuari.rol}</strong> i aquesta secció demana un altre nivell d'accés.
+          Si hi has d'entrar, demana-ho a un administrador.</p>
+        <Link to="/">Tornar a les fitxes</Link>
+      </div>
+    );
   }
   return children;
 }
 
+// Enllaços del desplegable "Configuració" segons el rol.
+const CONFIG_LINKS = {
+  admin: [
+    { to: '/admin/usuaris', label: 'Usuaris' },
+    { to: '/admin/destins', label: 'Destins' },
+    { to: '/admin/estats', label: 'Estats' },
+    { to: '/admin/seccions', label: 'Camps' },
+    { to: '/control-revisions', label: 'Control revisions' },
+    { to: '/admin/eliminacions', label: 'Eliminacions' },
+    { to: '/jobs', label: 'Jobs massius' },
+  ],
+  distribuidor: [
+    { to: '/admin/destins', label: 'Destins' },
+    { to: '/jobs', label: 'Jobs massius' },
+  ],
+};
+
+function ConfigMenu({ links }) {
+  const [obert, setObert] = useState(false);
+  const wrapper = useRef(null);
+
+  // Obrir amb clic (no amb hover): amb hover el menú era inabastable amb
+  // teclat i en tàctil. Es tanca amb Esc o clicant fora.
+  useEffect(() => {
+    if (!obert) return;
+    const onKey = (e) => { if (e.key === 'Escape') setObert(false); };
+    const onClickFora = (e) => {
+      if (wrapper.current && !wrapper.current.contains(e.target)) setObert(false);
+    };
+    window.addEventListener('keydown', onKey);
+    document.addEventListener('mousedown', onClickFora);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.removeEventListener('mousedown', onClickFora);
+    };
+  }, [obert]);
+
+  return (
+    <li className="nav-dropdown-wrapper" ref={wrapper}>
+      <button type="button" className="nav-dropdown-trigger"
+        aria-expanded={obert} aria-haspopup="true"
+        onClick={() => setObert((v) => !v)}>
+        Configuració &#9662;
+      </button>
+      {obert && (
+        <div className="nav-dropdown">
+          {links.map((l) => (
+            <NavLink key={l.to} to={l.to} onClick={() => setObert(false)}>{l.label}</NavLink>
+          ))}
+        </div>
+      )}
+    </li>
+  );
+}
+
+function NoTrobada() {
+  return (
+    <div className="empty-state">
+      <h2>Aquesta pàgina no existeix</h2>
+      <p>L'adreça que has seguit no correspon a cap secció de l'aplicació.</p>
+      <Link to="/">Tornar a les fitxes</Link>
+    </div>
+  );
+}
+
 function NavBar({ usuari, onLogout }) {
-  const [showConfig, setShowConfig] = useState(false);
+  const configLinks = CONFIG_LINKS[usuari.rol];
+  const classeActiu = ({ isActive }) => (isActive ? 'nav-link actiu' : 'nav-link');
 
   return (
     <nav className="container-fluid">
@@ -36,52 +109,18 @@ function NavBar({ usuari, onLogout }) {
         <li><Link to="/"><strong>FC Fitxes Tècniques</strong></Link></li>
       </ul>
       <ul>
-        <li><Link to="/">Fitxes</Link></li>
+        <li><NavLink to="/" end className={classeActiu}>Fitxes</NavLink></li>
         {(usuari.rol === 'admin' || usuari.rol === 'editor') && (
-          <li><Link to="/fitxes/nova">Nova fitxa</Link></li>
+          <li><NavLink to="/fitxes/nova" className={classeActiu}>Nova fitxa</NavLink></li>
         )}
-        {usuari.rol === 'admin' && (
-          <li className="nav-dropdown-wrapper"
-            onMouseEnter={() => setShowConfig(true)}
-            onMouseLeave={() => setShowConfig(false)}>
-            <a href="#" onClick={(e) => e.preventDefault()} className="nav-dropdown-trigger">
-              Configuració &#9662;
-            </a>
-            {showConfig && (
-              <div className="nav-dropdown">
-                <Link to="/admin/usuaris" onClick={() => setShowConfig(false)}>Usuaris</Link>
-                <Link to="/admin/destins" onClick={() => setShowConfig(false)}>Destins</Link>
-                <Link to="/admin/estats" onClick={() => setShowConfig(false)}>Estats</Link>
-                <Link to="/admin/seccions" onClick={() => setShowConfig(false)}>Camps</Link>
-                <Link to="/control-revisions" onClick={() => setShowConfig(false)}>Control revisions</Link>
-                <Link to="/admin/eliminacions" onClick={() => setShowConfig(false)}>Eliminacions</Link>
-                <Link to="/jobs" onClick={() => setShowConfig(false)}>Jobs massius</Link>
-              </div>
-            )}
-          </li>
+        {configLinks && <ConfigMenu links={configLinks} />}
+        {!configLinks && (
+          <li><NavLink to="/control-revisions" className={classeActiu}>Control revisions</NavLink></li>
         )}
-        {usuari.rol === 'distribuidor' && (
-          <li className="nav-dropdown-wrapper"
-            onMouseEnter={() => setShowConfig(true)}
-            onMouseLeave={() => setShowConfig(false)}>
-            <a href="#" onClick={(e) => e.preventDefault()} className="nav-dropdown-trigger">
-              Configuració &#9662;
-            </a>
-            {showConfig && (
-              <div className="nav-dropdown">
-                <Link to="/admin/destins" onClick={() => setShowConfig(false)}>Destins</Link>
-                <Link to="/jobs" onClick={() => setShowConfig(false)}>Jobs massius</Link>
-              </div>
-            )}
-          </li>
-        )}
-        {usuari.rol !== 'admin' && (
-          <li><Link to="/control-revisions">Control revisions</Link></li>
-        )}
-        <li style={{ marginLeft: 'auto' }}><Link to="/ajuda">Ajuda</Link></li>
+        <li style={{ marginLeft: 'auto' }}><NavLink to="/ajuda" className={classeActiu}>Ajuda</NavLink></li>
         <li>
           <span className="user-info">{usuari.nom}</span>
-          <a href="#" onClick={(e) => { e.preventDefault(); onLogout(); }}>Sortir</a>
+          <button type="button" className="nav-logout" onClick={onLogout}>Sortir</button>
         </li>
       </ul>
     </nav>
@@ -210,6 +249,9 @@ function App() {
             } />
             <Route path="/ajuda" element={
               <ProtectedRoute usuari={usuari}><Ajuda /></ProtectedRoute>
+            } />
+            <Route path="*" element={
+              usuari ? <NoTrobada /> : <Navigate to="/login" />
             } />
           </Routes>
         </main>

@@ -330,6 +330,27 @@ function EditableTable({ label, rows, onChange, onRemove, readOnly, toolbar, tab
 }
 
 /* ============================================================
+   BOTÓ DE PUJADA
+   Un <label> amb l'input a dins no és focusable, i l'input amb display:none
+   tampoc: aquestes accions eren inabastables amb teclat. Amb un <button> real
+   que dispara l'input pel ref, sí que ho són.
+   ============================================================ */
+function UploadButton({ className, style, title, children, onFile, disabled }) {
+  const inputRef = useRef(null);
+  return (
+    <>
+      <button type="button" className={className} style={style} title={title}
+        aria-label={title} aria-busy={disabled} disabled={disabled}
+        onClick={() => inputRef.current?.click()}>
+        {children}
+      </button>
+      <input ref={inputRef} type="file" accept="image/*" onChange={onFile}
+        disabled={disabled} style={{ display: 'none' }} tabIndex={-1} />
+    </>
+  );
+}
+
+/* ============================================================
    EDITABLE IMAGE
    ============================================================ */
 function EditableImage({ label, value, onChange, readOnly, toolbar, fitxaId, idioma }) {
@@ -375,11 +396,10 @@ function EditableImage({ label, value, onChange, readOnly, toolbar, fitxaId, idi
             onClick={() => onChange('')}>Treure imatge</button>
         </div>
       ) : (
-        <label className="pdf-image-upload" aria-busy={uploading}>
+        <UploadButton className="pdf-image-upload" title="Pujar una imatge"
+          onFile={handleUpload} disabled={uploading}>
           {uploading ? 'Pujant...' : 'Fes clic per pujar una imatge'}
-          <input type="file" accept="image/*" onChange={handleUpload} disabled={uploading}
-            style={{ display: 'none' }} />
-        </label>
+        </UploadButton>
       )}
     </div>
   );
@@ -696,11 +716,10 @@ function CertImageEditor({ contingut, onChange, fitxaId }) {
   if (imgs.length === 0) {
     return (
       <div className="pdf-cert-editor">
-        <label className="pdf-cert-add-empty" aria-busy={uploading}>
+        <UploadButton className="pdf-cert-add-empty" title="Afegir imatge de certificació"
+          onFile={handleAdd} disabled={uploading}>
           {uploading ? 'Pujant...' : '+ Afegir imatge de certificació'}
-          <input type="file" accept="image/*" onChange={handleAdd}
-            style={{ display: 'none' }} disabled={uploading} />
-        </label>
+        </UploadButton>
       </div>
     );
   }
@@ -734,22 +753,21 @@ function CertImageEditor({ contingut, onChange, fitxaId }) {
             <img src={img.url} alt="Certificació" className="pdf-cert-img"
               style={{ height: `${config.size}px` }} />
             <div className="pdf-cert-actions">
-              <label className="pdf-cert-action-btn" title="Substituir" aria-busy={uploading}>
+              <UploadButton className="pdf-cert-action-btn" title="Substituir la imatge"
+                onFile={(e) => handleReplace(img.key, e)} disabled={uploading}>
                 &#8635;
-                <input type="file" accept="image/*" onChange={(e) => handleReplace(img.key, e)}
-                  style={{ display: 'none' }} disabled={uploading} />
-              </label>
-              <button type="button" className="pdf-cert-action-btn remove" title="Treure"
+              </UploadButton>
+              <button type="button" className="pdf-cert-action-btn remove"
+                title="Treure la imatge" aria-label="Treure la imatge"
                 onClick={() => handleRemove(img.key)}>&times;</button>
             </div>
           </div>
         ))}
-        <label className="pdf-cert-add" title="Afegir imatge" aria-busy={uploading}
-          style={{ height: `${config.size}px` }}>
+        <UploadButton className="pdf-cert-add" title="Afegir imatge"
+          style={{ height: `${config.size}px` }}
+          onFile={handleAdd} disabled={uploading}>
           {uploading ? '...' : '+'}
-          <input type="file" accept="image/*" onChange={handleAdd}
-            style={{ display: 'none' }} disabled={uploading} />
-        </label>
+        </UploadButton>
       </div>
     </div>
   );
