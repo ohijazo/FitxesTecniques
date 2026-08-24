@@ -135,6 +135,20 @@ export const DEFAULT_SECTIONS = [
   },
 ];
 
+/* Claus del contingut que NO són camps de la fitxa: metadades de versió,
+   configuració (_idioma, _cert_config), imatges de certificació i els peus i
+   subtítols de taula, que s'editen dins de la seva pròpia taula. Sense aquesta
+   regla apareixien com a camps solts a "Camps addicionals". */
+const METADADES = ['rev', 'data_revisio', 'data_comprovacio'];
+
+function esCampDeFitxa(key) {
+  if (METADADES.includes(key)) return false;
+  if (key.startsWith('_')) return false;
+  if (key.startsWith('certificacio_img')) return false;
+  if (key.endsWith('_note') || key.endsWith('_subtitle')) return false;
+  return true;
+}
+
 /* ============================================================
    SECTION NAV SIDEBAR
    ============================================================ */
@@ -591,10 +605,7 @@ export function PdfDocumentView({ contingut, versio }) {
 
   const knownKeys = new Set();
   DEFAULT_SECTIONS.forEach((s) => s.items.forEach((it) => knownKeys.add(it.key)));
-  const extraKeys = Object.keys(contingut).filter(
-    (k) => !knownKeys.has(k) && !['rev', 'data_revisio', 'data_comprovacio', '_cert_config', '_idioma'].includes(k)
-         && !k.startsWith('certificacio_img') && !k.endsWith('_subtitle') && !k.endsWith('_note')
-  );
+  const extraKeys = Object.keys(contingut).filter((k) => !knownKeys.has(k) && esCampDeFitxa(k));
 
   // Recollir imatges de certificacio del contingut
   const certImgs = Object.entries(contingut)
@@ -992,7 +1003,7 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext 
 
     const extraItems = [];
     Object.entries(c).forEach(([key, val]) => {
-      if (!knownKeys.has(key) && !['rev', 'data_revisio', 'data_comprovacio'].includes(key)) {
+      if (!knownKeys.has(key) && esCampDeFitxa(key)) {
         extraItems.push({ key, label: key, type: Array.isArray(val) ? 'table' : 'textarea', id: `item_extra_${key}` });
       }
     });
