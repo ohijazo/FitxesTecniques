@@ -936,7 +936,11 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext 
     // Si la versió guardada al backend és posterior al draft, descartar el draft
     const baseUpdated = initialData.updated_at ? new Date(initialData.updated_at).getTime() : 0;
     if (stored.savedAt && stored.savedAt > baseUpdated) {
-      setDraftDisponible({ savedAt: stored.savedAt });
+      setDraftDisponible({
+        savedAt: stored.savedAt,
+        artCodi: stored.form?.art_codi || '',
+        nomProducte: stored.form?.nom_producte || '',
+      });
     } else {
       _clearDraft(draftKey);
     }
@@ -1023,6 +1027,7 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext 
       s.id === sectionId ? { ...s, items: s.items.filter((it) => it.key !== itemKey) } : s
     ));
     setContingut((prev) => { const next = { ...prev }; delete next[itemKey]; return next; });
+    setDirty(true);
   };
 
   const addItemToSection = (sectionId, key, label, type) => {
@@ -1034,6 +1039,7 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext 
       ...prev,
       [key]: type === 'table' ? [{ parametre: '', valor: '' }] : '',
     }));
+    setDirty(true);
   };
 
   const removeSection = (sectionId) => {
@@ -1046,6 +1052,7 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext 
       return next;
     });
     setSections((prev) => prev.filter((s) => s.id !== sectionId));
+    setDirty(true);
   };
 
   const addSection = () => {
@@ -1053,6 +1060,7 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext 
     if (!label || !label.trim()) return;
     const id = `custom_${Date.now()}`;
     setSections((prev) => [...prev, { id, label: label.trim(), items: [] }]);
+    setDirty(true);
   };
 
   const moveItemInSection = (sectionId, itemIdx, direction) => {
@@ -1083,10 +1091,12 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext 
   const moveSectionUp = (idx) => {
     if (idx <= 0) return;
     setSections((prev) => arrayMove(prev, idx, idx - 1));
+    setDirty(true);
   };
   const moveSectionDown = (idx) => {
     if (idx >= sections.length - 1) return;
     setSections((prev) => arrayMove(prev, idx, idx + 1));
+    setDirty(true);
   };
 
   const handleSubmit = async (e) => {
@@ -1136,7 +1146,11 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext 
           fontSize: '0.9rem',
         }}>
           <span style={{ flex: 1, minWidth: 0 }}>
-            Hi ha un esborrany sense desar de{' '}
+            Hi ha un esborrany sense desar
+            {(draftDisponible.artCodi || draftDisponible.nomProducte) && (
+              <> de <strong>{[draftDisponible.artCodi, draftDisponible.nomProducte]
+                .filter(Boolean).join(' — ')}</strong></>
+            )}, del{' '}
             <strong>{new Date(draftDisponible.savedAt).toLocaleString('ca-ES')}</strong>.
           </span>
           <button type="button" onClick={recuperarDraft} className="btn-sm" style={{ margin: 0 }}>

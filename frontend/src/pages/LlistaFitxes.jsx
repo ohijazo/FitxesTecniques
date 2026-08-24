@@ -29,15 +29,21 @@ function DistBadge({ resum }) {
   );
 }
 
+// Mateixa mida de pàgina que ControlRevisions, per coherència.
+const PER_PAGE = 50;
+
 function LlistaFitxes({ usuari }) {
   const [fitxes, setFitxes] = useState([]);
   const [cerca, setCerca] = useState('');
+  const [cercaAplicada, setCercaAplicada] = useState('');
   const [estat, setEstat] = useState(() => localStorage.getItem('filtre_estat') || '');
   const [sortBy, setSortBy] = useState(() => localStorage.getItem('sort_by') || 'updated_at');
   const [sortOrder, setSortOrder] = useState(() => localStorage.getItem('sort_order') || 'desc');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [total, setTotal] = useState(0);
+  const [pagina, setPagina] = useState(1);
+  const [pagines, setPagines] = useState(1);
   const [seleccionats, setSeleccionats] = useState(() => new Set());
   const [estatsCatalog, setEstatsCatalog] = useState([]);
   const toast = useToast();
@@ -53,15 +59,16 @@ function LlistaFitxes({ usuari }) {
     return m;
   }, [estatsCatalog]);
 
-  const carregarFitxes = async (textCerca = '', filtreEstat = estat, sb = sortBy, so = sortOrder) => {
+  const carregarFitxes = async (textCerca = '', filtreEstat = estat, sb = sortBy, so = sortOrder, pag = pagina) => {
     setLoading(true);
     try {
-      const params = { per_page: 200, sort_by: sb, sort_order: so };
+      const params = { page: pag, per_page: PER_PAGE, sort_by: sb, sort_order: so };
       if (textCerca) params.cerca = textCerca;
       if (filtreEstat) params.estat = filtreEstat;
       const data = await api.llistarFitxes(params);
       setFitxes(data.fitxes);
       setTotal(data.total);
+      setPagines(data.pages || 1);
       setError(null);
     } catch (err) {
       setError(err.message);
@@ -70,7 +77,13 @@ function LlistaFitxes({ usuari }) {
     }
   };
 
-  useEffect(() => { carregarFitxes(cerca, estat, sortBy, sortOrder); }, [estat, sortBy, sortOrder]);
+  useEffect(() => { carregarFitxes(cerca, estat, sortBy, sortOrder, pagina); }, [estat, sortBy, sortOrder, pagina]);
+
+
+  // La selecció es refereix a files concretes: si canvia el que es veu (cerca,
+  // filtre o pàgina) deixa de correspondre, i d'aquí es passa directament a
+  // una edició o distribució massiva. Per això es neteja.
+  const canviarVista = (fn) => { setSeleccionats(new Set()); fn(); };
 
   const toggleSort = (col) => {
     let nextOrder = 'asc';
@@ -79,6 +92,7 @@ function LlistaFitxes({ usuari }) {
     }
     setSortBy(col);
     setSortOrder(nextOrder);
+    setPagina(1);
     localStorage.setItem('sort_by', col);
     localStorage.setItem('sort_order', nextOrder);
   };
@@ -90,14 +104,32 @@ function LlistaFitxes({ usuari }) {
 
   const handleCerca = (e) => {
     e.preventDefault();
-    carregarFitxes(cerca, estat);
+    canviarVista(() => {
+      setCercaAplicada(cerca);
+      setPagina(1);
+      carregarFitxes(cerca, estat, sortBy, sortOrder, 1);
+    });
   };
 
   const handleEstat = (e) => {
     const val = e.target.value;
-    setEstat(val);
-    localStorage.setItem('filtre_estat', val);
+    canviarVista(() => {
+      setEstat(val);
+      setPagina(1);
+      localStorage.setItem('filtre_estat', val);
+    });
   };
+
+  const hiHaFiltres = Boolean(cercaAplicada || estat);
+
+  const esborrarFiltres = () => canviarVista(() => {
+    setCerca('');
+    setCercaAplicada('');
+    setEstat('');
+    setPagina(1);
+    localStorage.setItem('filtre_estat', '');
+    carregarFitxes('', '', sortBy, sortOrder, 1);
+  });
 
   const descarregarPdf = async (fitxa) => {
     try {
@@ -160,7 +192,10 @@ function LlistaFitxes({ usuari }) {
         <div>
           <h2 style={{ margin: 0 }}>Fitxes tècniques</h2>
           <p style={{ color: 'var(--gray-500)', fontSize: '0.88rem', margin: '0.2rem 0 0' }}>
-            {total} fitxes registrades
+            {hiHaFiltres
+              ? `${total} ${total === 1 ? 'fitxa trobada' : 'fitxes trobades'}`
+              : `${total} ${total === 1 ? 'fitxa registrada' : 'fitxes registrades'}`}
+            {pagines > 1 && ` · pàgina ${pagina} de ${pagines}`}
           </p>
         </div>
         <Link to="/fitxes/nova" role="button">+ Nova fitxa</Link>
@@ -186,6 +221,10 @@ function LlistaFitxes({ usuari }) {
           </select>
         </label>
         <button type="submit" style={{ whiteSpace: 'nowrap', marginBottom: 0 }}>Cercar</button>
+        {hiHaFiltres && (
+          <button type="button" className="outline secondary" onClick={esborrarFiltres}
+            style={{ whiteSpace: 'nowrap', marginBottom: 0 }}>Esborrar filtres</button>
+        )}
       </form>
 
       {error && <p style={{ color: 'var(--danger)' }}>{error}</p>}
@@ -194,8 +233,22 @@ function LlistaFitxes({ usuari }) {
         <p aria-busy="true">Carregant fitxes...</p>
       ) : fitxes.length === 0 ? (
         <div className="empty-state">
-          <p style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>No s'han trobat fitxes</p>
-          <p>Prova a canviar els filtres o <Link to="/fitxes/nova">crea la primera fitxa</Link>.</p>
+          {hiHaFiltres ? (
+            <>
+              <p style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>Cap fitxa coincideix amb la cerca</p>
+              <p>
+                {cercaAplicada && <>No hi ha cap fitxa que contingui <strong>{cercaAplicada}</strong>
+                  {estat ? ' amb aquest estat' : ''}. </>}
+                {!cercaAplicada && <>No hi ha cap fitxa amb aquest estat. </>}
+                <button type="button" className="link-button" onClick={esborrarFiltres}>Esborrar els filtres</button>
+              </p>
+            </>
+          ) : (
+            <>
+              <p style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>Encara no hi ha cap fitxa</p>
+              <p>Comença per <Link to="/fitxes/nova">crear la primera fitxa</Link>.</p>
+            </>
+          )}
         </div>
       ) : (
         <div className="table-wrapper">
@@ -292,6 +345,18 @@ function LlistaFitxes({ usuari }) {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {!loading && pagines > 1 && (
+        <div className="pagination">
+          <button type="button" className="outline secondary btn-sm"
+            disabled={pagina <= 1} onClick={() => canviarVista(() => setPagina(pagina - 1))}>Anterior</button>
+          <span style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>
+            Pàgina {pagina} de {pagines}
+          </span>
+          <button type="button" className="outline secondary btn-sm"
+            disabled={pagina >= pagines} onClick={() => canviarVista(() => setPagina(pagina + 1))}>Següent</button>
         </div>
       )}
 

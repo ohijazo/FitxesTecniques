@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 
 function Login({ onLogin }) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const sessioExpirada = searchParams.get('expirada') === '1';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
@@ -18,7 +20,10 @@ function Login({ onLogin }) {
       localStorage.setItem('token', data.token);
       localStorage.setItem('usuari', JSON.stringify(data.usuari));
       onLogin(data.usuari);
-      navigate('/');
+      // Tornar on érem abans que caduqués la sessió.
+      const desti = sessionStorage.getItem('desti_despres_login');
+      sessionStorage.removeItem('desti_despres_login');
+      navigate(desti || '/');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -40,8 +45,17 @@ function Login({ onLogin }) {
         <p>Farinera Coromina — Inicia sessió per continuar</p>
       </div>
 
+      {sessioExpirada && !error && (
+        <div role="status" style={{
+          background: 'var(--warning-bg)', color: '#92400e', padding: '0.6rem 1rem',
+          borderRadius: 'var(--radius)', fontSize: '0.88rem', marginBottom: '1rem', textAlign: 'center',
+        }}>
+          La sessió ha caducat. Torna a iniciar sessió per continuar on eres.
+        </div>
+      )}
+
       {error && (
-        <div style={{
+        <div role="alert" style={{
           background: 'var(--danger-bg)', color: 'var(--danger)', padding: '0.6rem 1rem',
           borderRadius: 'var(--radius)', fontSize: '0.88rem', marginBottom: '1rem', textAlign: 'center'
         }}>
@@ -53,12 +67,14 @@ function Login({ onLogin }) {
         <form onSubmit={handleSubmit}>
           <label>
             Correu electrònic
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus
+            <input type="email" name="email" autoComplete="username" value={email}
+              onChange={(e) => setEmail(e.target.value)} required autoFocus
               placeholder="nom@farineracoromina.com" />
           </label>
           <label>
             Contrasenya
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required
+            <input type="password" name="password" autoComplete="current-password" value={password}
+              onChange={(e) => setPassword(e.target.value)} required
               placeholder="La teva contrasenya" />
           </label>
           <button type="submit" aria-busy={loading} disabled={loading}

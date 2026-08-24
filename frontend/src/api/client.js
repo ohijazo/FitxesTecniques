@@ -1,7 +1,62 @@
 const API_BASE = '/api';
 
+// Prou per a una pujada gran, però evita que una petició es quedi penjada per
+// sempre si el backend no respon.
+const TIMEOUT_MS = 60000;
+
 function getToken() {
   return localStorage.getItem('token');
+}
+
+/** Tanca la sessió i torna al login recordant on érem, per no perdre el lloc. */
+export function sessioCaducada() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('usuari');
+  const desti = window.location.pathname + window.location.search;
+  if (desti && desti !== '/login') {
+    sessionStorage.setItem('desti_despres_login', desti);
+  }
+  // replace i no href: així el botó "enrere" no torna a una pàgina sense sessió.
+  window.location.replace('/login?expirada=1');
+}
+
+/**
+ * Converteix els errors de xarxa en un missatge que l'usuari pugui entendre.
+ * Sense això arribava "Failed to fetch" (o "NetworkError...") a la interfície,
+ * en anglès i sense dir què fer.
+ */
+export function missatgeError(err) {
+  if (!err) return 'Hi ha hagut un error inesperat.';
+  if (err.name === 'AbortError' || err.name === 'TimeoutError') {
+    return "El servidor ha trigat massa a respondre. Torna-ho a provar d'aquí a un moment.";
+  }
+  if (err instanceof TypeError) {
+    return "No s'ha pogut connectar amb el servidor. Comprova la connexió i torna-ho a provar.";
+  }
+  return err.message || 'Hi ha hagut un error inesperat.';
+}
+
+/** Llegeix el cos d'una resposta d'error sense abocar HTML cru a la interfície. */
+export async function errorDeResposta(response) {
+  const raw = await response.text().catch(() => '');
+  let parsed = null;
+  try { parsed = raw ? JSON.parse(raw) : null; } catch { /* no és JSON */ }
+  if (parsed && parsed.error) {
+    const err = new Error(parsed.error);
+    err.body = parsed;
+    err.status = response.status;
+    return err;
+  }
+  // Un 500 darrere d'un proxy sol tornar una pàgina HTML: enganxar-la al toast
+  // no ajuda ningú.
+  const err = new Error(
+    response.status >= 500
+      ? `El servidor ha respost amb un error (${response.status}). Torna-ho a provar; si continua, avisa l'administrador.`
+      : `La petició no s'ha pogut completar (${response.status}).`
+  );
+  err.status = response.status;
+  err.raw = raw ? raw.slice(0, 300) : '';
+  return err;
 }
 
 async function request(path, options = {}) {
@@ -15,32 +70,49 @@ async function request(path, options = {}) {
     ...options,
   };
 
-  const response = await fetch(url, config);
+  let response;
+  try {
+    response = await fetch(url, { ...config, signal: AbortSignal.timeout(TIMEOUT_MS) });
+  } catch (err) {
+    throw new Error(missatgeError(err));
+  }
 
   if (response.status === 401) {
-    localStorage.removeItem('token');
-    localStorage.removeItem('usuari');
-    window.location.href = '/login';
-    throw new Error('Sessió expirada');
+    sessioCaducada();
+    throw new Error('La sessió ha caducat. Torna a iniciar sessió.');
   }
 
   if (!response.ok) {
-    const raw = await response.text().catch(() => '');
-    let parsed = null;
-    try { parsed = raw ? JSON.parse(raw) : null; } catch { /* no JSON */ }
-    if (parsed && parsed.error) {
-      const err = new Error(parsed.error);
-      err.body = parsed;
-      err.status = response.status;
-      throw err;
-    }
-    const body = raw ? raw.slice(0, 300) : '(resposta buida)';
-    const err = new Error(`HTTP ${response.status}: ${body}`);
-    err.status = response.status;
-    throw err;
+    throw await errorDeResposta(response);
   }
 
   return response.json();
+}
+
+/**
+ * Pujada de fitxers. Les cinc pujades repetien el mateix bloc de gestió de
+ * 401 + parse, i `pujarImatge` no en tenia cap: amb un 413 o un 502 amb cos
+ * HTML, el `res.json()` rebentava amb un SyntaxError que acabava en un alert.
+ */
+async function pujarFitxer(path, formData) {
+  const token = getToken();
+  let res;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      method: 'POST',
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: formData,
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+  } catch (err) {
+    throw new Error(missatgeError(err));
+  }
+  if (res.status === 401) {
+    sessioCaducada();
+    throw new Error('La sessió ha caducat. Torna a iniciar sessió.');
+  }
+  if (!res.ok) throw await errorDeResposta(res);
+  return res.json().catch(() => ({}));
 }
 
 export const api = {
@@ -88,117 +160,33 @@ export const api = {
   parsePdf: (fitxaId, file) => {
     const formData = new FormData();
     formData.append('pdf', file);
-    const token = getToken();
-    return fetch(`${API_BASE}/fitxes/${fitxaId}/parse-pdf`, {
-      method: 'POST',
-      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: formData,
-    }).then(async (res) => {
-      if (res.status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('usuari');
-        window.location.href = '/login';
-        throw new Error('Sessió expirada');
-      }
-      const raw = await res.text().catch(() => '');
-      let parsed = null;
-      try { parsed = raw ? JSON.parse(raw) : null; } catch { /* no JSON */ }
-      if (!res.ok) {
-        throw new Error((parsed && parsed.error) || `HTTP ${res.status}: ${raw.slice(0, 200)}`);
-      }
-      return parsed;
-    });
+    return pujarFitxer(`/fitxes/${fitxaId}/parse-pdf`, formData);
   },
 
   // Pujada de PDF per a fitxes de producte comercialitzat
   uploadPdfTemp: (file) => {
     const formData = new FormData();
     formData.append('file', file);
-    const token = getToken();
-    return fetch(`${API_BASE}/fitxes/upload-pdf-temp`, {
-      method: 'POST',
-      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: formData,
-    }).then(async (res) => {
-      if (res.status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('usuari');
-        window.location.href = '/login';
-        throw new Error('Sessió expirada');
-      }
-      const raw = await res.text().catch(() => '');
-      let parsed = null;
-      try { parsed = raw ? JSON.parse(raw) : null; } catch { /* no JSON */ }
-      if (!res.ok) {
-        throw new Error((parsed && parsed.error) || `HTTP ${res.status}: ${raw.slice(0, 200)}`);
-      }
-      return parsed;
-    });
+    return pujarFitxer('/fitxes/upload-pdf-temp', formData);
   },
   crearVersioPdf: (fitxaId, file, descripcioCanvi) => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('descripcio_canvi', descripcioCanvi || '');
-    const token = getToken();
-    return fetch(`${API_BASE}/fitxes/${fitxaId}/versions/upload-pdf`, {
-      method: 'POST',
-      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: formData,
-    }).then(async (res) => {
-      if (res.status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('usuari');
-        window.location.href = '/login';
-        throw new Error('Sessió expirada');
-      }
-      const raw = await res.text().catch(() => '');
-      let parsed = null;
-      try { parsed = raw ? JSON.parse(raw) : null; } catch { /* no JSON */ }
-      if (!res.ok) {
-        throw new Error((parsed && parsed.error) || `HTTP ${res.status}: ${raw.slice(0, 200)}`);
-      }
-      return parsed;
-    });
+    return pujarFitxer(`/fitxes/${fitxaId}/versions/upload-pdf`, formData);
   },
   convertirAComercialitzat: (fitxaId, file, descripcioCanvi) => {
     const formData = new FormData();
     formData.append('file', file);
     if (descripcioCanvi) formData.append('descripcio_canvi', descripcioCanvi);
-    const token = getToken();
-    return fetch(`${API_BASE}/fitxes/${fitxaId}/convertir-a-comercialitzat`, {
-      method: 'POST',
-      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: formData,
-    }).then(async (res) => {
-      if (res.status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('usuari');
-        window.location.href = '/login';
-        throw new Error('Sessió expirada');
-      }
-      const raw = await res.text().catch(() => '');
-      let parsed = null;
-      try { parsed = raw ? JSON.parse(raw) : null; } catch { /* no JSON */ }
-      if (!res.ok) {
-        throw new Error((parsed && parsed.error) || `HTTP ${res.status}: ${raw.slice(0, 200)}`);
-      }
-      return parsed;
-    });
+    return pujarFitxer(`/fitxes/${fitxaId}/convertir-a-comercialitzat`, formData);
   },
 
   // Imatges
   pujarImatge: (fitxaId, file) => {
     const formData = new FormData();
     formData.append('file', file);
-    const token = getToken();
-    return fetch(`${API_BASE}/fitxes/${fitxaId}/imatges`, {
-      method: 'POST',
-      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: formData,
-    }).then(res => {
-      if (!res.ok) return res.json().then(e => { throw new Error(e.error); });
-      return res.json();
-    });
+    return pujarFitxer(`/fitxes/${fitxaId}/imatges`, formData);
   },
   llistarImatges: (fitxaId) => request(`/fitxes/${fitxaId}/imatges`),
   imatgesFromTemp: (fitxaId, tempToken) => request(`/fitxes/${fitxaId}/imatges/from-temp`, { method: 'POST', body: JSON.stringify({ temp_token: tempToken }) }),

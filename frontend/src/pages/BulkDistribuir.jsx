@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useToast } from '../components/Toast';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 /**
  * Distribució massiva — pàgina sencera (no modal), consistent amb BulkEdit.
@@ -68,8 +69,20 @@ function BulkDistribuir() {
   const totalOperacions = fitxaIds.length * seleccionats.size;
   const potSubmit = seleccionats.size > 0 && !enviant && !loading;
 
-  const handleSubmit = async (e) => {
+  const [confirmant, setConfirmant] = useState(false);
+
+  const demanarConfirmacio = (e) => {
     e.preventDefault();
+    if (seleccionats.size === 0) {
+      setError('Cal seleccionar com a mínim un destí');
+      return;
+    }
+    setConfirmant(true);
+  };
+
+  const handleSubmit = async (e) => {
+    e?.preventDefault?.();
+    setConfirmant(false);
     if (seleccionats.size === 0) {
       setError('Cal seleccionar com a mínim un destí');
       return;
@@ -206,10 +219,30 @@ function BulkDistribuir() {
 
       <div className="bulk-edit-v2-actions">
         <Link to="/" role="button" className="outline secondary">Cancel·lar</Link>
-        <button type="button" onClick={handleSubmit} disabled={!potSubmit}>
+        <button type="button" onClick={demanarConfirmacio} disabled={!potSubmit}>
           {enviant ? 'Creant…' : `Iniciar distribució (${totalOperacions})`}
         </button>
       </div>
+
+      <ConfirmDialog
+        obert={confirmant}
+        titol="Iniciar la distribució massiva"
+        textConfirmar={`Distribuir (${totalOperacions})`}
+        ocupat={enviant}
+        onConfirmar={handleSubmit}
+        onCancelar={() => setConfirmant(false)}
+      >
+        <p style={{ margin: '0 0 0.5rem' }}>
+          S'enviaran <strong>{fitxaIds.length} {fitxaIds.length === 1 ? 'fitxa' : 'fitxes'}</strong> a{' '}
+          <strong>{seleccionats.size} {seleccionats.size === 1 ? 'destí' : 'destins'}</strong>:{' '}
+          <strong>{totalOperacions} {totalOperacions === 1 ? 'operació' : 'operacions'}</strong> sobre
+          servidors externs.
+        </p>
+        <p style={{ margin: 0 }}>
+          Un cop iniciada no es pot aturar des de l'aplicació. Els PDF que ja siguin al destí
+          se sobreescriuran.
+        </p>
+      </ConfirmDialog>
     </div>
   );
 }

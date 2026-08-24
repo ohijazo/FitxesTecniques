@@ -85,7 +85,7 @@ function JobDetail() {
     try {
       await api.arxivarJob(id);
       toast.success('Job arxivat');
-      navigate('/admin/jobs');
+      navigate('/jobs');
     } catch (e) {
       toast.error(e.message);
     }

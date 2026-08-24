@@ -724,6 +724,33 @@ fieldset legend {
 }
 
 /* -- Pagination -- */
+/* Acció destructiva. Abans es feia amb estils inline repetits. */
+.btn-danger {
+  background: var(--danger) !important;
+  border-color: var(--danger) !important;
+  color: #fff !important;
+}
+.btn-danger:hover:not(:disabled) {
+  background: #b91c1c !important;
+  border-color: #b91c1c !important;
+}
+
+/* Botó que es comporta com un enllaç dins d'un text */
+.link-button {
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0;
+  width: auto;
+  font: inherit;
+  color: var(--brand) !important;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.link-button:hover {
+  color: var(--brand-hover) !important;
+}
+
 .pagination {
   display: flex;
   align-items: center;

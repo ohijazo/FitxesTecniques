@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useLocation, Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useToast } from '../components/Toast';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { PdfDocumentView } from '../components/FitxaForm';
 import RichEditor from '../components/RichEditor';
 import { useEscapeKey } from '../components/useEscapeKey';
@@ -102,25 +103,29 @@ function DistribuirPanel({ fitxaId, fitxaArtCodi, distribucions, onDone, onClose
   const [retirarDesti, setRetirarDesti] = useState(null);
   const toast = useToast();
 
-  useEffect(() => {
-    api.llistarDestins().then((data) => {
-      const actius = data.filter((d) => d.actiu);
-      setDestins(actius);
-      const sel = {};
-      actius.forEach((d) => { sel[d.id] = true; });
-      setSelected(sel);
-      setLoading(false);
-    }).catch(() => setLoading(false));
-  }, []);
-
   // Una fitxa està "actualment al destí" si l'última distribució per a aquell
   // destí va ser 'ok' (no 'retirat' o 'error' posterior).
-  const destiJaDistribuit = (destiId) => {
-    const perDesti = distribucions
+  const esJaDistribuit = (destiId, dists) => {
+    const perDesti = dists
       .filter((d) => d.desti_id === destiId && d.executat_at)
       .sort((a, b) => new Date(b.executat_at) - new Date(a.executat_at));
     return perDesti.length > 0 && perDesti[0].estat === 'ok';
   };
+  const destiJaDistribuit = (destiId) => esJaDistribuit(destiId, distribucions);
+
+  useEffect(() => {
+    api.llistarDestins().then((data) => {
+      const actius = data.filter((d) => d.actiu);
+      setDestins(actius);
+      // Només es premarquen els destins on la fitxa encara no hi és: abans
+      // venien tots marcats i un clic ràpid la redistribuïa a tot arreu.
+      const sel = {};
+      actius.forEach((d) => { sel[d.id] = !esJaDistribuit(d.id, distribucions); });
+      setSelected(sel);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const toggle = (id) => setSelected((prev) => ({ ...prev, [id]: !prev[id] }));
 
@@ -932,6 +937,7 @@ function DetallFitxa() {
   const [showEliminar, setShowEliminar] = useState(false);
   const [showDuplicar, setShowDuplicar] = useState(false);
   const [estatAConfirmar, setEstatAConfirmar] = useState(null);
+  const [estatPendent, setEstatPendent] = useState(null);
   const [canvianEstat, setCanvianEstat] = useState(false);
   const [estatsCatalog, setEstatsCatalog] = useState([]);
   const [editingObs, setEditingObs] = useState(false);
@@ -957,6 +963,17 @@ function DetallFitxa() {
       }
     }
 
+    // La resta de canvis s'aplicaven a l'instant des del select, sense desfer:
+    // amb la roda del ratolí sobre el desplegable es podia canviar l'estat
+    // d'una fitxa publicada sense adonar-se'n.
+    setEstatPendent(estat);
+  };
+
+  const aplicarCanviEstat = async () => {
+    const estat = estatPendent;
+    if (!estat) return;
+    setEstatPendent(null);
+    const nouCodi = estat.codi;
     setCanvianEstat(true);
     try {
       await api.canviarEstatFitxa(fitxa.id, { estat: nouCodi });
@@ -1306,6 +1323,21 @@ function DetallFitxa() {
           onClose={() => setShowDuplicar(false)}
         />
       )}
+
+      <ConfirmDialog
+        obert={Boolean(estatPendent)}
+        titol="Canviar l'estat de la fitxa"
+        textConfirmar={`Canviar a ${estatPendent?.nom || ''}`}
+        ocupat={canvianEstat}
+        onConfirmar={aplicarCanviEstat}
+        onCancelar={() => setEstatPendent(null)}
+      >
+        <p style={{ margin: 0 }}>
+          La fitxa <strong>{fitxa?.art_codi}</strong> passarà de{' '}
+          <strong>{estatActualObj?.nom || fitxa?.estat}</strong> a{' '}
+          <strong>{estatPendent?.nom}</strong>.
+        </p>
+      </ConfirmDialog>
 
       {estatAConfirmar && (
         <EsborrarDestinsModal
