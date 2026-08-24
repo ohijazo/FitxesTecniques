@@ -104,6 +104,20 @@ def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
     template_dir = os.path.join(current_app.root_path, 'templates')
     env = Environment(loader=FileSystemLoader(template_dir))
 
+    # Idioma del document: les fitxes de client són només en castellà i no han
+    # de portar els títols duplicats "castellà / català". Per compatibilitat,
+    # si la fitxa no ho té definit es manté el comportament bilingüe de sempre.
+    idioma = contingut.get('_idioma') or 'bilingue'
+
+    def bil(text):
+        """Deixa només la part castellana d'un títol bilingüe.
+        NOMÉS per a títols: els valors també poden contenir ' / '
+        (p.ex. 'No detectado / 25g') i no s'han de tallar mai."""
+        if idioma == 'es' and text and ' / ' in text:
+            return text.split(' / ')[0].strip()
+        return text
+    env.filters['bil'] = bil
+
     # Filtre per renderitzar text preservant els paràgrafs (\n → <br>) i
     # normalitzant la mida dels spans de text secundari que ja venen marcats
     # pel parser Word (character style EnfasisSutil / cursiva-gris).
@@ -144,6 +158,7 @@ def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
 
     ctx = {
         'logo_path': logo_uri,
+        'idioma': idioma,
         'rev': rev,
         'data_revisio': data_revisio or '',
         'data_comprovacio': data_comprovacio or '',
@@ -185,7 +200,7 @@ def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
 
     # Convertir superíndex/subíndex Unicode a HTML <sup>/<sub>
     for key in ctx:
-        if key != 'logo_path':
+        if key not in ('logo_path', 'idioma'):
             ctx[key] = _process_value(ctx[key])
 
     # Recollir imatges del contingut (camps amb URLs /api/fitxes/...)

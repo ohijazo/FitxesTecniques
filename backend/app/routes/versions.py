@@ -342,6 +342,9 @@ def diff_versions(fitxa_id):
     canvis = []
 
     for key in all_keys:
+        # Claus de configuració (_cert_config, _idioma...): no són contingut
+        if key.startswith('_'):
+            continue
         val1 = c1.get(key)
         val2 = c2.get(key)
         camp_label = CAMP_LABELS.get(key, key)

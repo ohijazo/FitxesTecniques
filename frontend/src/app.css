@@ -1464,6 +1464,35 @@ textarea.pdf-field-input {
   object-fit: contain;
 }
 
+/* Selector d'idioma del document */
+.pdf-idioma-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+.pdf-idioma-selector label {
+  font-size: 0.78rem;
+  color: var(--gray-500);
+  font-weight: 600;
+  margin: 0;
+}
+.pdf-idioma-selector select {
+  width: auto;
+  margin: 0;
+  padding: 2px 1.8rem 2px 8px;
+  font-size: 0.78rem;
+  height: auto;
+  background-position: right 6px center;
+}
+.pdf-idioma-selector small {
+  font-size: 0.72rem;
+  color: var(--gray-500);
+  flex: 1 1 260px;
+  margin: 0;
+}
+
 /* Editor imatges certificacio */
 .pdf-cert-editor {
   margin-bottom: 0.75rem;

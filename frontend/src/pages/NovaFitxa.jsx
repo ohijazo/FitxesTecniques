@@ -46,10 +46,16 @@ function NovaFitxa() {
       if (data.existent) {
         if (confirm(data.message)) {
           // Si hi havia imatges al Word, associar-les a la fitxa existent
+          const imatgesCert = {};
           if (data.imatges_temp_token) {
             try {
               const res = await api.imatgesFromTemp(data.fitxa.id, data.imatges_temp_token);
               if (res.total > 0) {
+                // Referenciar-les al contingut (mateixa convencio que CertImageEditor):
+                // sense aixo la imatge queda al disc pero no es veu enlloc.
+                res.imatges.forEach((img, i) => {
+                  imatgesCert[i === 0 ? 'certificacio_img' : `certificacio_img_${i + 1}`] = img.url;
+                });
                 toast.success(`${res.total} imatge(s) del Word associades a la fitxa`);
               }
             } catch (err) {
@@ -59,6 +65,7 @@ function NovaFitxa() {
           navigate(`/fitxes/${data.fitxa.id}/editar`, {
             state: { dadesWord: {
               ...data.dades_extretes,
+              ...imatgesCert,
               rev: data.rev || '',
               data_revisio: data.data_revisio || '',
               data_comprovacio: data.data_comprovacio || '',

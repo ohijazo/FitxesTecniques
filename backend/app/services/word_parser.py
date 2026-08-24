@@ -7,6 +7,7 @@ El document segueix l'estructura estàndard de Farinera Coromina:
 """
 import html
 import os
+import re
 from docx import Document
 from docx.oxml.ns import qn
 from docx.text.paragraph import Paragraph
@@ -80,30 +81,56 @@ def _extract_bilingual_for_match(text):
     return text.strip()
 
 
+# Data en formats dd/mm/aaaa, d-m-aa... (evita agafar trossos d'hores o codis)
+_DATE_RE = re.compile(r'(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})')
+
+
 def _parse_header(doc):
-    """Extreu rev, data_revisio, data_comprovacio de la capçalera.
-    Busca tant al header de Word com a les taules del body."""
-    info = {'rev': '', 'data_revisio': '', 'data_comprovacio': ''}
+    """Extreu rev, data_revisio, data_comprovacio i el títol de la capçalera.
+    Busca tant al header de Word com a les taules del body.
+
+    Algunes fitxes no etiqueten la fila de comprovació (posen "Fecha/Data:" i
+    "Fecha/Data rev.:" en comptes de "Fecha/Data Rev:" i "Fecha/Data Comprov.:").
+    Per a aquests casos hi ha un fallback posicional: si no s'ha trobat cap
+    etiqueta "Comprov.", l'última fila amb data de la capçalera és la data de
+    comprovació i la primera la de revisió.
+    """
+    info = {'rev': '', 'data_revisio': '', 'data_comprovacio': '', 'titol': ''}
+    dates_per_fila = []   # una data com a molt per fila, en ordre de document
 
     def _check_cell(text):
         # Rev.: número — excloent "Fecha/Data Rev: dd/mm/aaaa" que també conté "Rev:"
         if ('Rev.:' in text or 'Rev:' in text) and 'Fecha' not in text and 'Data' not in text:
-            import re
             m = re.search(r'Rev\.?:\s*(\d+)', text)
             if m:
                 info['rev'] = m.group(1)
-        if ('Fecha' in text or 'Data' in text) and ('rev' in text.lower() or 'Rev' in text) and 'comprov' not in text.lower():
-            parts = text.split(':')
-            if len(parts) >= 2:
-                val = parts[-1].strip()
-                if val and len(val) >= 6:
-                    info['data_revisio'] = val
-        if 'comprov' in text.lower() or 'Comprov' in text:
-            parts = text.split(':')
-            if len(parts) >= 2:
-                val = parts[-1].strip()
-                if val and len(val) >= 6:
-                    info['data_comprovacio'] = val
+        low = text.lower()
+        if ('fecha' in low or 'data' in low) and 'rev' in low and 'comprov' not in low:
+            m = _DATE_RE.search(text)
+            if m:
+                info['data_revisio'] = m.group(1)
+        if 'comprov' in low:
+            m = _DATE_RE.search(text)
+            if m:
+                info['data_comprovacio'] = m.group(1)
+        # Títol de la fitxa: serveix per detectar si el document és bilingüe
+        if not info['titol'] and ('ficha t' in low or 'fitxa t' in low):
+            info['titol'] = text
+
+    def _scan_table(table):
+        for row in table.rows:
+            data_fila = ''
+            for cell in row.cells:
+                text = cell.text.strip()
+                if not text:
+                    continue
+                _check_cell(text)
+                if not data_fila:
+                    m = _DATE_RE.search(text)
+                    if m:
+                        data_fila = m.group(1)
+            if data_fila:
+                dates_per_fila.append(data_fila)
 
     # Buscar al header de Word
     for section in doc.sections:
@@ -111,19 +138,21 @@ def _parse_header(doc):
         if not header or not header.tables:
             continue
         for table in header.tables:
-            for row in table.rows:
-                for cell in row.cells:
-                    _check_cell(cell.text.strip())
+            _scan_table(table)
         break
 
     # Si no s'ha trobat, buscar a les primeres taules del body
     if not info['rev']:
         for table in doc.tables[:3]:
-            for row in table.rows:
-                for cell in row.cells:
-                    _check_cell(cell.text.strip())
+            _scan_table(table)
             if info['rev']:
                 break
+
+    # Fallback posicional quan la capçalera no etiqueta la data de comprovació
+    if not info['data_comprovacio'] and len(dates_per_fila) >= 2:
+        info['data_comprovacio'] = dates_per_fila[-1]
+        if not info['data_revisio']:
+            info['data_revisio'] = dates_per_fila[0]
 
     return info
 
@@ -230,10 +259,24 @@ SECTION_TITLES = {
     'características físico-químicas',
     'características reológicas',
     'características microbiológicas',
+    'características higiénico-sanitarias',
+    'características higiénico – sanitarias',
+    'características higiénico sanitarias',
     'parámetros de contaminantes',
     'valores nutricionales',
     'pesticidas',
 }
+
+# Prefixos de títol de secció. Serveixen de reserva quan el Word usa una
+# variant no catalogada a SECTION_TITLES (p.ex. "Características Higiénico-
+# Sanitarias"): sense això el títol s'acabaria guardant com a peu de la taula
+# anterior. Els camps reals (Características organolépticas) no hi arriben mai
+# perquè _match_field_label s'avalua abans.
+SECTION_TITLE_PREFIXES = (
+    'características', 'característiques',
+    'parámetros de', 'paràmetres de',
+    'valores nutricionales', 'valors nutricionals',
+)
 
 # Títols de taules i el camp JSON corresponent
 TABLE_MAP = {
@@ -346,7 +389,26 @@ def _match_field_label(text):
 
 def _is_section_title(text):
     text_for_match = _extract_bilingual_for_match(text).lower().rstrip('.')
-    return text_for_match in SECTION_TITLES
+    if text_for_match in SECTION_TITLES:
+        return True
+    # Reserva acotada: títol curt, sense xifres, amb prefix conegut
+    if len(text_for_match) < 60 and not any(ch.isdigit() for ch in text_for_match):
+        return text_for_match.startswith(SECTION_TITLE_PREFIXES)
+    return False
+
+
+def _detect_idioma(titol, etiquetes_total, etiquetes_bilingues):
+    """Retorna 'es' (només castellà) o 'bilingue' (castellà / català).
+
+    Es decideix per la proporció d'etiquetes escrites en els dos idiomes. Si el
+    document no en té prou de reconegudes, es mira el títol de la capçalera
+    ("FICHA TÉCNICA" sol vs "FICHA TÉCNICA / FITXA TÈCNICA").
+    """
+    if etiquetes_total >= 4:
+        return 'es' if (etiquetes_bilingues / etiquetes_total) < 0.5 else 'bilingue'
+    if titol and ' / ' not in titol:
+        return 'es'
+    return 'bilingue'
 
 
 def parse_docx(file_path):
@@ -390,6 +452,8 @@ def parse_docx(file_path):
     }
     current_field = None       # camp de text actiu (per paràgrafs següents)
     last_table_key = None      # última taula processada (per capturar el peu)
+    etiquetes_total = 0        # etiquetes reconegudes (per detectar l'idioma)
+    etiquetes_bilingues = 0    # ...de les quals escrites "castellà / català"
 
     for kind, item in _iter_body_items(doc):
         if kind == 'p':
@@ -400,6 +464,9 @@ def parse_docx(file_path):
             # Nova etiqueta → canvi de camp
             field = _match_field_label(text)
             if field is not None:
+                etiquetes_total += 1
+                if ' / ' in text:
+                    etiquetes_bilingues += 1
                 current_field = field
                 last_table_key = None
                 continue
@@ -454,6 +521,11 @@ def parse_docx(file_path):
                 last_table_key = None
 
     contingut.update(tables_data)
+
+    # Idioma del document: les fitxes de client (PBUK...) són només en castellà
+    # i no han de portar els títols duplicats castellà/català.
+    contingut['_idioma'] = _detect_idioma(
+        header_info.get('titol', ''), etiquetes_total, etiquetes_bilingues)
 
     # Extreure art_codi
     art_codi = contingut.get('codi_referencia', '').strip()

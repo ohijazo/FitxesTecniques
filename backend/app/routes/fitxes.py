@@ -147,6 +147,18 @@ def _guardar_imatges_temp(imatges):
     return token, saved
 
 
+def _seguent_clau_cert_img(contingut):
+    """Següent clau lliure per a una imatge de certificació.
+    Mateixa convenció que CertImageEditor (frontend/src/components/FitxaForm.jsx):
+    certificacio_img, certificacio_img_2, certificacio_img_3..."""
+    if 'certificacio_img' not in contingut:
+        return 'certificacio_img'
+    idx = 2
+    while f'certificacio_img_{idx}' in contingut:
+        idx += 1
+    return f'certificacio_img_{idx}'
+
+
 def _moure_imatges_temp(token, art_codi):
     """Mou imatges del directori temporal a uploads/<art_codi>/img/.
     Retorna llista d'URLs finals."""
@@ -385,7 +397,16 @@ def crear_fitxa():
     # Moure imatges del Word (si hi ha temp_token) a uploads/<art_codi>/img/
     temp_token = data.get('imatges_temp_token')
     if temp_token:
-        _moure_imatges_temp(temp_token, fitxa.art_codi)
+        noms = _moure_imatges_temp(temp_token, fitxa.art_codi)
+        if noms:
+            # Registrar-les al contingut: sense aquesta referència la imatge
+            # queda al disc però no es veu ni a la fitxa ni al PDF generat.
+            contingut_nou = dict(versio.contingut or {})
+            for nom in noms:
+                clau = _seguent_clau_cert_img(contingut_nou)
+                contingut_nou[clau] = f'/api/fitxes/{fitxa.id}/imatges/{nom}'
+            versio.contingut = contingut_nou
+            db.session.commit()
 
     return jsonify(fitxa.to_dict(include_versions=True)), 201
 

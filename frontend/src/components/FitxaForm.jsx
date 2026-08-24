@@ -61,6 +61,19 @@ function formatWithSecondary(text) {
 }
 
 /* ============================================================
+   IDIOMA DEL DOCUMENT
+   Les fitxes de client (PBUK...) només existeixen en castellà i no han de
+   portar els títols duplicats "castellà / català". El parser Word ho detecta
+   en importar i es pot corregir a mà amb el selector del formulari.
+   ============================================================ */
+function bil(label, idioma) {
+  // Només per a TÍTOLS: els valors també poden contenir ' / '
+  // (p.ex. 'No detectado / 25g') i no s'han de tallar mai.
+  if (idioma !== 'es' || !label || !label.includes(' / ')) return label;
+  return label.split(' / ')[0].trim();
+}
+
+/* ============================================================
    DEFAULT SECTIONS
    ============================================================ */
 export const DEFAULT_SECTIONS = [
@@ -123,7 +136,7 @@ export const DEFAULT_SECTIONS = [
 /* ============================================================
    SECTION NAV SIDEBAR
    ============================================================ */
-function SectionNav({ sections, contingut, activeSection }) {
+function SectionNav({ sections, contingut, activeSection, idioma }) {
   const countFilled = (items) => {
     return items.filter((it) => {
       const v = contingut[it.key];
@@ -152,7 +165,7 @@ function SectionNav({ sections, contingut, activeSection }) {
             className={`section-nav-item ${isActive ? 'active' : ''}`}
             onClick={() => scrollTo(s.id)}
           >
-            <div className="section-nav-label">{s.label}</div>
+            <div className="section-nav-label">{bil(s.label, idioma)}</div>
             <div className="section-nav-progress">
               <div className="section-nav-bar">
                 <div className="section-nav-bar-fill" style={{ width: `${pct}%` }} />
@@ -199,13 +212,14 @@ function ItemToolbar({ onMoveUp, onMoveDown, onMoveToSection, onRemove, canUp, c
 /* ============================================================
    EDITABLE FIELD
    ============================================================ */
-function EditableField({ label, value, onChange, onRemove, multiline, readOnly, toolbar, bulkVaries, bulkCount }) {
+function EditableField({ label, value, onChange, onRemove, multiline, readOnly, toolbar, bulkVaries, bulkCount, idioma }) {
+  const shownLabel = bil(label, idioma);
   if (readOnly) {
     if (!value || !String(value).trim()) return null;
     const html = DOMPurify.sanitize(formatWithSecondary(value));
     return (
       <div className="pdf-field">
-        <div className="pdf-field-label">{label}</div>
+        <div className="pdf-field-label">{shownLabel}</div>
         <div className="pdf-field-value" dangerouslySetInnerHTML={{ __html: html }} />
       </div>
     );
@@ -213,7 +227,7 @@ function EditableField({ label, value, onChange, onRemove, multiline, readOnly, 
   return (
     <div className="pdf-field">
       <div className="pdf-field-label">
-        {label}
+        {shownLabel}
         {toolbar}
       </div>
       {bulkVaries && <BulkVariesNote count={bulkCount} />}
@@ -235,25 +249,27 @@ const TABLE_SUBTITLES = {
   valors_nutricionals: 'Valores nutricionales (por 100g) / Valors nutricionals (per 100g)',
 };
 
-function EditableTable({ label, rows, onChange, onRemove, readOnly, toolbar, tableKey, subtitle, note, onSubtitleChange, onNoteChange }) {
+function EditableTable({ label, rows, onChange, onRemove, readOnly, toolbar, tableKey, subtitle, note, onSubtitleChange, onNoteChange, idioma }) {
   // Fallback a subtítols per defecte si no n'hi ha de personalitzat
-  const displaySubtitle = subtitle || (tableKey && TABLE_SUBTITLES[tableKey]) || '';
+  const displaySubtitle = bil(subtitle || (tableKey && TABLE_SUBTITLES[tableKey]) || '', idioma);
   const displayNote = note || (tableKey && TABLE_NOTES[tableKey]) || '';
+  const shownLabel = bil(label, idioma);
+  const paramHeader = bil('Parámetro / Paràmetre', idioma);
 
   if (readOnly) {
     if (!rows || rows.length === 0) return null;
     return (
       <div className="pdf-field">
-        <div className="pdf-section-title">{label}</div>
+        <div className="pdf-section-title">{shownLabel}</div>
         <table className="pdf-param-table">
           {displaySubtitle && (
             <thead>
               <tr><td colSpan={2} className="pdf-table-subtitle">{displaySubtitle}</td></tr>
-              <tr><th>Parámetro / Paràmetre</th><th>Valor</th></tr>
+              <tr><th>{paramHeader}</th><th>Valor</th></tr>
             </thead>
           )}
           {!displaySubtitle && (
-            <thead><tr><th>Parámetro / Paràmetre</th><th>Valor</th></tr></thead>
+            <thead><tr><th>{paramHeader}</th><th>Valor</th></tr></thead>
           )}
           <tbody>
             {rows.map((row, i) => {
@@ -285,14 +301,14 @@ function EditableTable({ label, rows, onChange, onRemove, readOnly, toolbar, tab
   return (
     <div className="pdf-field">
       <div className="pdf-section-title">
-        {label}
+        {shownLabel}
         {toolbar}
       </div>
       {/* Subtítol editable */}
       <input className="table-subtitle-input" value={subtitle || ''} onChange={(e) => onSubtitleChange && onSubtitleChange(e.target.value)}
         placeholder="Subtítol de taula (opcional, ex: Parámetros microbiológicos / Paràmetres microbiològics)" />
       <table className="pdf-param-table">
-        <thead><tr><th>Parámetro / Paràmetre</th><th>Valor</th><th style={{ width: '36px' }}></th></tr></thead>
+        <thead><tr><th>{paramHeader}</th><th>Valor</th><th style={{ width: '36px' }}></th></tr></thead>
         <tbody>
           {rows.map((row, i) => (
             <tr key={i}>
@@ -316,14 +332,15 @@ function EditableTable({ label, rows, onChange, onRemove, readOnly, toolbar, tab
 /* ============================================================
    EDITABLE IMAGE
    ============================================================ */
-function EditableImage({ label, value, onChange, readOnly, toolbar, fitxaId }) {
+function EditableImage({ label, value, onChange, readOnly, toolbar, fitxaId, idioma }) {
   const [uploading, setUploading] = useState(false);
+  const shownLabel = bil(label, idioma);
 
   if (readOnly) {
     if (!value) return null;
     return (
       <div className="pdf-field">
-        <div className="pdf-field-label">{label}</div>
+        <div className="pdf-field-label">{shownLabel}</div>
         <div className="pdf-image-container">
           <img src={value} alt={label} className="pdf-image" />
         </div>
@@ -348,7 +365,7 @@ function EditableImage({ label, value, onChange, readOnly, toolbar, fitxaId }) {
   return (
     <div className="pdf-field">
       <div className="pdf-field-label">
-        {label}
+        {shownLabel}
         {toolbar}
       </div>
       {value ? (
@@ -418,7 +435,8 @@ function formatDate(isoStr) {
   } catch { return isoStr; }
 }
 
-function PdfPageHeader({ rev, dataRevisio, dataComprovacio, editable, onRevChange, onDataRevisioChange, onDataComprovacioChange }) {
+function PdfPageHeader({ rev, dataRevisio, dataComprovacio, editable, onRevChange, onDataRevisioChange, onDataComprovacioChange, idioma }) {
+  const nomesEs = idioma === 'es';
   return (
     <table className="pdf-header">
       <tbody>
@@ -426,7 +444,9 @@ function PdfPageHeader({ rev, dataRevisio, dataComprovacio, editable, onRevChang
           <td className="pdf-header-logo" rowSpan={3}>
             <img src="/logo.png" alt="Farinera Coromina" className="pdf-logo-img" />
           </td>
-          <td className="pdf-header-title" rowSpan={3}>FICHA T&Eacute;CNICA / FITXA T&Egrave;CNICA</td>
+          <td className="pdf-header-title" rowSpan={3}>
+            {nomesEs ? <>FICHA T&Eacute;CNICA</> : <>FICHA T&Eacute;CNICA / FITXA T&Egrave;CNICA</>}
+          </td>
           <td className="pdf-header-meta">
             Rev.:{' '}
             {editable ? (
@@ -445,7 +465,7 @@ function PdfPageHeader({ rev, dataRevisio, dataComprovacio, editable, onRevChang
         </tr>
         <tr>
           <td className="pdf-header-meta">
-            Fecha/Data Rev:{' '}
+            {nomesEs ? 'Fecha Rev.:' : 'Fecha/Data Rev:'}{' '}
             {editable ? (
               <input
                 type="date"
@@ -461,7 +481,7 @@ function PdfPageHeader({ rev, dataRevisio, dataComprovacio, editable, onRevChang
         </tr>
         <tr>
           <td className="pdf-header-meta">
-            Fecha/Data Comprov.:{' '}
+            {nomesEs ? 'Fecha Comprov.:' : 'Fecha/Data Comprov.:'}{' '}
             {editable ? (
               <input
                 type="date"
@@ -516,11 +536,12 @@ export function PdfDocumentView({ contingut, versio }) {
     ? formatDate(versio.data_revisio)
     : (versio?.created_at ? formatDate(versio.created_at) : (contingut.data_revisio || '-'));
   const dataComprovacio = versio?.data_comprovacio ? formatDate(versio.data_comprovacio) : (contingut.data_comprovacio || '-');
+  const idioma = contingut._idioma || 'bilingue';
 
   const knownKeys = new Set();
   DEFAULT_SECTIONS.forEach((s) => s.items.forEach((it) => knownKeys.add(it.key)));
   const extraKeys = Object.keys(contingut).filter(
-    (k) => !knownKeys.has(k) && !['rev', 'data_revisio', 'data_comprovacio', '_cert_config'].includes(k)
+    (k) => !knownKeys.has(k) && !['rev', 'data_revisio', 'data_comprovacio', '_cert_config', '_idioma'].includes(k)
          && !k.startsWith('certificacio_img') && !k.endsWith('_subtitle') && !k.endsWith('_note')
   );
 
@@ -545,7 +566,7 @@ export function PdfDocumentView({ contingut, versio }) {
     <div className="pdf-document pdf-view-mode">
       {sectionsWithData.map((section, si) => (
         <div key={section.id} className="pdf-page">
-          <PdfPageHeader rev={rev} dataRevisio={dataRevisio} dataComprovacio={dataComprovacio} />
+          <PdfPageHeader rev={rev} dataRevisio={dataRevisio} dataComprovacio={dataComprovacio} idioma={idioma} />
 
           {/* Imatges certificacio a la primera pagina */}
           {si === 0 && certImgs.length > 0 && (() => {
@@ -571,10 +592,10 @@ export function PdfDocumentView({ contingut, versio }) {
                 {it.type === 'table'
                   ? <EditableTable label={it.label} rows={Array.isArray(v) ? v : []} readOnly tableKey={it.key}
                       subtitle={contingut[`${it.key}_subtitle`]}
-                      note={contingut[`${it.key}_note`]} />
+                      note={contingut[`${it.key}_note`]} idioma={idioma} />
                   : it.type === 'image'
-                  ? <EditableImage label={it.label} value={v} readOnly />
-                  : <EditableField label={it.label} value={v} readOnly />
+                  ? <EditableImage label={it.label} value={v} readOnly idioma={idioma} />
+                  : <EditableField label={it.label} value={v} readOnly idioma={idioma} />
                 }
               </div>
             );
@@ -587,7 +608,7 @@ export function PdfDocumentView({ contingut, versio }) {
 
       {extraKeys.length > 0 && (
         <div className="pdf-page">
-          <PdfPageHeader rev={rev} dataRevisio={dataRevisio} dataComprovacio={dataComprovacio} />
+          <PdfPageHeader rev={rev} dataRevisio={dataRevisio} dataComprovacio={dataComprovacio} idioma={idioma} />
           <div className="pdf-section-title">Camps addicionals</div>
           {extraKeys.map((key) => {
             const v = contingut[key];
@@ -601,6 +622,25 @@ export function PdfDocumentView({ contingut, versio }) {
           <PdfPageFooter page={totalPages} />
         </div>
       )}
+    </div>
+  );
+}
+
+/* ============================================================
+   SELECTOR D'IDIOMA DEL DOCUMENT
+   ============================================================ */
+function IdiomaSelector({ idioma, onChange }) {
+  return (
+    <div className="pdf-idioma-selector">
+      <label htmlFor="idioma-fitxa">Idioma del document</label>
+      <select id="idioma-fitxa" value={idioma} onChange={(e) => onChange(e.target.value)}>
+        <option value="bilingue">Biling&uuml;e (castell&agrave; / catal&agrave;)</option>
+        <option value="es">Nom&eacute;s castell&agrave;</option>
+      </select>
+      <small>
+        Determina si els t&iacute;tols de la fitxa i del PDF surten en els dos idiomes o
+        nom&eacute;s en castell&agrave;. Es detecta autom&agrave;ticament en importar el Word.
+      </small>
     </div>
   );
 }
@@ -850,6 +890,9 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext 
   });
 
   const [contingut, setContingut] = useState(c);
+
+  // Idioma del document: 'bilingue' (per defecte, comportament de sempre) o 'es'
+  const idioma = contingut._idioma || 'bilingue';
 
   const updateForm = (newForm) => { setForm(newForm); setDirty(true); };
   const updateContingut = useCallback((fn) => { setContingut(fn); setDirty(true); }, []);
@@ -1136,12 +1179,13 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext 
 
       {/* Layout amb sidebar */}
       <div className="form-with-sidebar">
-        <SectionNav sections={sections} contingut={contingut} activeSection={activeSection} />
+        <SectionNav sections={sections} contingut={contingut} activeSection={activeSection} idioma={idioma} />
 
         {/* Document */}
         <div className="pdf-document">
           {/* Capsalera — logo + dades de versio (NO editable en mode bulk) */}
           <PdfPageHeader
+            idioma={idioma}
             editable={!bulkContext}
             rev={bulkContext ? '—' : form.rev}
             dataRevisio={bulkContext ? '' : form.data_revisio}
@@ -1154,6 +1198,11 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext 
             <div style={{ fontSize: '0.78rem', color: 'var(--gray-500)', marginTop: '-0.5rem', marginBottom: '0.5rem', fontStyle: 'italic' }}>
               Rev. i dates no s'editen en mode massiu (cada fitxa té la seva pròpia capçalera).
             </div>
+          )}
+
+          {/* Idioma del document (NO disponible en bulk: cada fitxa té el seu) */}
+          {!bulkContext && (
+            <IdiomaSelector idioma={idioma} onChange={(v) => update('_idioma', v)} />
           )}
 
           {/* Imatges de certificacio (NO disponible en bulk) */}
@@ -1201,7 +1250,7 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext 
                     );
                   }
                   return (
-                    <EditableTable key={it.id} label={it.label}
+                    <EditableTable key={it.id} label={it.label} idioma={idioma}
                       rows={Array.isArray(contingut[it.key]) ? contingut[it.key] : []}
                       onChange={(v) => update(it.key, v)}
                       subtitle={contingut[`${it.key}_subtitle`] || ''}
@@ -1220,7 +1269,7 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext 
                     );
                   }
                   return (
-                    <EditableImage key={it.id} label={it.label}
+                    <EditableImage key={it.id} label={it.label} idioma={idioma}
                       value={contingut[it.key]}
                       onChange={(v) => update(it.key, v)}
                       fitxaId={fitxaId}
@@ -1228,7 +1277,7 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext 
                   );
                 }
                 return (
-                  <EditableField key={it.id} label={it.label}
+                  <EditableField key={it.id} label={it.label} idioma={idioma}
                     value={contingut[it.key]}
                     onChange={(v) => update(it.key, v)}
                     multiline={it.type === 'textarea'}
