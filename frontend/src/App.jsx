@@ -198,8 +198,12 @@ function App() {
   return (
     <BrowserRouter>
       <ToastProvider>
+        {usuari && (
+          <a href="#contingut" className="skip-link">Salta al contingut</a>
+        )}
         {usuari && <NavBar usuari={usuari} onLogout={handleLogout} />}
-        <main className="container" style={{ paddingTop: '1rem', paddingBottom: '3rem' }}>
+        <main id="contingut" tabIndex={-1} className="container"
+          style={{ paddingTop: '1rem', paddingBottom: '3rem' }}>
           {usuari && <Breadcrumbs />}
           <Routes>
             <Route path="/login" element={

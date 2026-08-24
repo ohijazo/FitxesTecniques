@@ -32,6 +32,23 @@ function DistBadge({ resum }) {
 // Mateixa mida de pàgina que ControlRevisions, per coherència.
 const PER_PAGE = 50;
 
+/**
+ * Capçalera de taula ordenable. Abans era un <th onClick>: no era focusable,
+ * no tenia rol i no comunicava per quina columna s'ordenava, de manera que
+ * ordenar la taula principal era impossible amb teclat.
+ */
+function ThOrdenable({ col, etiqueta, children, sortBy, sortOrder, onSort, indicador }) {
+  const ariaSort = sortBy !== col ? 'none' : (sortOrder === 'asc' ? 'ascending' : 'descending');
+  return (
+    <th aria-sort={ariaSort} style={{ padding: 0 }}>
+      <button type="button" className="th-sort" onClick={() => onSort(col)}
+        title={`Ordenar per ${etiqueta}`}>
+        {children}{indicador}
+      </button>
+    </th>
+  );
+}
+
 function LlistaFitxes({ usuari }) {
   const [fitxes, setFitxes] = useState([]);
   const [cerca, setCerca] = useState('');
@@ -101,6 +118,7 @@ function LlistaFitxes({ usuari }) {
     if (sortBy !== col) return ' ↕';
     return sortOrder === 'asc' ? ' ▲' : ' ▼';
   };
+
 
   const handleCerca = (e) => {
     e.preventDefault();
@@ -213,7 +231,7 @@ function LlistaFitxes({ usuari }) {
           />
         </label>
         <label style={{ margin: 0, width: '180px' }}>
-          <select value={estat} onChange={handleEstat} style={{ margin: 0 }}>
+          <select value={estat} onChange={handleEstat} aria-label="Filtrar per estat" style={{ margin: 0 }}>
             <option value="">Tots els estats</option>
             {estatsCatalog.map((e) => (
               <option key={e.codi} value={e.codi}>{e.nom}</option>
@@ -267,22 +285,12 @@ function LlistaFitxes({ usuari }) {
                     title="Selecciona tots els visibles"
                   />
                 </th>
-                <th onClick={() => toggleSort('art_codi')} style={{ cursor: 'pointer', userSelect: 'none' }} title="Ordenar per codi">
-                  Codi{sortIndicator('art_codi')}
-                </th>
-                <th onClick={() => toggleSort('nom_producte')} style={{ cursor: 'pointer', userSelect: 'none' }} title="Ordenar per producte">
-                  Producte{sortIndicator('nom_producte')}
-                </th>
-                <th onClick={() => toggleSort('versio_activa')} style={{ cursor: 'pointer', userSelect: 'none' }} title="Ordenar per revisió">
-                  Rev.{sortIndicator('versio_activa')}
-                </th>
-                <th onClick={() => toggleSort('estat')} style={{ cursor: 'pointer', userSelect: 'none' }} title="Ordenar per estat">
-                  Estat{sortIndicator('estat')}
-                </th>
+                <ThOrdenable col="art_codi" etiqueta="codi" sortBy={sortBy} sortOrder={sortOrder} onSort={toggleSort} indicador={sortIndicator('art_codi')}>Codi</ThOrdenable>
+                <ThOrdenable col="nom_producte" etiqueta="producte" sortBy={sortBy} sortOrder={sortOrder} onSort={toggleSort} indicador={sortIndicator('nom_producte')}>Producte</ThOrdenable>
+                <ThOrdenable col="versio_activa" etiqueta="revisió" sortBy={sortBy} sortOrder={sortOrder} onSort={toggleSort} indicador={sortIndicator('versio_activa')}>Rev.</ThOrdenable>
+                <ThOrdenable col="estat" etiqueta="estat" sortBy={sortBy} sortOrder={sortOrder} onSort={toggleSort} indicador={sortIndicator('estat')}>Estat</ThOrdenable>
                 <th>Distribució</th>
-                <th onClick={() => toggleSort('updated_at')} style={{ cursor: 'pointer', userSelect: 'none' }} title="Ordenar per data">
-                  Actualitzat{sortIndicator('updated_at')}
-                </th>
+                <ThOrdenable col="updated_at" etiqueta="data" sortBy={sortBy} sortOrder={sortOrder} onSort={toggleSort} indicador={sortIndicator('updated_at')}>Actualitzat</ThOrdenable>
                 <th style={{ textAlign: 'right' }}>Accions</th>
               </tr>
             </thead>

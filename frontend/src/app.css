@@ -69,6 +69,27 @@ code {
 }
 
 /* -- Navigation -- */
+/* Salta al contingut: sense això calia tabular per tota la barra de navegació
+   a cada pàgina per arribar al formulari. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 200;
+  background: var(--brand);
+  color: #fff;
+  padding: 0.6rem 1rem;
+  border-radius: 0 0 var(--radius) 0;
+  text-decoration: none;
+  font-size: 0.88rem;
+}
+.skip-link:focus {
+  left: 0;
+}
+#contingut:focus {
+  outline: none;
+}
+
 nav.container-fluid {
   background: var(--gray-900);
   padding: 0 1.5rem;
@@ -824,7 +845,7 @@ fieldset legend {
   display: flex;
   gap: 0.75rem;
   font-size: 0.78rem;
-  color: var(--gray-400);
+  color: var(--gray-600);
   margin-bottom: 0.5rem;
 }
 .version-actions {
@@ -869,6 +890,32 @@ fieldset legend {
   border-left: 3px solid var(--danger);
 }
 
+/* Capçalera de taula ordenable: cal un <button> perquè s'hi arribi amb el
+   tabulador, però ha de continuar semblant una capçalera. */
+.th-sort {
+  background: none !important;
+  border: none !important;
+  border-radius: 0;
+  width: 100%;
+  margin: 0;
+  padding: 0.65rem 0.75rem !important;
+  text-align: left;
+  font: inherit;
+  color: inherit !important;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  user-select: none;
+}
+.th-sort:hover {
+  background: var(--gray-100) !important;
+}
+
+.table-wrapper table {
+  /* Sense min-width la taula s'encongeix per cabre-hi sempre i overflow-x no
+     s'activa mai: les cel·les es comprimien fins a trencar el text. */
+  min-width: 760px;
+}
 .table-wrapper {
   overflow-x: auto;
   border-radius: var(--radius);
@@ -1111,11 +1158,11 @@ textarea.pdf-field-input {
 .table-subtitle-input:focus {
   border-color: var(--brand) !important;
   background: #cdd8ec;
-  outline: none;
-  box-shadow: none;
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
 }
 .table-subtitle-input::placeholder {
-  color: #8fa4c8;
+  color: #3f5580;
   font-weight: 400;
   font-style: italic;
 }
@@ -1133,11 +1180,11 @@ textarea.pdf-field-input {
 .table-note-input:focus {
   border-color: var(--brand) !important;
   background: #fff;
-  outline: none;
-  box-shadow: none;
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
 }
 .table-note-input::placeholder {
-  color: #aaa;
+  color: var(--gray-500);
 }
 
 /* Contingut rich text dins cel·la paràmetre (vista) */
@@ -1240,7 +1287,7 @@ textarea.pdf-field-input {
   margin: 2rem 0;
   padding-top: 0.5rem;
   font-size: 0.75rem;
-  color: var(--gray-400);
+  color: var(--gray-600);
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
@@ -1255,14 +1302,15 @@ textarea.pdf-field-input {
   margin-top: 1rem;
   margin-bottom: 0.25rem;
 }
-.pdf-section-block:hover .pdf-section-actions-bar {
+.pdf-section-block:hover .pdf-section-actions-bar,
+.pdf-section-block:focus-within .pdf-section-actions-bar {
   opacity: 1;
 }
 .pdf-section-actions-bar button {
   background: none !important;
-  border: 1px solid var(--gray-200) !important;
-  color: var(--gray-400) !important;
-  font-size: 0.7rem;
+  border: 1px solid var(--gray-300) !important;
+  color: var(--gray-600) !important;
+  font-size: 0.78rem;
   padding: 2px 6px !important;
   cursor: pointer;
   border-radius: 3px;
@@ -1292,14 +1340,17 @@ textarea.pdf-field-input {
   transition: opacity 0.15s;
 }
 .pdf-field:hover > .pdf-field-label > .item-toolbar,
-.pdf-field:hover > .pdf-section-title > .item-toolbar {
+.pdf-field:hover > .pdf-section-title > .item-toolbar,
+.pdf-field:focus-within > .pdf-field-label > .item-toolbar,
+.pdf-field:focus-within > .pdf-section-title > .item-toolbar,
+.item-toolbar:focus-within {
   opacity: 1;
 }
 .item-toolbar button {
   background: none !important;
-  border: 1px solid var(--gray-200) !important;
-  color: var(--gray-400) !important;
-  font-size: 0.65rem;
+  border: 1px solid var(--gray-300) !important;
+  color: var(--gray-600) !important;
+  font-size: 0.8rem;
   padding: 1px 5px !important;
   cursor: pointer;
   border-radius: 3px;
@@ -1387,7 +1438,7 @@ textarea.pdf-field-input {
 .pdf-add-section-btn {
   background: none !important;
   border: 2px dashed var(--gray-300) !important;
-  color: var(--gray-400) !important;
+  color: var(--gray-600) !important;
   font-size: 0.85rem;
   padding: 0.6rem 2rem !important;
   cursor: pointer;
@@ -1410,7 +1461,7 @@ textarea.pdf-field-input {
 .pdf-add-element-btn {
   background: none !important;
   border: 2px dashed var(--gray-300) !important;
-  color: var(--gray-400) !important;
+  color: var(--gray-600) !important;
   font-size: 0.82rem;
   padding: 0.4rem 1.5rem !important;
   cursor: pointer;
@@ -1584,7 +1635,7 @@ textarea.pdf-field-input {
   border-radius: var(--radius);
   padding: 0.75rem;
   cursor: pointer;
-  color: var(--gray-400);
+  color: var(--gray-600);
   font-size: 0.85rem;
   transition: var(--transition);
 }
@@ -1636,7 +1687,7 @@ textarea.pdf-field-input {
   border: 2px dashed var(--gray-300);
   border-radius: var(--radius);
   cursor: pointer;
-  color: var(--gray-400);
+  color: var(--gray-600);
   font-size: 1.5rem;
   transition: var(--transition);
   vertical-align: top;
@@ -1684,7 +1735,7 @@ textarea.pdf-field-input {
 }
 .pdf-footer {
   text-align: center;
-  font-size: 0.68rem;
+  font-size: 0.78rem;
   color: #595959;
   border-top: 1px solid #2F5496;
   padding-top: 4px;
@@ -1892,8 +1943,8 @@ textarea.pdf-field-input {
   transition: width 0.3s ease;
 }
 .section-nav-count {
-  font-size: 0.7rem;
-  color: var(--gray-400);
+  font-size: 0.8rem;
+  color: var(--gray-600);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -2560,7 +2611,7 @@ tr.row-selected { background: var(--brand-50); }
 }
 .bulk-resum-x {
   font-size: 1.4rem;
-  color: var(--gray-400);
+  color: var(--gray-600);
   font-weight: 300;
 }
 
@@ -2597,3 +2648,16 @@ tr.row-selected { background: var(--brand-50); }
 .job-estat.acabat { background: var(--success-bg); color: var(--success); }
 .job-estat.interromput { background: var(--warning-bg); color: var(--warning); }
 .job-estat.error { background: var(--danger-bg); color: var(--danger); }
+
+/* Moviment reduït: hi havia 29 transicions i cap regla que respectés la
+   preferència del sistema. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

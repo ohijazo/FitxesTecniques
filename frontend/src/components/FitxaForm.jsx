@@ -188,11 +188,15 @@ function ItemToolbar({ onMoveUp, onMoveDown, onMoveToSection, onRemove, canUp, c
 
   return (
     <div className="item-toolbar">
-      <button type="button" disabled={!canUp} onClick={onMoveUp} title="Pujar">&#9650;</button>
-      <button type="button" disabled={!canDown} onClick={onMoveDown} title="Baixar">&#9660;</button>
+      <button type="button" disabled={!canUp} onClick={onMoveUp}
+        title="Pujar" aria-label="Pujar aquest camp">&#9650;</button>
+      <button type="button" disabled={!canDown} onClick={onMoveDown}
+        title="Baixar" aria-label="Baixar aquest camp">&#9660;</button>
       {otherSections.length > 0 && (
         <div style={{ position: 'relative' }}>
-          <button type="button" onClick={() => setShowMove(!showMove)} title="Moure a altra secció">&#8644;</button>
+          <button type="button" onClick={() => setShowMove(!showMove)}
+            title="Moure a altra secció" aria-label="Moure a una altra secció"
+            aria-expanded={showMove} aria-haspopup="true">&#8644;</button>
           {showMove && (
             <div className="move-menu">
               {otherSections.map((s) => (
@@ -204,7 +208,8 @@ function ItemToolbar({ onMoveUp, onMoveDown, onMoveToSection, onRemove, canUp, c
           )}
         </div>
       )}
-      {onRemove && <button type="button" onClick={onRemove} title="Eliminar" className="remove">&times;</button>}
+      {onRemove && <button type="button" onClick={onRemove} className="remove"
+        title="Eliminar" aria-label="Eliminar aquest camp">&times;</button>}
     </div>
   );
 }
@@ -306,6 +311,7 @@ function EditableTable({ label, rows, onChange, onRemove, readOnly, toolbar, tab
       </div>
       {/* Subtítol editable */}
       <input className="table-subtitle-input" value={subtitle || ''} onChange={(e) => onSubtitleChange && onSubtitleChange(e.target.value)}
+        aria-label={`Subtítol de la taula ${shownLabel}`}
         placeholder="Subtítol de taula (opcional, ex: Parámetros microbiológicos / Paràmetres microbiològics)" />
       <table className="pdf-param-table">
         <thead><tr><th>{paramHeader}</th><th>Valor</th><th style={{ width: '36px' }}></th></tr></thead>
@@ -315,8 +321,12 @@ function EditableTable({ label, rows, onChange, onRemove, readOnly, toolbar, tab
               <td className="param-cell-edit">
                 <RichEditor value={row.parametre || ''} onChange={(v) => updateRow(i, 'parametre', v)} compact />
               </td>
-              <td><input value={row.valor || ''} onChange={(e) => updateRow(i, 'valor', e.target.value)} placeholder="Valor" /></td>
-              <td><button type="button" className="pdf-row-remove" onClick={() => removeRow(i)}>&times;</button></td>
+              <td><input value={row.valor || ''} onChange={(e) => updateRow(i, 'valor', e.target.value)}
+                aria-label={`Valor de la fila ${i + 1}`} placeholder="Valor" /></td>
+              <td>
+                <button type="button" className="pdf-row-remove" onClick={() => removeRow(i)}
+                  title="Eliminar la fila" aria-label={`Eliminar la fila ${i + 1}`}>&times;</button>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -324,6 +334,7 @@ function EditableTable({ label, rows, onChange, onRemove, readOnly, toolbar, tab
       <button type="button" className="pdf-add-row" onClick={addRow}>+ Afegir fila</button>
       {/* Nota al peu editable */}
       <input className="table-note-input" value={note || ''} onChange={(e) => onNoteChange && onNoteChange(e.target.value)}
+        aria-label={`Nota al peu de la taula ${shownLabel}`}
         placeholder="Nota al peu (opcional, ex: Según RD 677/2016 / Segons RD 677/2016)" />
     </div>
   );
@@ -434,6 +445,7 @@ function AddItemInline({ onAdd }) {
   return (
     <div className="pdf-add-element-panel">
       <input type="text" value={label} onChange={(e) => setLabel(e.target.value)}
+        aria-label="Nom del camp nou"
         placeholder="Nom (ex: Vitamines, Niquel...)" autoFocus
         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirm(); } }}
         style={{ flex: 1, margin: 0 }} />
@@ -473,6 +485,7 @@ function PdfPageHeader({ rev, dataRevisio, dataComprovacio, editable, onRevChang
               <input
                 type="number"
                 min="0"
+                aria-label="Número de revisió"
                 value={rev ?? ''}
                 onChange={(e) => onRevChange && onRevChange(e.target.value)}
                 className="pdf-header-input"
@@ -489,6 +502,7 @@ function PdfPageHeader({ rev, dataRevisio, dataComprovacio, editable, onRevChang
             {editable ? (
               <input
                 type="date"
+                aria-label="Data de revisió"
                 value={dataRevisio || ''}
                 onChange={(e) => onDataRevisioChange && onDataRevisioChange(e.target.value)}
                 className="pdf-header-input"
@@ -505,6 +519,7 @@ function PdfPageHeader({ rev, dataRevisio, dataComprovacio, editable, onRevChang
             {editable ? (
               <input
                 type="date"
+                aria-label="Data de comprovació"
                 value={dataComprovacio || ''}
                 onChange={(e) => onDataComprovacioChange && onDataComprovacioChange(e.target.value)}
                 className="pdf-header-input"
@@ -740,7 +755,8 @@ function CertImageEditor({ contingut, onChange, fitxaId }) {
         </div>
         <div className="pdf-cert-control-group">
           <span className="pdf-cert-control-label">Mida: {config.size}px</span>
-          <input type="range" min="30" max="150" value={config.size}
+          <input type="range" min="30" max="150" aria-label="Mida de les imatges de certificació"
+            value={config.size}
             onChange={(e) => setConfig({ size: parseInt(e.target.value) })}
             style={{ width: '120px', margin: 0 }} />
         </div>
@@ -1250,9 +1266,12 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext 
               {/* Accions secció (només visibles al hover) */}
               {!bulkContext && (
                 <div className="pdf-section-actions-bar">
-                  <button type="button" disabled={si === 0} onClick={() => moveSectionUp(si)} title="Pujar secció">&#9650;</button>
-                  <button type="button" disabled={si === sections.length - 1} onClick={() => moveSectionDown(si)} title="Baixar secció">&#9660;</button>
-                  <button type="button" onClick={() => removeSection(section.id)} title="Eliminar secció" className="remove">&times;</button>
+                  <button type="button" disabled={si === 0} onClick={() => moveSectionUp(si)}
+                    title="Pujar secció" aria-label={`Pujar la secció ${section.label}`}>&#9650;</button>
+                  <button type="button" disabled={si === sections.length - 1} onClick={() => moveSectionDown(si)}
+                    title="Baixar secció" aria-label={`Baixar la secció ${section.label}`}>&#9660;</button>
+                  <button type="button" onClick={() => removeSection(section.id)} className="remove"
+                    title="Eliminar secció" aria-label={`Eliminar la secció ${section.label}`}>&times;</button>
                 </div>
               )}
 
