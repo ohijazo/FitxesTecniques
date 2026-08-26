@@ -77,7 +77,12 @@ async function request(path, options = {}) {
     throw new Error(missatgeError(err));
   }
 
-  if (response.status === 401) {
+  // El 401 del propi login vol dir "credencials incorrectes", no "sessió
+  // caducada": allà encara no hi ha cap sessió. Tractar-lo com la resta feia
+  // un replace() que recarregava la pàgina, es menjava el missatge del
+  // backend ("Email o contrasenya incorrectes") i deia a l'usuari que li
+  // havia caducat una sessió que no tenia.
+  if (response.status === 401 && path !== '/auth/login') {
     sessioCaducada();
     throw new Error('La sessió ha caducat. Torna a iniciar sessió.');
   }

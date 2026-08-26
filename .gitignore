@@ -20,6 +20,12 @@ backend/uploads/
 frontend/node_modules/
 frontend/dist/
 
+# Playwright (traces, captures i informes dels tests E2E)
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+frontend/.cache/
+
 # IDE
 .vscode/
 .idea/
