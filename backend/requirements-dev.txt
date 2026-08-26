@@ -1,0 +1,9 @@
+# Dependencies nomes per a desenvolupament i tests.
+# NO instal·lar a produccio (Ubuntu): requirements.txt no les inclou.
+#
+#   pip install -r requirements-dev.txt
+#   pytest
+
+-r requirements.txt
+
+pytest==8.3.4

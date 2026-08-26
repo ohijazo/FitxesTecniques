@@ -3,6 +3,15 @@ __pycache__/
 *.py[cod]
 backend/venv/
 backend/.env
+frontend/.env
+
+# Dumps i backups de la BD (mai al repo: contenen dades de produccio)
+backend/*.dump
+backend/*.sql
+backend/fitxes_uploads.tar.gz
+
+# Logs
+*.log
 
 # Uploads (generated/imported PDFs)
 backend/uploads/
