@@ -89,26 +89,6 @@
     line-height: 1.2;
   }
 
-  /* -- Paginacio --
-     Un titol no pot quedar sol al peu d'una pagina. */
-  .field-label,
-  .section-title {
-    -pdf-keep-with-next: true;
-  }
-
-  /* El titol de les seccions amb taula viu DINS de la taula, com a primera
-     fila, i es repeteix a cada pagina en que la taula continui (repeat=N).
-     Aixi no pot quedar orfe sense haver de lligar el titol amb la taula
-     sencera, que deixava un terc de pagina en blanc. */
-  .table-section-title {
-    background-color: #2F5496;
-    color: #ffffff;
-    font-size: 11pt;
-    font-weight: bold;
-    padding: 3px 8px;
-    border: 1px solid #2F5496;
-  }
-
   /* -- Taules de paràmetres -- */
   .param-table {
     width: 100%;
@@ -287,8 +267,8 @@
 {% endif %}
 
 {% if fisicoquimiques %}
-<table class="param-table" repeat="2">
-  <tr><td colspan="2" class="table-section-title">{{ 'Características físico-químicas / Característiques fisicoquímiques'|bil }}</td></tr>
+<div class="section-title">{{ 'Características físico-químicas / Característiques fisicoquímiques'|bil }}</div>
+<table class="param-table">
   <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>Valor</th></tr>
   {% for row in fisicoquimiques %}
   <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor }}</td></tr>
@@ -298,8 +278,8 @@
 {% endif %}
 
 {% if reologiques %}
-<table class="param-table" repeat="2">
-  <tr><td colspan="2" class="table-section-title">{{ 'Características reológicas / Característiques reològiques'|bil }}</td></tr>
+<div class="section-title">{{ 'Características reológicas / Característiques reològiques'|bil }}</div>
+<table class="param-table">
   <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>Valor</th></tr>
   {% for row in reologiques %}
   <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor }}</td></tr>
@@ -309,8 +289,8 @@
 {% endif %}
 
 {% if microbiologiques %}
-<table class="param-table" repeat="3">
-  <tr><td colspan="2" class="table-section-title">{{ 'Características Microbiológicas / Característiques microbiològiques'|bil }}</td></tr>
+<div class="section-title">{{ 'Características Microbiológicas / Característiques microbiològiques'|bil }}</div>
+<table class="param-table">
   <tr><td colspan="2" class="table-subtitle">{{ 'Parámetros microbiológicos / Paràmetres microbiològics'|bil }}</td></tr>
   <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>Valor</th></tr>
   {% for row in microbiologiques %}
@@ -321,14 +301,12 @@
 {% endif %}
 
 <!-- Contaminants -->
-{# El titol de grup encapcala les tres taules, pero ha d'anar DINS de la
-   primera que es renderitzi perque no quedi orfe. `cont.pendent` marca si
-   encara no s'ha emes: el repeat de la taula el compta abans que la fila. #}
-{% set cont = namespace(pendent=true) %}
+{% if micotoxines or alcaloides or metalls_pesants or pesticidas %}
+<div class="section-title">{{ 'Parámetros de Contaminantes / Paràmetres de contaminants'|bil }}</div>
+{% endif %}
 
 {% if micotoxines %}
-<table class="param-table" repeat="{{ 3 if cont.pendent else 2 }}">
-  {% if cont.pendent %}<tr><td colspan="2" class="table-section-title">{{ 'Parámetros de Contaminantes / Paràmetres de contaminants'|bil }}</td></tr>{% set cont.pendent = false %}{% endif %}
+<table class="param-table">
   <tr><td colspan="2" class="table-subtitle">{{ 'Micotoxinas / Micotoxines'|bil }}</td></tr>
   <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>Valor</th></tr>
   {% for row in micotoxines %}
@@ -339,8 +317,7 @@
 {% endif %}
 
 {% if alcaloides %}
-<table class="param-table" repeat="{{ 3 if cont.pendent else 2 }}">
-  {% if cont.pendent %}<tr><td colspan="2" class="table-section-title">{{ 'Parámetros de Contaminantes / Paràmetres de contaminants'|bil }}</td></tr>{% set cont.pendent = false %}{% endif %}
+<table class="param-table">
   <tr><td colspan="2" class="table-subtitle">{{ 'Alcaloides del cornezuelo / Alcaloides del sègol banyut'|bil }}</td></tr>
   <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>Valor</th></tr>
   {% for row in alcaloides %}
@@ -351,8 +328,7 @@
 {% endif %}
 
 {% if metalls_pesants %}
-<table class="param-table" repeat="{{ 3 if cont.pendent else 2 }}">
-  {% if cont.pendent %}<tr><td colspan="2" class="table-section-title">{{ 'Parámetros de Contaminantes / Paràmetres de contaminants'|bil }}</td></tr>{% set cont.pendent = false %}{% endif %}
+<table class="param-table">
   <tr><td colspan="2" class="table-subtitle">{{ 'Metales pesados / Metalls pesants'|bil }}</td></tr>
   <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>Valor</th></tr>
   {% for row in metalls_pesants %}
@@ -363,8 +339,7 @@
 {% endif %}
 
 {% if pesticidas %}
-<table class="param-table" repeat="{{ 2 if cont.pendent else 1 }}">
-  {% if cont.pendent %}<tr><td colspan="2" class="table-section-title">{{ 'Parámetros de Contaminantes / Paràmetres de contaminants'|bil }}</td></tr>{% set cont.pendent = false %}{% endif %}
+<table class="param-table">
   <tr><td colspan="2" class="table-subtitle">{{ 'Pesticidas / Pesticides'|bil }}</td></tr>
   <tr><td colspan="2" class="text-taula">{{ pesticidas|param_html }}</td></tr>
 </table>
@@ -372,8 +347,8 @@
 
 <!-- Valors nutricionals -->
 {% if valors_nutricionals %}
-<table class="nutri-table" repeat="3">
-  <tr><td colspan="2" class="table-section-title">{{ 'Valores nutricionales / Valors nutricionals'|bil }}</td></tr>
+<div class="section-title">{{ 'Valores nutricionales / Valors nutricionals'|bil }}</div>
+<table class="nutri-table">
   <tr><td colspan="2" class="table-subtitle">{{ 'Valores nutricionales (por 100g) / Valors nutricionals (per 100g)'|bil }}</td></tr>
   <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>Valor</th></tr>
   {% for row in valors_nutricionals %}
