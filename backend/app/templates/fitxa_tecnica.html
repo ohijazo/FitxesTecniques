@@ -136,6 +136,13 @@
     border: 1px solid #B4C6E7;
   }
 
+  /* El text de pesticides es un paragraf dins d'una taula, no un valor:
+     justificat, com al Word original (fila 1 de la taula, JUSTIFY). */
+  .param-table .text-taula {
+    text-align: justify;
+    font-weight: normal;
+  }
+
   /* -- Valors nutricionals -- */
   .nutri-table {
     width: 65%;
@@ -356,8 +363,11 @@
 {% endif %}
 
 {% if pesticidas %}
-<div class="section-title">{{ 'Pesticidas / Pesticides'|bil }}</div>
-<div class="field-value">{{ pesticidas|param_html }}</div>
+<table class="param-table" repeat="{{ 2 if cont.pendent else 1 }}">
+  {% if cont.pendent %}<tr><td colspan="2" class="table-section-title">{{ 'Parámetros de Contaminantes / Paràmetres de contaminants'|bil }}</td></tr>{% set cont.pendent = false %}{% endif %}
+  <tr><td colspan="2" class="table-subtitle">{{ 'Pesticidas / Pesticides'|bil }}</td></tr>
+  <tr><td colspan="2" class="text-taula">{{ pesticidas|param_html }}</td></tr>
+</table>
 {% endif %}
 
 <!-- Valors nutricionals -->
