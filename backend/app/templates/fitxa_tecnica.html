@@ -117,6 +117,18 @@
     padding: 10px 0 1px 0;
   }
 
+  /* Fila buida de 3pt entre el titol i la primera fila: reprodueix el marge
+     superior de la taula (4px = 3pt) que separava el filet quan el titol era un
+     div. Sense aixo el filet queda pintat sobre la banda blava del <th> i no es
+     veu. L'alcada va al <tr>: sense ella xhtml2pdf hi posa 12pt. */
+  .param-table .espai-taula {
+    border: 0;
+    background-color: transparent;
+    padding: 0;
+    font-size: 1pt;
+    line-height: 1;
+  }
+
   /* -- Taules de paràmetres -- */
   .param-table {
     width: 100%;
@@ -295,8 +307,9 @@
 {% endif %}
 
 {% if fisicoquimiques %}
-<table class="param-table" repeat="2">
+<table class="param-table" repeat="3">
   <tr><td colspan="2" class="titol-taula">{{ 'Características físico-químicas / Característiques fisicoquímiques'|bil }}</td></tr>
+  <tr style="height: 3pt"><td colspan="2" class="espai-taula"></td></tr>
   <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>Valor</th></tr>
   {% for row in fisicoquimiques %}
   <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor }}</td></tr>
@@ -306,8 +319,9 @@
 {% endif %}
 
 {% if reologiques %}
-<table class="param-table" repeat="2">
+<table class="param-table" repeat="3">
   <tr><td colspan="2" class="titol-taula">{{ 'Características reológicas / Característiques reològiques'|bil }}</td></tr>
+  <tr style="height: 3pt"><td colspan="2" class="espai-taula"></td></tr>
   <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>Valor</th></tr>
   {% for row in reologiques %}
   <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor }}</td></tr>
@@ -317,8 +331,9 @@
 {% endif %}
 
 {% if microbiologiques %}
-<table class="param-table" repeat="3">
+<table class="param-table" repeat="4">
   <tr><td colspan="2" class="titol-taula">{{ 'Características Microbiológicas / Característiques microbiològiques'|bil }}</td></tr>
+  <tr style="height: 3pt"><td colspan="2" class="espai-taula"></td></tr>
   <tr><td colspan="2" class="table-subtitle">{{ 'Parámetros microbiológicos / Paràmetres microbiològics'|bil }}</td></tr>
   <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>Valor</th></tr>
   {% for row in microbiologiques %}
