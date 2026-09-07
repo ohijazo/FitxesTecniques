@@ -51,21 +51,34 @@ def _connectar_sftp(config):
     # caldria fixar la host key esperada aqui.
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-    client.connect(
-        hostname=host,
-        port=port,
-        username=user,
-        password=password,
-        timeout=timeout,
-        banner_timeout=timeout,
-        auth_timeout=timeout,
-        allow_agent=False,
-        look_for_keys=False,
-    )
+    try:
+        client.connect(
+            hostname=host,
+            port=port,
+            username=user,
+            password=password,
+            timeout=timeout,
+            banner_timeout=timeout,
+            auth_timeout=timeout,
+            allow_agent=False,
+            look_for_keys=False,
+        )
 
-    sftp = client.open_sftp()
-    if remote_path and remote_path not in ('.', '/'):
-        sftp.chdir(remote_path)
+        sftp = client.open_sftp()
+        if remote_path and remote_path not in ('.', '/'):
+            sftp.chdir(remote_path)
+    except Exception:
+        # Si la sessio SSH ja estava establerta i despres ha fallat obrir el
+        # canal SFTP o entrar a la ruta, cal tancar-la aqui: el cridador no
+        # rebra mai el client i no la podra tancar ell. Una sessio penjada
+        # consumeix una de les connexions que el servidor permet, i en una
+        # auditoria de centenars de fitxes s'esgoten i tot passa a fer timeout.
+        try:
+            client.close()
+        except Exception:
+            pass
+        raise
+
     return client, sftp
 
 

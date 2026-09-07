@@ -196,3 +196,50 @@ def test_descarregar_error_real_no_es_not_found(config_sftp, tmp_path):
 
     assert res['ok'] is False
     assert res['not_found'] is False
+
+
+# --- Fuita de sessions SSH a _connectar_sftp --------------------------------
+# Si connect() va be pero falla obrir el canal SFTP o entrar a la ruta, el
+# cridador no rep mai el client i no el pot tancar. La sessio queda penjada al
+# servidor i consumeix una de les connexions que permet; en una auditoria de
+# centenars de fitxes s'esgoten i tot passa a fer timeout.
+
+def test_tanca_si_falla_obrir_el_canal_sftp(config_sftp, tmp_path):
+    with patch('paramiko.SSHClient') as fake:
+        fake.return_value.open_sftp.side_effect = OSError('no channel')
+        res = descarregar_sftp('60360.pdf', config_sftp, str(tmp_path / 'x.pdf'))
+
+    assert res['ok'] is False
+    fake.return_value.close.assert_called_once()
+
+
+def test_tanca_si_falla_el_chdir_a_la_ruta(config_sftp, tmp_path):
+    """El cas mes probable en produccio: `path` mal configurat al desti."""
+    with patch('paramiko.SSHClient') as fake:
+        fake.return_value.open_sftp.return_value.chdir.side_effect = \
+            IOError('No such file or directory')
+        res = descarregar_sftp('60360.pdf', config_sftp, str(tmp_path / 'x.pdf'))
+
+    assert res['ok'] is False
+    fake.return_value.close.assert_called_once()
+
+
+def test_no_tanca_res_si_ni_tan_sols_connecta(config_sftp, tmp_path):
+    """Si connect() peta no hi ha cap sessio oberta: close() seria inutil pero
+    tampoc ha de petar."""
+    with patch('paramiko.SSHClient') as fake:
+        fake.return_value.connect.side_effect = OSError('timed out')
+        res = descarregar_sftp('60360.pdf', config_sftp, str(tmp_path / 'x.pdf'))
+
+    assert res['ok'] is False
+    assert res['not_found'] is False
+
+
+def test_pujada_tanca_si_falla_el_chdir(config_sftp, pdf_temporal):
+    with patch('paramiko.SSHClient') as fake:
+        fake.return_value.open_sftp.return_value.chdir.side_effect = \
+            IOError('No such file or directory')
+        res = distribuir_sftp(pdf_temporal, '60360', config_sftp)
+
+    assert res['ok'] is False
+    assert fake.return_value.close.called
