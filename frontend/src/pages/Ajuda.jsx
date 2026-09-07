@@ -160,6 +160,12 @@ const SECTIONS = [
           per veure què hi ha realment.
         </p>
         <p>
+          La comprovació és <strong>bidireccional</strong>: als destins on la fitxa consta
+          distribuïda mira que hi sigui i que coincideixi, i als altres mira que{' '}
+          <strong>no hi sigui</strong>. Així es detecten també els PDF que van quedar en un
+          destí d'on s'havien de retirar.
+        </p>
+        <p>
           Des del detall de la fitxa, a la pestanya <strong>Distribucions</strong>, tens el botó{' '}
           <strong>Comprovar destins</strong> (i un botó <strong>Comprovar</strong> a cada fila de
           l'historial). Per revisar-ho tot de cop, els administradors tenen{' '}
@@ -167,9 +173,10 @@ const SECTIONS = [
           segon pla i genera un informe.
         </p>
         <ul>
-          <li><span className="badge ok">Correcte</span> — el PDF hi és i coincideix amb la fitxa</li>
+          <li><span className="badge ok">Correcte</span> — tal com ha de ser: hi és i coincideix, o bé no hi és perquè no hi ha de ser</li>
           <li><span className="badge no_trobat">No hi és</span> — s'arriba al destí però el fitxer no hi és</li>
           <li><span className="badge desfasat">Desfasat</span> — hi és, però la revisió o les dates no coincideixen</li>
+          <li><span className="badge sobrant">Sobra</span> — hi és en un destí on no hi hauria de ser</li>
           <li><span className="badge error_acces">No s'hi ha pogut accedir</span> — problema de xarxa o de credencials</li>
           <li><span className="badge error_parseig">PDF il·legible</span> — s'ha descarregat però no s'ha pogut llegir</li>
           <li><span className="badge no_verificable">No comprovable</span> — destins com SAP, que no permeten descarregar</li>

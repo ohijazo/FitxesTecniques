@@ -211,3 +211,61 @@ def test_timeout_arriba_a_la_configuracio(fitxa, versio, desti, espia):
     assert config['timeout'] == 10
     # No ha de mutar la configuracio guardada al desti
     assert 'timeout' not in desti.configuracio
+
+
+# --- Direccio inversa: el fitxer NO hi hauria de ser ------------------------
+
+def test_absent_on_no_hi_ha_de_ser_es_ok(fitxa, versio, desti, espia):
+    espia['descarrega'].return_value = {'ok': False, 'error': '550', 'not_found': True}
+
+    res = verificar_distribucio(fitxa, versio, desti, filename='60360.pdf',
+                                esperat=False)
+
+    assert res['estat_verificacio'] == 'ok'
+    assert res['nivell'] == 'absencia'
+    assert res['esperat_al_desti'] is False
+    espia['parse'].assert_not_called()
+
+
+def test_present_on_no_hi_ha_de_ser_es_sobrant(fitxa, versio, desti, espia):
+    """El cas que abans passava desapercebut: retirada que no es va completar."""
+    espia['descarrega'].return_value = _ok()
+    espia['parse'].return_value = _pdf(rev='3')
+
+    res = verificar_distribucio(fitxa, versio, desti, filename='60360.pdf',
+                                esperat=False)
+
+    assert res['estat_verificacio'] == 'sobrant'
+    assert 'rev. 3' in res['missatge']
+    assert res['desti_valors']['rev'] == '3'
+
+
+def test_sobrant_illegible_segueix_sent_sobrant(fitxa, versio, desti, espia):
+    """Que no es pugui parsejar no canvia el fet que hi es i no hi ha de ser."""
+    espia['descarrega'].return_value = _ok()
+    espia['parse'].side_effect = ValueError('PDF corrupte')
+
+    res = verificar_distribucio(fitxa, versio, desti, filename='60360.pdf',
+                                esperat=False)
+
+    assert res['estat_verificacio'] == 'sobrant'
+
+
+def test_error_dacces_no_es_confon_amb_absencia_correcta(fitxa, versio, desti, espia):
+    """Si no s'arriba al desti no es pot afirmar que el fitxer no hi sigui."""
+    espia['descarrega'].return_value = {'ok': False, 'error': 'Connection refused',
+                                        'not_found': False}
+
+    res = verificar_distribucio(fitxa, versio, desti, filename='60360.pdf',
+                                esperat=False)
+
+    assert res['estat_verificacio'] == 'error_acces'
+
+
+def test_esperat_al_desti_sempre_al_resultat(fitxa, versio, desti, espia):
+    espia['descarrega'].return_value = _ok()
+    espia['parse'].return_value = _pdf()
+
+    res = verificar_distribucio(fitxa, versio, desti, filename='60360.pdf')
+
+    assert res['esperat_al_desti'] is True

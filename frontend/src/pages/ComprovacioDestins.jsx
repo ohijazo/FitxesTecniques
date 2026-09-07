@@ -29,7 +29,7 @@ function ComprovacioDestins() {
 
   const [destins, setDestins] = useState([]);
   const [seleccionats, setSeleccionats] = useState(new Set());
-  const [nomesDistribuides, setNomesDistribuides] = useState(true);
+  const [nomesDistribuides, setNomesDistribuides] = useState(false);
   const [jobsPrevis, setJobsPrevis] = useState([]);
   const [loading, setLoading] = useState(true);
   const [enviant, setEnviant] = useState(false);
@@ -103,8 +103,9 @@ function ComprovacioDestins() {
       <header className="bulk-edit-v2-header">
         <h2>Comprovació de destins</h2>
         <p className="bulk-edit-v2-subtitle">
-          Comprova si les fitxes hi són <strong>realment</strong> als destins. Es
-          descarrega el PDF de cada destí i es compara la revisió amb la de la fitxa.
+          Comprova si l'estat real dels destins coincideix amb el que diu
+          l'aplicació: que les fitxes hi siguin on han de ser-hi, i que{' '}
+          <strong>no hi siguin</strong> on no toca.
         </p>
         <p className="bulk-edit-v2-hint" style={{ color: 'var(--gray-600)' }}>
           Aquesta comprovació només informa: no modifica cap fitxa, cap historial
@@ -168,16 +169,18 @@ function ComprovacioDestins() {
               <input
                 type="radio"
                 name="abast"
-                checked={nomesDistribuides}
-                onChange={() => setNomesDistribuides(true)}
+                checked={!nomesDistribuides}
+                onChange={() => setNomesDistribuides(false)}
                 style={{ marginTop: '0.25rem' }}
               />
               <span>
-                <strong>Només on consta distribuïda</strong> (recomanat)
+                <strong>Totes les fitxes, en les dues direccions</strong> (recomanat)
                 <br />
                 <span style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>
-                  Comprova cada fitxa als destins on l'historial diu que hi és.
-                  Detecta les que han desaparegut o s'han quedat desfasades.
+                  Per cada fitxa comprova tots els destins seleccionats: on
+                  consta distribuïda ha de ser-hi, i on no hi consta no hi ha de
+                  ser. És l'única manera de trobar els PDF <strong>sobrants</strong>,
+                  els que van quedar en un destí d'on s'havien de retirar.
                 </span>
               </span>
             </label>
@@ -186,16 +189,16 @@ function ComprovacioDestins() {
               <input
                 type="radio"
                 name="abast"
-                checked={!nomesDistribuides}
-                onChange={() => setNomesDistribuides(false)}
+                checked={nomesDistribuides}
+                onChange={() => setNomesDistribuides(true)}
                 style={{ marginTop: '0.25rem' }}
               />
               <span>
-                <strong>Totes les fitxes a tots els destins seleccionats</strong>
+                <strong>Només on consta distribuïda</strong>
                 <br />
                 <span style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>
-                  Molt més lent, però també troba còpies que hi són sense que
-                  hi hagin de ser (retirades que no es van esborrar).
+                  Molt més ràpid, però no detecta els sobrants: només mira que
+                  hi siguin allà on l'historial diu que hi són.
                 </span>
               </span>
             </label>
@@ -207,9 +210,11 @@ function ComprovacioDestins() {
               <h3>Executar</h3>
             </div>
             <p className="bulk-edit-v2-hint" style={{ color: 'var(--gray-600)' }}>
-              La comprovació s'executa en segon pla i descarrega un PDF per cada
-              fitxa i destí, de manera que pot trigar força estona. Pots tancar el
-              navegador i seguir el progrés més tard des de Jobs massius. Les
+              La comprovació s'executa en segon pla i pot trigar força estona.
+              Comprovar un destí on la fitxa no hi ha de ser és barat (el
+              servidor respon que no existeix sense transferir res); només es
+              descarrega el PDF quan realment hi ha alguna cosa. Pots tancar el
+              navegador i seguir el progrés des de Jobs massius. Les
               distribucions tenen prioritat sobre les comprovacions a la cua.
             </p>
           </section>
@@ -254,8 +259,8 @@ function ComprovacioDestins() {
           Es comprovaran{' '}
           <strong>{seleccionats.size} {seleccionats.size === 1 ? 'destí' : 'destins'}</strong>
           {nomesDistribuides
-            ? ' per a les fitxes que hi consten distribuïdes.'
-            : ' per a totes les fitxes amb versió publicada.'}
+            ? ' només per a les fitxes que hi consten distribuïdes.'
+            : ' per a totes les fitxes amb versió publicada, en les dues direccions.'}
         </p>
         <p style={{ margin: 0 }}>
           Es descarregarà un PDF per cada comprovació, de manera que pot trigar

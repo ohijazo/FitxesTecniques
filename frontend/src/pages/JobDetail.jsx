@@ -223,6 +223,7 @@ function JobDetail() {
               <th>Fitxa</th>
               <th>Destí</th>
               <th>Estat</th>
+              {esVerificacio && <th>Hi ha de ser</th>}
               {esVerificacio && <th>Comprovació</th>}
               {esVerificacio && <th>Rev.</th>}
               {esVerificacio && <th>Data revisió</th>}
@@ -234,7 +235,7 @@ function JobDetail() {
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td colSpan={esVerificacio ? 8 : 6} style={{ textAlign: 'center', color: 'var(--gray-500)', padding: '1rem' }}>
+                <td colSpan={esVerificacio ? 9 : 6} style={{ textAlign: 'center', color: 'var(--gray-500)', padding: '1rem' }}>
                   Sense items {filterEstat ? `en estat "${filterEstat}"` : ''}
                 </td>
               </tr>
@@ -252,6 +253,11 @@ function JobDetail() {
                 </td>
                 <td>{it.desti_nom || '-'}</td>
                 <td><ItemEstatBadge estat={it.estat} /></td>
+                {esVerificacio && (
+                  <td style={{ fontSize: '0.82rem', color: 'var(--gray-600)' }}>
+                    {it.resultat ? (it.resultat.esperat_al_desti ? 'Sí' : 'No') : '-'}
+                  </td>
+                )}
                 {esVerificacio && (
                   <td><BadgeVerificacio estat={it.resultat?.estat_verificacio} /></td>
                 )}

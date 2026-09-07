@@ -399,8 +399,8 @@ def distribuir_desti(fitxa_id, desti_id):
 # L'estat 'ok' de l'historial nomes vol dir que la pujada no va fallar. Aquests
 # endpoints tornen a llegir el PDF del desti. NO escriuen res a la BD.
 
-MAX_DESTINS_SINCRON = 4   # per sobre d'aixo cal l'auditoria massiva (job)
-TIMEOUT_SINCRON = 10      # segons de connexio per desti
+MAX_DESTINS_SINCRON = 6   # per sobre d'aixo cal l'auditoria massiva (job)
+TIMEOUT_SINCRON = 8       # segons de connexio per desti (6*8=48s < 120s Gunicorn)
 
 
 def _destins_amb_fitxa(fitxa_id):
@@ -422,13 +422,19 @@ def _destins_amb_fitxa(fitxa_id):
 
 
 def _comprovar(fitxa, versio, destins, esperats):
+    """Comprova cada desti en les dues direccions.
+
+    Als destins on la fitxa consta distribuida es comprova que hi sigui; a la
+    resta, que NO hi sigui (un PDF que hi ha quedat es un 'sobrant').
+    """
     from app.services.verificador import ESTATS, verificar_distribucio
 
     resum = {e: 0 for e in ESTATS}
     resultats = []
     for desti in destins:
-        res = verificar_distribucio(fitxa, versio, desti, timeout=TIMEOUT_SINCRON)
-        res['esperat_al_desti'] = desti.id in esperats
+        res = verificar_distribucio(fitxa, versio, desti,
+                                    timeout=TIMEOUT_SINCRON,
+                                    esperat=desti.id in esperats)
         resum[res['estat_verificacio']] = resum.get(res['estat_verificacio'], 0) + 1
         resultats.append(res)
 
@@ -445,11 +451,11 @@ def _comprovar(fitxa, versio, destins, esperats):
 @distribucions_bp.route('/fitxes/<int:fitxa_id>/comprovar', methods=['POST'])
 @rol_requerit('admin', 'editor', 'distribuidor')
 def comprovar_destins(fitxa_id):
-    """Comprova si el PDF hi es realment als destins.
+    """Comprova si l'estat real dels destins coincideix amb el que diu la BD.
 
-    Per defecte comprova nomes els destins on la BD diu que la fitxa hi es.
-    Amb {"tots": true} comprova tots els destins actius (troba copies que
-    haurien d'estar retirades).
+    Per defecte mira TOTS els destins actius, en les dues direccions: on consta
+    distribuida ha de ser-hi; on no hi consta, no hi ha de ser. Amb
+    {"nomes_distribuides": true} nomes es miren els destins on hi consta.
     """
     fitxa = db.get_or_404(FitxaTecnica, fitxa_id)
     data = request.get_json(silent=True) or {}
@@ -462,12 +468,10 @@ def comprovar_destins(fitxa_id):
 
     esperats = _destins_amb_fitxa(fitxa_id)
 
-    if data.get('tots'):
-        destins = DestiDistribucio.query.filter_by(actiu=True).all()
-    elif data.get('desti_ids'):
+    if data.get('desti_ids'):
         destins = DestiDistribucio.query.filter(
             DestiDistribucio.id.in_(data['desti_ids'])).all()
-    else:
+    elif data.get('nomes_distribuides'):
         if not esperats:
             return jsonify({
                 'fitxa_id': fitxa.id, 'art_codi': fitxa.art_codi,
@@ -478,6 +482,8 @@ def comprovar_destins(fitxa_id):
             }), 200
         destins = DestiDistribucio.query.filter(
             DestiDistribucio.id.in_(esperats)).all()
+    else:
+        destins = DestiDistribucio.query.filter_by(actiu=True).all()
 
     if len(destins) > MAX_DESTINS_SINCRON:
         return jsonify({

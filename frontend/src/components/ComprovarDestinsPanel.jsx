@@ -28,11 +28,12 @@ function ComprovarDestinsPanel({ fitxaId, onClose }) {
   const [error, setError] = useState(null);
   const toast = useToast();
 
-  const comprovar = async (tots) => {
+  const comprovar = async (nomesDistribuides) => {
     setCarregant(true);
     setError(null);
     try {
-      const r = await api.comprovarDestins(fitxaId, tots ? { tots: true } : {});
+      const r = await api.comprovarDestins(
+        fitxaId, nomesDistribuides ? { nomes_distribuides: true } : {});
       setResultat(r);
       const problemes = (r.resultats || []).filter(
         (x) => x.estat_verificacio !== 'ok'
@@ -60,13 +61,14 @@ function ComprovarDestinsPanel({ fitxaId, onClose }) {
       </div>
 
       <p style={{ fontSize: '0.88rem', color: 'var(--gray-500)', marginBottom: '1rem' }}>
-        Es descarrega el PDF de cada destí i es compara amb la fitxa. Només
-        informa: no modifica ni la fitxa ni els fitxers dels destins.
+        Es comprova cada destí en les dues direccions: on la fitxa consta
+        distribuïda, que hi sigui i coincideixi; on no hi consta, que no hi
+        sigui. Només informa: no modifica ni la fitxa ni els fitxers dels destins.
       </p>
 
       <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
         <button type="button" onClick={() => comprovar(false)} disabled={carregant}>
-          {carregant ? 'Comprovant…' : 'Comprovar on consta distribuïda'}
+          {carregant ? 'Comprovant…' : 'Comprovar tots els destins'}
         </button>
         <button
           type="button"
@@ -74,7 +76,7 @@ function ComprovarDestinsPanel({ fitxaId, onClose }) {
           onClick={() => comprovar(true)}
           disabled={carregant}
         >
-          Comprovar tots els destins
+          Només on consta distribuïda
         </button>
       </div>
 
@@ -97,6 +99,7 @@ function ComprovarDestinsPanel({ fitxaId, onClose }) {
               <thead>
                 <tr>
                   <th>Destí</th>
+                  <th>Hi ha de ser</th>
                   <th>Comprovació</th>
                   <th>Fitxer</th>
                   <th>Rev.</th>
@@ -109,13 +112,9 @@ function ComprovarDestinsPanel({ fitxaId, onClose }) {
                   const dif = r.diferencies || [];
                   return (
                     <tr key={r.desti_id}>
-                      <td>
-                        {r.desti_nom}
-                        {!r.esperat_al_desti && r.estat_verificacio !== 'no_verificable' && (
-                          <div style={{ fontSize: '0.75rem', color: 'var(--gray-500)' }}>
-                            no consta distribuïda aquí
-                          </div>
-                        )}
+                      <td>{r.desti_nom}</td>
+                      <td style={{ fontSize: '0.82rem', color: 'var(--gray-600)' }}>
+                        {r.esperat_al_desti ? 'Sí' : 'No'}
                       </td>
                       <td><BadgeVerificacio estat={r.estat_verificacio} /></td>
                       <td><code style={{ fontSize: '0.78rem' }}>{r.filename || '—'}</code></td>

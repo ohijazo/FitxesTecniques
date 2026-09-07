@@ -97,6 +97,11 @@ def crear_job_distribucio_massiva():
     return jsonify(job.to_dict()), 201
 
 
+# Sostre del producte cartesia: evita que un clic generi desenes de milers
+# d'items contra servidors externs.
+MAX_ITEMS_JOB = 5000
+
+
 def _parells_distribuits():
     """Parells (fitxa_id, desti_id) que la BD dona per distribuits ARA.
 
@@ -121,14 +126,15 @@ def crear_job_verificacio_massiva():
     Body (tot opcional):
       fitxa_ids: llista; per defecte totes les fitxes amb versio activa
       desti_ids: llista; per defecte tots els destins actius
-      nomes_distribuides: bool (default True) - nomes els parells que la BD
-        dona per distribuits. Amb False es comprova el producte cartesia, que
-        tambe troba copies que haurien d'estar retirades.
+      nomes_distribuides: bool (default False) - si es True nomes es miren els
+        parells que la BD dona per distribuits. Per defecte es comprova el
+        producte cartesia, perque nomes aixi es detecten els PDF sobrants
+        (els que hi son en un desti on no hi haurien de ser).
 
     Aquest job NOMES informa: no crea cap Distribucio ni toca l'audit trail.
     """
     data = request.get_json(silent=True) or {}
-    nomes_distribuides = data.get('nomes_distribuides', True)
+    nomes_distribuides = data.get('nomes_distribuides', False)
 
     q_destins = DestiDistribucio.query.filter_by(actiu=True)
     if data.get('desti_ids'):
@@ -161,6 +167,13 @@ def crear_job_verificacio_massiva():
         return jsonify({
             'error': "Cap fitxa consta distribuïda als destins seleccionats. "
                      "Desmarca 'Només on consta distribuïda' per comprovar-los tots."
+        }), 400
+
+    if len(parells) > MAX_ITEMS_JOB:
+        return jsonify({
+            'error': f"Sortirien {len(parells)} comprovacions i el màxim és "
+                     f"{MAX_ITEMS_JOB}. Selecciona menys destins o marca "
+                     f"'Només on consta distribuïda'."
         }), 400
 
     # Solapament: nomes contra altres verificacions en curs. Sense el filtre

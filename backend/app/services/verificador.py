@@ -17,9 +17,10 @@ LOG = logging.getLogger(__name__)
 
 # Vocabulari d'estats de comprovacio (no es barreja amb Distribucio.estat).
 ESTATS = (
-    'ok',              # hi es i el contingut concorda amb la BD
-    'no_trobat',       # el desti es accessible pero el fitxer no hi es
+    'ok',              # tal com ha de ser: hi es i concorda, o no hi es i no hi ha de ser
+    'no_trobat',       # hauria de ser-hi i no hi es
     'desfasat',        # hi es pero la revisio/dates no concorden amb la BD
+    'sobrant',         # hi es i NO hi hauria de ser (retirada que no es va completar)
     'error_acces',     # no s'ha pogut arribar al desti (xarxa, credencials...)
     'error_parseig',   # s'ha descarregat pero no s'ha pogut llegir el PDF
     'no_verificable',  # tipus de desti sense descarrega (sap) o sense versio
@@ -70,6 +71,7 @@ def _resultat(desti, filename, estat, missatge, **extra):
         'bd': extra.pop('bd', None),
         'desti_valors': extra.pop('desti_valors', None),
         'diferencies': extra.pop('diferencies', []),
+        'esperat_al_desti': extra.pop('esperat', None),
         'comprovat_at': datetime.now(timezone.utc).isoformat(),
     }
     base.update(extra)
@@ -87,8 +89,13 @@ def _config_desti(desti, timeout=None):
     return config
 
 
-def verificar_distribucio(fitxa, versio, desti, filename=None, timeout=None):
-    """Comprova si el PDF de `versio` es realment al `desti`.
+def verificar_distribucio(fitxa, versio, desti, filename=None, timeout=None,
+                          esperat=True):
+    """Comprova si l'estat real del desti coincideix amb el que diu la BD.
+
+    La comprovacio es bidireccional: `esperat` diu si la fitxa HI HA DE SER.
+      - esperat=True  -> ha de ser-hi i coincidir  (si no: no_trobat / desfasat)
+      - esperat=False -> NO hi ha de ser           (si hi es: sobrant)
 
     Args:
         fitxa: FitxaTecnica
@@ -96,6 +103,7 @@ def verificar_distribucio(fitxa, versio, desti, filename=None, timeout=None):
         desti: DestiDistribucio
         filename: nom al desti; si es None s'infereix de l'historial (fa consulta)
         timeout: segons de connexio (mode sincron el baixa per no bloquejar HTTP)
+        esperat: si la BD diu que la fitxa hi es ara mateix
 
     Returns:
         dict normalitzat (veure _resultat). Mai llenca excepcio ni escriu a la BD.
@@ -104,11 +112,12 @@ def verificar_distribucio(fitxa, versio, desti, filename=None, timeout=None):
 
     if versio is None:
         return _resultat(desti, filename, 'no_verificable',
-                         "La fitxa no te cap versio activa")
+                         "La fitxa no te cap versio activa", esperat=esperat)
 
     if tipus not in _DESCARREGADORS:
         return _resultat(desti, filename, 'no_verificable',
-                         f"Els destins de tipus '{tipus}' no es poden comprovar")
+                         f"Els destins de tipus '{tipus}' no es poden comprovar",
+                         esperat=esperat)
 
     if filename is None:
         # Import mandros: distribucions.py importa models, i aquest modul
@@ -128,32 +137,63 @@ def verificar_distribucio(fitxa, versio, desti, filename=None, timeout=None):
         except Exception as e:  # cap error de xarxa ha de tombar l'auditoria
             LOG.exception('[Verificacio] Error descarregant %s de %s', filename,
                           getattr(desti, 'nom', ''))
-            return _resultat(desti, filename, 'error_acces', str(e))
+            return _resultat(desti, filename, 'error_acces', str(e),
+                             esperat=esperat)
 
         if not res.get('ok'):
             if res.get('not_found'):
+                if not esperat:
+                    # Correctament absent: es el resultat desitjat, no una incidencia.
+                    return _resultat(desti, filename, 'ok',
+                                     "No hi es, i no hi ha de ser",
+                                     nivell='absencia', esperat=esperat)
                 return _resultat(desti, filename, 'no_trobat',
-                                 f"El fitxer '{filename}' no hi es")
+                                 f"El fitxer '{filename}' no hi es", esperat=esperat)
             return _resultat(desti, filename, 'error_acces',
-                             res.get('error') or "No s'ha pogut accedir al desti")
+                             res.get('error') or "No s'ha pogut accedir al desti",
+                             esperat=esperat)
 
+        # El fitxer HI ES. Si no hi hauria de ser ja tenim el veredicte: es una
+        # copia que va quedar enrere (retirada que no es va completar, o pujada
+        # a un desti que despres es va desmarcar).
         from app.services.pdf_parser import parse_pdf
         try:
             parsed = parse_pdf(tmp_path) or {}
         except Exception as e:
+            if not esperat:
+                # Que no es pugui llegir no canvia el fet que hi es i sobra.
+                LOG.warning('[Verificacio] Sobrant illegible %s: %s', filename, e)
+                return _resultat(desti, filename, 'sobrant',
+                                 f"Hi ha un fitxer '{filename}' que no hi hauria de ser",
+                                 esperat=esperat)
             LOG.warning('[Verificacio] Error parsejant %s: %s', filename, e)
             return _resultat(desti, filename, 'error_parseig',
-                             f"El PDF del desti no s'ha pogut llegir: {e}")
+                             f"El PDF del desti no s'ha pogut llegir: {e}",
+                             esperat=esperat)
     finally:
         try:
             os.unlink(tmp_path)
         except OSError:
             pass
 
-    return _comparar(fitxa, versio, desti, filename, parsed)
+    if not esperat:
+        rev_pdf = (parsed.get('rev') or '').strip()
+        detall = f" (rev. {rev_pdf})" if rev_pdf else ''
+        return _resultat(
+            desti, filename, 'sobrant',
+            f"Hi ha un fitxer '{filename}'{detall} que no hi hauria de ser",
+            bd={'rev': versio.num_versio,
+                'data_revisio': _data_str(versio.data_revisio),
+                'data_comprovacio': _data_str(versio.data_comprovacio)},
+            desti_valors={'rev': rev_pdf,
+                          'data_revisio': parsed.get('data_revisio') or '',
+                          'data_comprovacio': parsed.get('data_comprovacio') or ''},
+            esperat=esperat)
+
+    return _comparar(fitxa, versio, desti, filename, parsed, esperat)
 
 
-def _comparar(fitxa, versio, desti, filename, parsed):
+def _comparar(fitxa, versio, desti, filename, parsed, esperat=True):
     """Compara les metadades del PDF descarregat amb les de la BD."""
     rev_pdf = (parsed.get('rev') or '').strip()
     data_rev_pdf = _parse_pdf_date(parsed.get('data_revisio'))
@@ -177,7 +217,8 @@ def _comparar(fitxa, versio, desti, filename, parsed):
         return _resultat(
             desti, filename, 'ok',
             "El PDF hi es, pero no porta metadades comparables (rev ni dates)",
-            nivell='existencia', bd=bd, desti_valors=desti_valors)
+            nivell='existencia', bd=bd, desti_valors=desti_valors,
+            esperat=esperat)
 
     diferencies = []
     if rev_pdf and rev_pdf != str(versio.num_versio):
@@ -192,7 +233,8 @@ def _comparar(fitxa, versio, desti, filename, parsed):
     if not diferencies:
         return _resultat(desti, filename, 'ok',
                          "El PDF del desti coincideix amb la fitxa",
-                         nivell='contingut', bd=bd, desti_valors=desti_valors)
+                         nivell='contingut', bd=bd, desti_valors=desti_valors,
+                         esperat=esperat)
 
     if 'rev' in diferencies:
         missatge = (f"La revisio del desti ({rev_pdf}) no coincideix amb la de "
@@ -203,4 +245,4 @@ def _comparar(fitxa, versio, desti, filename, parsed):
 
     return _resultat(desti, filename, 'desfasat', missatge,
                      nivell='contingut', bd=bd, desti_valors=desti_valors,
-                     diferencies=diferencies)
+                     diferencies=diferencies, esperat=esperat)

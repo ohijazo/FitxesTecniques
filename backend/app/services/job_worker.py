@@ -282,6 +282,7 @@ def _executar_item_verificacio(item):
     Retorna tupla (estat_final, missatge_error).
     """
     from app.models import FitxaTecnica, VersioFitxa, DestiDistribucio
+    from app.routes.distribucions import _destins_amb_fitxa
     from app.services.verificador import verificar_distribucio
 
     if not item.fitxa_id or not item.desti_id:
@@ -297,7 +298,11 @@ def _executar_item_verificacio(item):
 
     versio_activa = VersioFitxa.query.filter_by(fitxa_id=fitxa.id, activa=True).first()
 
-    res = verificar_distribucio(fitxa, versio_activa, desti)
+    # L'expectativa es calcula ara (no al crear el job): aixi el veredicte
+    # reflecteix l'estat de la BD en el moment de comprovar el desti.
+    esperat = desti.id in _destins_amb_fitxa(fitxa.id)
+
+    res = verificar_distribucio(fitxa, versio_activa, desti, esperat=esperat)
     item.resultat = res
 
     estat_final = 'ok' if res['estat_verificacio'] == 'ok' else 'error'
