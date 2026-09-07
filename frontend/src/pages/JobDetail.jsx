@@ -56,6 +56,8 @@ function JobDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [reprenent, setReprenent] = useState(false);
+  const [confirmantAturar, setConfirmantAturar] = useState(false);
+  const [aturant, setAturant] = useState(false);
   const intervalRef = useRef(null);
 
   const carregar = async (silenciosos = false) => {
@@ -107,6 +109,23 @@ function JobDetail() {
     }
   };
 
+  const aturar = async () => {
+    setConfirmantArxivar(false);
+    setConfirmantAturar(false);
+    setAturant(true);
+    try {
+      const j = await api.cancellarJob(id);
+      setJob(j);
+      toast.success(
+        j.omesos ? `Job aturat (${j.omesos} pendents omesos)` : 'Job aturat');
+      carregar();
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setAturant(false);
+    }
+  };
+
   const [confirmantArxivar, setConfirmantArxivar] = useState(false);
 
   const arxivar = async () => {
@@ -143,6 +162,16 @@ function JobDetail() {
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <EstatBadge estat={job.estat} />
+          {(job.estat === 'creat' || job.estat === 'processant') && (
+            <button
+              className="outline"
+              onClick={() => setConfirmantAturar(true)}
+              disabled={aturant}
+              style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
+            >
+              {aturant ? 'Aturant...' : 'Aturar'}
+            </button>
+          )}
           {job.estat === 'interromput' && (
             <button onClick={reprendre} disabled={reprenent}>
               {reprenent ? 'Reprenent...' : 'Reprendre'}
@@ -293,6 +322,25 @@ function JobDetail() {
           </tbody>
         </table>
       </div>
+
+      <ConfirmDialog
+        obert={confirmantAturar}
+        titol="Aturar el job"
+        textConfirmar="Aturar"
+        ocupat={aturant}
+        onConfirmar={aturar}
+        onCancelar={() => setConfirmantAturar(false)}
+      >
+        <p style={{ margin: '0 0 0.5rem' }}>
+          Les operacions pendents es marcaran com a omeses. El que ja s'ha fet
+          es conserva i seguiràs veient-ho a l'informe.
+        </p>
+        <p style={{ margin: 0 }}>
+          L'operació que s'estigui executant ara mateix acabarà. Després no es
+          podrà reprendre amb el botó <strong>Reprendre</strong>: caldrà llançar-ne
+          una de nova.
+        </p>
+      </ConfirmDialog>
 
       <ConfirmDialog
         obert={confirmantArxivar}

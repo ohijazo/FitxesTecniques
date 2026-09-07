@@ -304,6 +304,38 @@ def reprendre_job(job_id):
     return jsonify(job.to_dict())
 
 
+@jobs_bp.route('/jobs/<int:job_id>/cancellar', methods=['POST'])
+@rol_requerit('admin', 'editor', 'distribuidor')
+def cancellar_job(job_id):
+    """Atura un job en curs.
+
+    Els items pendents passen a 'omes'; els que ja s'han fet es conserven, aixi
+    l'informe segueix mostrant el que s'havia comprovat o distribuit fins ara.
+    Reiniciar el servei no atura un job: el worker agafa items 'pendent' sense
+    mirar l'estat del job. Per aixo cal marcar-los aqui.
+
+    L'item que s'estigui processant en aquest moment acabara (ja esta enmig
+    d'una operacio de xarxa); nomes n'hi pot haver un per worker.
+    """
+    job = db.get_or_404(JobBulk, job_id)
+    if job.estat not in ('creat', 'processant'):
+        return jsonify({'error': f"Aquest job no esta en curs (estat: {job.estat})"}), 400
+
+    omesos = JobItem.query.filter(
+        JobItem.job_id == job_id,
+        JobItem.estat == 'pendent',
+    ).update({'estat': 'omes', 'missatge_error': 'Aturat manualment',
+              'locked_at': None}, synchronize_session=False)
+
+    job.estat = 'interromput'
+    job.items_pendents = JobItem.query.filter(
+        JobItem.job_id == job_id, JobItem.estat == 'processant').count()
+    job.finished_at = datetime.now(timezone.utc)
+    db.session.commit()
+
+    return jsonify({**job.to_dict(), 'omesos': omesos})
+
+
 @jobs_bp.route('/jobs/<int:job_id>/arxivar', methods=['POST'])
 @rol_requerit('admin', 'editor', 'distribuidor')
 def arxivar_job(job_id):
