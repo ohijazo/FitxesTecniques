@@ -19,7 +19,7 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import text
+from sqlalchemy import func, text
 
 LOG = logging.getLogger('job_worker')
 
@@ -200,14 +200,19 @@ def _processar_seguent_item(app):
 
         job = JobBulk.query.get(item.job_id)
         if job:
-            if estat_final == 'ok':
-                job.items_ok = (job.items_ok or 0) + 1
-            elif estat_final == 'error':
-                job.items_error = (job.items_error or 0) + 1
-            pendents_count = JobItem.query.filter(
-                JobItem.job_id == job.id,
-                JobItem.estat.in_(('pendent', 'processant')),
-            ).count()
+            # Els comptadors es RECALCULEN des dels items, no s'incrementen.
+            # Hi ha un fil de worker per proces de Gunicorn, i dos increments
+            # simultanis del tipus items_ok = items_ok + 1 es trepitgen: el job
+            # acabava mostrant menys feina feta de la real (una barra de
+            # progres encallada al 71% amb tots els items ja processats).
+            comptes = dict(
+                session.query(JobItem.estat, func.count(JobItem.id))
+                .filter(JobItem.job_id == job.id)
+                .group_by(JobItem.estat).all()
+            )
+            job.items_ok = comptes.get('ok', 0)
+            job.items_error = comptes.get('error', 0)
+            pendents_count = comptes.get('pendent', 0) + comptes.get('processant', 0)
             job.items_pendents = pendents_count
             # Si era l'últim item, marca el job com acabat
             if pendents_count == 0 and job.estat == 'processant':
