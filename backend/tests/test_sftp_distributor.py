@@ -11,6 +11,7 @@ from unittest.mock import patch
 import paramiko
 import pytest
 
+from app.services import sftp_distributor
 from app.services.sftp_distributor import (
     RETRY_ATTEMPTS,
     descarregar_sftp,
@@ -18,6 +19,19 @@ from app.services.sftp_distributor import (
     eliminar_sftp,
     _is_transient,
 )
+
+
+@pytest.fixture(autouse=True)
+def sessio_neta():
+    """Buida la sessio SFTP reaprofitada abans i despres de cada test.
+
+    Sense aixo, el client simulat d'un test es reutilitzaria al seguent: la
+    sessio es considera viva perque get_transport().is_active() d'un MagicMock
+    sempre es cert.
+    """
+    sftp_distributor._sessions.clear()
+    yield
+    sftp_distributor._sessions.clear()
 
 
 def _sftp_de(fake_client):
@@ -50,7 +64,12 @@ def test_config_incompleta_no_connecta(config_sftp, pdf_temporal, camp):
 
 # --- Pujada correcta --------------------------------------------------------
 
-def test_puja_ok_i_tanca_connexio(config_sftp, pdf_temporal):
+def test_puja_ok_i_mante_la_sessio_oberta(config_sftp, pdf_temporal):
+    """La sessio NO es tanca despres de cada operacio: es reaprofita.
+
+    Obrir una connexio per fitxa fa que els servidors amb proteccio
+    anti-forca-bruta ens bloquegin a partir de la cinquena.
+    """
     with patch('paramiko.SSHClient') as fake:
         sftp = _sftp_de(fake)
         res = distribuir_sftp(pdf_temporal, '60360', config_sftp)
@@ -58,9 +77,39 @@ def test_puja_ok_i_tanca_connexio(config_sftp, pdf_temporal):
     assert res['ok'] is True
     sftp.put.assert_called_once_with(pdf_temporal, '60360.pdf')
     sftp.chdir.assert_called_once_with('/fitxestecniques')
-    # La connexio SSH s'ha de tancar sempre: si no, el worker acumula sessions
-    sftp.close.assert_called_once()
-    fake.return_value.close.assert_called_once()
+    fake.return_value.close.assert_not_called()
+
+
+def test_operacions_seguides_no_reconnecten(config_sftp, pdf_temporal, tmp_path):
+    """Tres operacions al mateix desti han de fer servir UNA sola connexio."""
+    with patch('paramiko.SSHClient') as fake:
+        _sftp_de(fake)
+        distribuir_sftp(pdf_temporal, '60360', config_sftp)
+        descarregar_sftp('60360.pdf', config_sftp, str(tmp_path / 'a.pdf'))
+        descarregar_sftp('60361.pdf', config_sftp, str(tmp_path / 'b.pdf'))
+
+    assert fake.return_value.connect.call_count == 1
+
+
+def test_sessio_morta_es_reconnecta(config_sftp, tmp_path):
+    """Si el servidor ha tancat la connexio pel seu compte, se n'obre una de nova."""
+    with patch('paramiko.SSHClient') as fake:
+        _sftp_de(fake)
+        descarregar_sftp('60360.pdf', config_sftp, str(tmp_path / 'a.pdf'))
+        fake.return_value.get_transport.return_value.is_active.return_value = False
+        descarregar_sftp('60361.pdf', config_sftp, str(tmp_path / 'b.pdf'))
+
+    assert fake.return_value.connect.call_count == 2
+
+
+def test_destins_diferents_no_comparteixen_sessio(config_sftp, tmp_path):
+    altre = dict(config_sftp, host='altre.exemple.local')
+    with patch('paramiko.SSHClient') as fake:
+        _sftp_de(fake)
+        descarregar_sftp('60360.pdf', config_sftp, str(tmp_path / 'a.pdf'))
+        descarregar_sftp('60360.pdf', altre, str(tmp_path / 'b.pdf'))
+
+    assert fake.return_value.connect.call_count == 2
 
 
 def test_filename_explicit_te_prioritat_sobre_art_codi(config_sftp, pdf_temporal):

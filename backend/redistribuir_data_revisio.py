@@ -63,6 +63,7 @@ from app.models import (FitxaTecnica, VersioFitxa, DestiDistribucio, Distribucio
                         JobItem)
 from app.routes.distribucions import _destins_amb_fitxa, _executar_distribucio
 from app.services.verificador import verificar_distribucio
+from app.services.sftp_distributor import tancar_sessions
 
 UPLOAD_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), 'uploads'))
 
@@ -373,6 +374,10 @@ def main():
 
         if not args.apply:
             print('\nDRY-RUN. Per aplicar-ho de debo, afegeix --apply')
+
+        # Les sessions SFTP es reaprofiten entre operacions:
+        # cal tancar-les explicitament en acabar l'script.
+        tancar_sessions()
 
 
 if __name__ == '__main__':

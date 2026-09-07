@@ -1,6 +1,7 @@
 """Servei per distribuir PDFs via SFTP (SSH File Transfer Protocol)."""
 
 import logging
+import threading
 import os
 import socket
 import time
@@ -82,6 +83,72 @@ def _connectar_sftp(config):
     return client, sftp
 
 
+# Sessions SFTP reaprofitades, una per desti i per proces.
+#
+# Obrir una connexio per fitxa fa que els servidors amb proteccio
+# anti-forca-bruta ens bloquegin: n'accepten unes quantes seguides i despres
+# descarten els paquets en silenci, cosa que es veu com un timeout. Amb una
+# auditoria de centenars de fitxes aixo vol dir que gairebe totes fallen.
+#
+# El lock serialitza l'us: un SFTPClient no es pot fer servir des de dos fils
+# alhora, i aqui hi arriben tant el worker de jobs com les peticions HTTP.
+_sessions = {}
+_sessions_lock = threading.RLock()
+SESSIO_MAX_INACTIVITAT = 300  # segons sense us abans de reconnectar
+
+
+def _clau_sessio(config):
+    return (config.get('host', ''), int(config.get('port', 22) or 22),
+            config.get('user', ''), config.get('path', ''))
+
+
+def _sessio_viva(entrada):
+    try:
+        transport = entrada['client'].get_transport()
+        return transport is not None and transport.is_active()
+    except Exception:
+        return False
+
+
+def _tancar_sessio(clau):
+    """Tanca i oblida la sessio d'aquest desti (si n'hi ha)."""
+    entrada = _sessions.pop(clau, None)
+    if not entrada:
+        return
+    try:
+        entrada['sftp'].close()
+    except Exception:
+        pass
+    try:
+        entrada['client'].close()
+    except Exception:
+        pass
+
+
+def _obtenir_sessio(config):
+    """Sessio SFTP d'aquest desti, reconnectant nomes si cal."""
+    clau = _clau_sessio(config)
+    entrada = _sessions.get(clau)
+    if entrada:
+        prou_recent = time.time() - entrada['ultim_us'] < SESSIO_MAX_INACTIVITAT
+        if prou_recent and _sessio_viva(entrada):
+            entrada['ultim_us'] = time.time()
+            return entrada['sftp']
+        _tancar_sessio(clau)
+
+    client, sftp = _connectar_sftp(config)
+    _sessions[clau] = {'client': client, 'sftp': sftp, 'ultim_us': time.time()}
+    LOG.info('[SFTP] Sessio oberta amb %s@%s', config.get('user'), config.get('host'))
+    return sftp
+
+
+def tancar_sessions():
+    """Tanca totes les sessions obertes (per scripts que acaben)."""
+    with _sessions_lock:
+        for clau in list(_sessions):
+            _tancar_sessio(clau)
+
+
 def distribuir_sftp(pdf_path, art_codi, config, filename=None):
     """Puja un PDF al servidor SFTP.
 
@@ -109,14 +176,14 @@ def distribuir_sftp(pdf_path, art_codi, config, filename=None):
     LOG.info('[SFTP] Pujant %s a %s:%s%s', filename, host, port, config.get('path', '') or '/')
 
     def _intent():
-        client, sftp = _connectar_sftp(config)
-        try:
-            sftp.put(pdf_path, filename)
-        finally:
+        with _sessions_lock:
             try:
-                sftp.close()
-            finally:
-                client.close()
+                _obtenir_sessio(config).put(pdf_path, filename)
+            except Exception:
+                # La sessio pot haver quedat inservible: tancar-la perque el
+                # reintent en obri una de nova.
+                _tancar_sessio(_clau_sessio(config))
+                raise
 
     last_exc = None
     for i in range(RETRY_ATTEMPTS):
@@ -154,28 +221,25 @@ def descarregar_sftp(filename, config, dest_path):
     if not host or not user:
         return {'ok': False, 'error': "Configuracio SFTP incompleta", 'not_found': False}
 
-    try:
-        client, sftp = _connectar_sftp(config)
+    with _sessions_lock:
         try:
-            sftp.get(filename, dest_path)
-        finally:
-            try:
-                sftp.close()
-            finally:
-                client.close()
-        return {'ok': True, 'error': None, 'not_found': False}
+            _obtenir_sessio(config).get(filename, dest_path)
+            return {'ok': True, 'error': None, 'not_found': False}
 
-    except FileNotFoundError as e:
-        return {'ok': False, 'error': str(e), 'not_found': True}
-    except IOError as e:
-        # paramiko llenca IOError amb errno ENOENT quan el fitxer no existeix
-        if getattr(e, 'errno', None) == 2 or 'No such file' in str(e):
+        except FileNotFoundError as e:
+            # El fitxer no hi es: es un resultat normal, la sessio segueix bona.
             return {'ok': False, 'error': str(e), 'not_found': True}
-        LOG.exception('[SFTP] Error IO descarregant %s', filename)
-        return {'ok': False, 'error': str(e), 'not_found': False}
-    except Exception as e:
-        LOG.exception('[SFTP] Error inesperat descarregant %s a %s', filename, host)
-        return {'ok': False, 'error': str(e), 'not_found': False}
+        except IOError as e:
+            # paramiko llenca IOError amb errno ENOENT quan el fitxer no existeix
+            if getattr(e, 'errno', None) == 2 or 'No such file' in str(e):
+                return {'ok': False, 'error': str(e), 'not_found': True}
+            _tancar_sessio(_clau_sessio(config))
+            LOG.exception('[SFTP] Error IO descarregant %s', filename)
+            return {'ok': False, 'error': str(e), 'not_found': False}
+        except Exception as e:
+            _tancar_sessio(_clau_sessio(config))
+            LOG.exception('[SFTP] Error inesperat descarregant %s a %s', filename, host)
+            return {'ok': False, 'error': str(e), 'not_found': False}
 
 
 def eliminar_sftp(art_codi, config, filename=None):
@@ -193,24 +257,19 @@ def eliminar_sftp(art_codi, config, filename=None):
         filename = f'{art_codi}.pdf'
     LOG.info('[SFTP] Eliminant %s a %s', filename, host)
 
-    try:
-        client, sftp = _connectar_sftp(config)
+    with _sessions_lock:
         try:
             try:
-                sftp.remove(filename)
+                _obtenir_sessio(config).remove(filename)
             except IOError as e:
                 if getattr(e, 'errno', None) == 2 or 'No such file' in str(e):
                     LOG.info('[SFTP] %s no existia, considerat OK', filename)
                     return {'ok': True, 'error': None}
                 raise
-        finally:
-            try:
-                sftp.close()
-            finally:
-                client.close()
-        LOG.info('[SFTP] Eliminat OK %s', filename)
-        return {'ok': True, 'error': None}
+            LOG.info('[SFTP] Eliminat OK %s', filename)
+            return {'ok': True, 'error': None}
 
-    except Exception as e:
-        LOG.exception('[SFTP] Error inesperat eliminant %s a %s', filename, host)
-        return {'ok': False, 'error': str(e)}
+        except Exception as e:
+            _tancar_sessio(_clau_sessio(config))
+            LOG.exception('[SFTP] Error inesperat eliminant %s a %s', filename, host)
+            return {'ok': False, 'error': str(e)}
