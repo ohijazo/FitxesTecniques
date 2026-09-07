@@ -59,23 +59,13 @@ def distribuir_ftp(pdf_path, art_codi, config, filename=None):
     LOG.info('[FTP] Pujant %s a %s:%s%s (tls=%s)', filename, host, port, ftp_path or '/', use_tls)
 
     def _intent():
-        if use_tls:
-            ftp = ftplib.FTP_TLS()
-            ftp.connect(host, port, timeout=30)
-            ftp.login(user, password)
-            ftp.prot_p()
-        else:
-            ftp = ftplib.FTP()
-            ftp.connect(host, port, timeout=30)
-            ftp.login(user, password)
-
-        if ftp_path and ftp_path != '/':
-            ftp.cwd(ftp_path)
-
-        with open(pdf_path, 'rb') as f:
-            ftp.storbinary(f'STOR {filename}', f)
-
-        ftp.quit()
+        ftp = None
+        try:
+            ftp = _connectar_ftp(config)
+            with open(pdf_path, 'rb') as f:
+                ftp.storbinary(f'STOR {filename}', f)
+        finally:
+            _tancar_ftp(ftp)
 
     last_exc = None
     for i in range(RETRY_ATTEMPTS):
@@ -99,6 +89,25 @@ def distribuir_ftp(pdf_path, art_codi, config, filename=None):
             return {'ok': False, 'error': str(e)}
 
     return {'ok': False, 'error': str(last_exc) if last_exc else 'Error desconegut'}
+
+
+def _tancar_ftp(ftp):
+    """Tanca la connexio sense propagar errors.
+
+    Es imprescindible fer-ho SEMPRE, tambe quan l'operacio ha fallat: un socket
+    que queda obert consumeix una de les connexions que el servidor permet per
+    IP. En una auditoria de centenars de fitxes, unes quantes fuites esgoten el
+    limit i a partir d'aquell punt tot son timeouts.
+    """
+    if ftp is None:
+        return
+    try:
+        ftp.quit()
+    except Exception:
+        try:
+            ftp.close()
+        except Exception:
+            pass
 
 
 def _connectar_ftp(config):
@@ -147,11 +156,11 @@ def descarregar_ftp(filename, config, dest_path):
     if not host or not user:
         return {'ok': False, 'error': "Configuracio FTP incompleta", 'not_found': False}
 
+    ftp = None
     try:
         ftp = _connectar_ftp(config)
         with open(dest_path, 'wb') as f:
             ftp.retrbinary(f'RETR {filename}', f.write)
-        ftp.quit()
         return {'ok': True, 'error': None, 'not_found': False}
 
     except ftplib.error_perm as e:
@@ -163,6 +172,8 @@ def descarregar_ftp(filename, config, dest_path):
     except Exception as e:
         LOG.exception('[FTP] Error inesperat descarregant %s a %s', filename, host)
         return {'ok': False, 'error': str(e), 'not_found': False}
+    finally:
+        _tancar_ftp(ftp)
 
 
 def eliminar_ftp(art_codi, config, filename=None):
@@ -185,10 +196,10 @@ def eliminar_ftp(art_codi, config, filename=None):
         filename = f'{art_codi}.pdf'
     LOG.info('[FTP] Eliminant %s a %s', filename, host)
 
+    ftp = None
     try:
         ftp = _connectar_ftp(config)
         ftp.delete(filename)
-        ftp.quit()
         LOG.info('[FTP] Eliminat OK %s', filename)
         return {'ok': True, 'error': None}
 
@@ -203,3 +214,5 @@ def eliminar_ftp(art_codi, config, filename=None):
     except Exception as e:
         LOG.exception('[FTP] Error inesperat eliminant %s a %s', filename, host)
         return {'ok': False, 'error': str(e)}
+    finally:
+        _tancar_ftp(ftp)

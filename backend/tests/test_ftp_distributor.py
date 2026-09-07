@@ -10,6 +10,7 @@ Cobreixen la logica delicada del modul:
 """
 
 import ftplib
+import socket
 from unittest.mock import patch, MagicMock
 
 import pytest
@@ -199,3 +200,66 @@ def test_descarregar_error_permis_no_es_not_found(config_ftp, tmp_path):
 
     assert res['ok'] is False
     assert res['not_found'] is False
+
+
+# --- La connexio s'ha de tancar SEMPRE --------------------------------------
+# Cada socket que queda obert ocupa una de les connexions que el servidor
+# permet per IP. En una auditoria de centenars de fitxes, unes quantes fuites
+# esgoten el limit i a partir d'aquell punt tot son timeouts.
+
+def _tancada(fake):
+    """True si s'ha cridat quit() o close() sobre la connexio."""
+    conn = fake.return_value
+    return conn.quit.called or conn.close.called
+
+
+def test_descarrega_correcta_tanca(config_ftp, tmp_path):
+    with patch('ftplib.FTP_TLS') as fake:
+        descarregar_ftp('60360.pdf', config_ftp, str(tmp_path / 'x.pdf'))
+
+    assert _tancada(fake)
+
+
+def test_descarrega_de_fitxer_inexistent_tanca(config_ftp, tmp_path):
+    with patch('ftplib.FTP_TLS') as fake:
+        fake.return_value.retrbinary.side_effect = ftplib.error_perm('550 Not found')
+        descarregar_ftp('99999.pdf', config_ftp, str(tmp_path / 'x.pdf'))
+
+    assert _tancada(fake)
+
+
+def test_descarrega_amb_timeout_tanca(config_ftp, tmp_path):
+    """El cas real: 117 timeouts seguits perque cada fallada deixava un socket obert."""
+    with patch('ftplib.FTP_TLS') as fake:
+        fake.return_value.retrbinary.side_effect = socket.timeout('timed out')
+        res = descarregar_ftp('60360.pdf', config_ftp, str(tmp_path / 'x.pdf'))
+
+    assert res['ok'] is False
+    assert res['not_found'] is False
+    assert _tancada(fake)
+
+
+def test_quit_que_falla_no_propaga(config_ftp, tmp_path):
+    """Si el QUIT peta, s'ha de tancar el socket igualment i no llencar."""
+    with patch('ftplib.FTP_TLS') as fake:
+        fake.return_value.quit.side_effect = OSError('connexio ja morta')
+        res = descarregar_ftp('60360.pdf', config_ftp, str(tmp_path / 'x.pdf'))
+
+    assert res['ok'] is True
+    fake.return_value.close.assert_called()
+
+
+def test_pujada_fallida_tanca(config_ftp, pdf_temporal):
+    with patch('ftplib.FTP_TLS') as fake:
+        fake.return_value.storbinary.side_effect = ftplib.error_perm('553 Denied')
+        distribuir_ftp(pdf_temporal, '60360', config_ftp)
+
+    assert _tancada(fake)
+
+
+def test_eliminacio_fallida_tanca(config_ftp):
+    with patch('ftplib.FTP_TLS') as fake:
+        fake.return_value.delete.side_effect = ftplib.error_perm('553 Denied')
+        eliminar_ftp('60360', config_ftp)
+
+    assert _tancada(fake)
