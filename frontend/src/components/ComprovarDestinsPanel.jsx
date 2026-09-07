@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api } from '../api/client';
 import { useToast } from './Toast';
 import BadgeVerificacio from './BadgeVerificacio';
+import EnllacDesti from './EnllacDesti';
 
 /** "5 → 4" quan difereixen; "5" quan coincideixen. */
 function Comparacio({ bd, desti, diferent }) {
@@ -63,7 +64,9 @@ function ComprovarDestinsPanel({ fitxaId, onClose }) {
       <p style={{ fontSize: '0.88rem', color: 'var(--gray-500)', marginBottom: '1rem' }}>
         Es comprova cada destí en les dues direccions: on la fitxa consta
         distribuïda, que hi sigui i coincideixi; on no hi consta, que no hi
-        sigui. Només informa: no modifica ni la fitxa ni els fitxers dels destins.
+        sigui. Cada resultat porta l'enllaç al fitxer del destí, per si el vols
+        obrir i revisar. Només informa: no modifica ni la fitxa ni els fitxers
+        dels destins.
       </p>
 
       <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
@@ -101,7 +104,7 @@ function ComprovarDestinsPanel({ fitxaId, onClose }) {
                   <th>Destí</th>
                   <th>Hi ha de ser</th>
                   <th>Comprovació</th>
-                  <th>Fitxer</th>
+                  <th>Fitxer al destí</th>
                   <th>Rev.</th>
                   <th>Data revisió</th>
                   <th>Detall</th>
@@ -117,7 +120,7 @@ function ComprovarDestinsPanel({ fitxaId, onClose }) {
                         {r.esperat_al_desti ? 'Sí' : 'No'}
                       </td>
                       <td><BadgeVerificacio estat={r.estat_verificacio} /></td>
-                      <td><code style={{ fontSize: '0.78rem' }}>{r.filename || '—'}</code></td>
+                      <td><EnllacDesti enllac={r.enllac} filename={r.filename} /></td>
                       <td>
                         <Comparacio
                           bd={r.bd?.rev}

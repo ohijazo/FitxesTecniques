@@ -47,11 +47,17 @@ def _filename_de_referencia(ref):
     return candidate if candidate.lower().endswith('.pdf') else None
 
 
-def _nom_fitxer_al_desti(fitxa, versio, desti):
-    """Nom real del fitxer en aquest desti.
+def _referencia_al_desti(fitxa, versio, desti):
+    """(nom_fitxer, enllac) del fitxer d'aquesta fitxa en aquest desti.
 
-    L'infereix de l'ultima distribucio 'ok' (que es la que sap amb quin nom es
-    va pujar realment) i, si no n'hi ha cap, aplica el patro configurat.
+    Tots dos surten de l'ultima distribucio 'ok', que es la que sap amb quin
+    nom i a quina URL es va pujar realment. Si no n'hi ha cap, el nom s'obte
+    del patro configurat i l'enllac queda a None (el calcula el verificador a
+    partir de la configuracio del desti).
+
+    Nota: es busca l'ultima 'ok' encara que despres s'hagi retirat, perque
+    justament aleshores l'enllac serveix per anar a mirar si el PDF hi ha
+    quedat (un 'sobrant').
     """
     dist_ok = Distribucio.query.join(VersioFitxa).filter(
         VersioFitxa.fitxa_id == fitxa.id,
@@ -59,8 +65,58 @@ def _nom_fitxer_al_desti(fitxa, versio, desti):
         Distribucio.estat == 'ok',
     ).order_by(Distribucio.executat_at.desc()).first()
 
-    nom = _filename_de_referencia(dist_ok.missatge_error) if dist_ok else None
-    return nom or _generar_nom_fitxer(desti.patro_nom_fitxer, fitxa, versio)
+    ref = dist_ok.missatge_error if dist_ok else None
+    nom = _filename_de_referencia(ref)
+    if nom:
+        return nom, ref
+    return _generar_nom_fitxer(desti.patro_nom_fitxer, fitxa, versio), None
+
+
+def _nom_fitxer_al_desti(fitxa, versio, desti):
+    """Nom real del fitxer en aquest desti (veure _referencia_al_desti)."""
+    return _referencia_al_desti(fitxa, versio, desti)[0]
+
+
+def _assegurar_pdf(fitxa, versio):
+    """Ruta local del PDF de la versio; el genera si encara no existeix.
+
+    La data de revisio impresa ha de ser `data_revisio`, no `created_at`:
+    created_at es quan es va crear la fila a la BD (per exemple durant una
+    carrega massiva) i no te res a veure amb la revisio del document. Fins ara
+    la distribucio hi posava created_at mentre que la descarrega des de l'app
+    hi posava data_revisio, de manera que el PDF del desti mostrava una data
+    diferent de la de la fitxa. Aquest es el mateix criteri que /fitxes/<id>/pdf.
+    """
+    pdf_path = versio.fitxer_pdf
+    if pdf_path and os.path.exists(pdf_path):
+        return pdf_path
+
+    from app.services.pdf_generator import generar_pdf
+
+    contingut = versio.contingut or {}
+    if 'codi_referencia' not in contingut:
+        contingut['codi_referencia'] = fitxa.art_codi
+    if 'denominacio_comercial' not in contingut:
+        contingut['denominacio_comercial'] = fitxa.nom_producte
+
+    data_rev = ''
+    if versio.data_revisio:
+        data_rev = versio.data_revisio.strftime('%d/%m/%Y')
+    elif versio.created_at:
+        data_rev = versio.created_at.strftime('%d/%m/%Y')
+    data_comp = (versio.data_comprovacio.strftime('%d/%m/%Y')
+                 if versio.data_comprovacio else data_rev)
+
+    pdf_bytes = generar_pdf(contingut, versio.num_versio, data_rev, data_comp)
+
+    upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..',
+                              'uploads', fitxa.art_codi, f'v{versio.num_versio}')
+    os.makedirs(upload_dir, exist_ok=True)
+    pdf_path = os.path.join(upload_dir, f'{fitxa.art_codi}.pdf')
+    with open(pdf_path, 'wb') as f:
+        f.write(pdf_bytes)
+    versio.fitxer_pdf = pdf_path
+    return pdf_path
 
 
 def _executar_distribucio(dist, fitxa, versio, desti, executat_by=None):
@@ -81,29 +137,7 @@ def _executar_distribucio(dist, fitxa, versio, desti, executat_by=None):
     if desti.tipus == 'ftp':
         from app.services.ftp_distributor import distribuir_ftp
 
-        # Buscar el PDF: primer el generat, si no el descarregat
-        pdf_path = versio.fitxer_pdf
-        if not pdf_path or not os.path.exists(pdf_path):
-            # Generar PDF des del contingut
-            from app.services.pdf_generator import generar_pdf
-            contingut = versio.contingut or {}
-            if 'codi_referencia' not in contingut:
-                contingut['codi_referencia'] = fitxa.art_codi
-            if 'denominacio_comercial' not in contingut:
-                contingut['denominacio_comercial'] = fitxa.nom_producte
-            data_rev = versio.created_at.strftime('%d/%m/%Y') if versio.created_at else ''
-            data_comp = versio.data_comprovacio.strftime('%d/%m/%Y') if versio.data_comprovacio else data_rev
-
-            pdf_bytes = generar_pdf(contingut, versio.num_versio, data_rev, data_comp)
-
-            # Guardar temporalment
-            upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'uploads',
-                                       fitxa.art_codi, f'v{versio.num_versio}')
-            os.makedirs(upload_dir, exist_ok=True)
-            pdf_path = os.path.join(upload_dir, f'{fitxa.art_codi}.pdf')
-            with open(pdf_path, 'wb') as f:
-                f.write(pdf_bytes)
-            versio.fitxer_pdf = pdf_path
+        pdf_path = _assegurar_pdf(fitxa, versio)
 
         config = desti.configuracio or {}
         filename = _generar_nom_fitxer(desti.patro_nom_fitxer, fitxa, versio)
@@ -119,26 +153,7 @@ def _executar_distribucio(dist, fitxa, versio, desti, executat_by=None):
     elif desti.tipus == 'sftp':
         from app.services.sftp_distributor import distribuir_sftp
 
-        pdf_path = versio.fitxer_pdf
-        if not pdf_path or not os.path.exists(pdf_path):
-            from app.services.pdf_generator import generar_pdf
-            contingut = versio.contingut or {}
-            if 'codi_referencia' not in contingut:
-                contingut['codi_referencia'] = fitxa.art_codi
-            if 'denominacio_comercial' not in contingut:
-                contingut['denominacio_comercial'] = fitxa.nom_producte
-            data_rev = versio.created_at.strftime('%d/%m/%Y') if versio.created_at else ''
-            data_comp = versio.data_comprovacio.strftime('%d/%m/%Y') if versio.data_comprovacio else data_rev
-
-            pdf_bytes = generar_pdf(contingut, versio.num_versio, data_rev, data_comp)
-
-            upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'uploads',
-                                       fitxa.art_codi, f'v{versio.num_versio}')
-            os.makedirs(upload_dir, exist_ok=True)
-            pdf_path = os.path.join(upload_dir, f'{fitxa.art_codi}.pdf')
-            with open(pdf_path, 'wb') as f:
-                f.write(pdf_bytes)
-            versio.fitxer_pdf = pdf_path
+        pdf_path = _assegurar_pdf(fitxa, versio)
 
         config = desti.configuracio or {}
         filename = _generar_nom_fitxer(desti.patro_nom_fitxer, fitxa, versio)
@@ -154,26 +169,7 @@ def _executar_distribucio(dist, fitxa, versio, desti, executat_by=None):
     elif desti.tipus == 'xarxa':
         from app.services.smb_distributor import distribuir_xarxa
 
-        pdf_path = versio.fitxer_pdf
-        if not pdf_path or not os.path.exists(pdf_path):
-            from app.services.pdf_generator import generar_pdf
-            contingut = versio.contingut or {}
-            if 'codi_referencia' not in contingut:
-                contingut['codi_referencia'] = fitxa.art_codi
-            if 'denominacio_comercial' not in contingut:
-                contingut['denominacio_comercial'] = fitxa.nom_producte
-            data_rev = versio.created_at.strftime('%d/%m/%Y') if versio.created_at else ''
-            data_comp = versio.data_comprovacio.strftime('%d/%m/%Y') if versio.data_comprovacio else data_rev
-
-            pdf_bytes = generar_pdf(contingut, versio.num_versio, data_rev, data_comp)
-
-            upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'uploads',
-                                       fitxa.art_codi, f'v{versio.num_versio}')
-            os.makedirs(upload_dir, exist_ok=True)
-            pdf_path = os.path.join(upload_dir, f'{fitxa.art_codi}.pdf')
-            with open(pdf_path, 'wb') as f:
-                f.write(pdf_bytes)
-            versio.fitxer_pdf = pdf_path
+        pdf_path = _assegurar_pdf(fitxa, versio)
 
         config = desti.configuracio or {}
         filename = _generar_nom_fitxer(desti.patro_nom_fitxer, fitxa, versio)
@@ -189,26 +185,7 @@ def _executar_distribucio(dist, fitxa, versio, desti, executat_by=None):
     elif desti.tipus == 'sharepoint':
         from app.services.sharepoint_distributor import distribuir_sharepoint
 
-        pdf_path = versio.fitxer_pdf
-        if not pdf_path or not os.path.exists(pdf_path):
-            from app.services.pdf_generator import generar_pdf
-            contingut = versio.contingut or {}
-            if 'codi_referencia' not in contingut:
-                contingut['codi_referencia'] = fitxa.art_codi
-            if 'denominacio_comercial' not in contingut:
-                contingut['denominacio_comercial'] = fitxa.nom_producte
-            data_rev = versio.created_at.strftime('%d/%m/%Y') if versio.created_at else ''
-            data_comp = versio.data_comprovacio.strftime('%d/%m/%Y') if versio.data_comprovacio else data_rev
-
-            pdf_bytes = generar_pdf(contingut, versio.num_versio, data_rev, data_comp)
-
-            upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'uploads',
-                                       fitxa.art_codi, f'v{versio.num_versio}')
-            os.makedirs(upload_dir, exist_ok=True)
-            pdf_path = os.path.join(upload_dir, f'{fitxa.art_codi}.pdf')
-            with open(pdf_path, 'wb') as f:
-                f.write(pdf_bytes)
-            versio.fitxer_pdf = pdf_path
+        pdf_path = _assegurar_pdf(fitxa, versio)
 
         config = desti.configuracio or {}
         filename = _generar_nom_fitxer(desti.patro_nom_fitxer, fitxa, versio)

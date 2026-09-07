@@ -4,6 +4,7 @@ import { api } from '../api/client';
 import { useToast } from '../components/Toast';
 import ConfirmDialog from '../components/ConfirmDialog';
 import BadgeVerificacio from '../components/BadgeVerificacio';
+import EnllacDesti from '../components/EnllacDesti';
 import { ESTATS_VERIFICACIO, ETIQUETES_VERIFICACIO } from '../components/verificacioEstats';
 
 const ESTATS_TERMINALS = new Set(['acabat', 'interromput', 'error']);
@@ -251,7 +252,17 @@ function JobDetail() {
                     <div style={{ fontSize: '0.78rem', color: 'var(--gray-500)' }}>{it.fitxa_nom}</div>
                   )}
                 </td>
-                <td>{it.desti_nom || '-'}</td>
+                <td>
+                  {it.desti_nom || '-'}
+                  {esVerificacio && it.resultat?.filename && (
+                    <div style={{ fontSize: '0.75rem', marginTop: '0.15rem' }}>
+                      <EnllacDesti
+                        enllac={it.resultat.enllac}
+                        filename={it.resultat.filename}
+                      />
+                    </div>
+                  )}
+                </td>
                 <td><ItemEstatBadge estat={it.estat} /></td>
                 {esVerificacio && (
                   <td style={{ fontSize: '0.82rem', color: 'var(--gray-600)' }}>

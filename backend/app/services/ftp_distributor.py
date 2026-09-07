@@ -14,6 +14,10 @@ LOG = logging.getLogger(__name__)
 RETRY_ATTEMPTS = 3
 RETRY_DELAYS = (1, 4)  # segons entre intent 1->2 i 2->3
 
+# URL publica per defecte quan el desti no en te cap de configurada.
+# Millor configurar 'url_publica' a Admin > Destins que dependre d'aquest valor.
+URL_PUBLICA_DEFECTE = 'https://farineracoromina.com/fitxestecniques/'
+
 
 def _is_transient(exc):
     """Errors transitoris: timeout, connexió perduda, errors temporals FTP (4xx)."""
@@ -77,7 +81,7 @@ def distribuir_ftp(pdf_path, art_codi, config, filename=None):
     for i in range(RETRY_ATTEMPTS):
         try:
             _intent()
-            url_base = config.get('url_publica', 'https://farineracoromina.com/fitxestecniques/')
+            url_base = config.get('url_publica') or URL_PUBLICA_DEFECTE
             url = f'{url_base.rstrip("/")}/{filename}'
             LOG.info('[FTP] Pujat OK %s%s', filename, f' (intent {i+1})' if i > 0 else '')
             return {'ok': True, 'error': None, 'url': url}

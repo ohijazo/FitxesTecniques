@@ -182,6 +182,12 @@ const SECTIONS = [
           <li><span className="badge no_verificable">No comprovable</span> — destins com SAP, que no permeten descarregar</li>
         </ul>
         <p>
+          Cada resultat porta l'<strong>enllaç al fitxer del destí</strong>, per si el vols
+          obrir i mirar-ne el contingut tu mateix. Els destins web (FTP, SharePoint) s'obren
+          en una pestanya nova; els de carpeta de xarxa mostren la ruta amb un botó per
+          copiar-la i enganxar-la a l'explorador de Windows.
+        </p>
+        <p>
           La comprovació <strong>mai modifica res</strong>: ni la fitxa, ni l'historial de
           distribucions, ni els fitxers dels destins. Només informa.
         </p>

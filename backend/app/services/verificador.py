@@ -12,6 +12,7 @@ import logging
 import os
 import tempfile
 from datetime import datetime, timezone
+from urllib.parse import quote
 
 LOG = logging.getLogger(__name__)
 
@@ -67,6 +68,7 @@ def _resultat(desti, filename, estat, missatge, **extra):
         'desti_nom': getattr(desti, 'nom', ''),
         'desti_tipus': getattr(desti, 'tipus', ''),
         'filename': filename,
+        'enllac': extra.pop('enllac', None),
         'missatge': missatge,
         'bd': extra.pop('bd', None),
         'desti_valors': extra.pop('desti_valors', None),
@@ -76,6 +78,34 @@ def _resultat(desti, filename, estat, missatge, **extra):
     }
     base.update(extra)
     return base
+
+
+def _enllac_previst(desti, config, filename):
+    """Enllac al fitxer deduit de la configuracio del desti.
+
+    Nomes s'usa quan no hi ha cap distribucio 'ok' d'on treure la URL real.
+    SharePoint queda fora: el webUrl de Graph no es pot construir de manera
+    fiable a partir del site_url, i inventar-lo enviaria l'usuari a un 404.
+    """
+    tipus = getattr(desti, 'tipus', '')
+
+    if tipus in ('ftp', 'sftp'):
+        base = (config.get('url_publica') or '').strip().rstrip('/')
+        if not base and tipus == 'ftp':
+            # Mateix valor que fa servir distribuir_ftp per construir la URL
+            # que desa a Distribucio, aixi l'enllac es el mateix.
+            from app.services.ftp_distributor import URL_PUBLICA_DEFECTE
+            base = URL_PUBLICA_DEFECTE.rstrip('/')
+        return f'{base}/{quote(filename)}' if base else None
+
+    if tipus == 'xarxa':
+        base = (config.get('ruta_base') or '').strip()
+        if not base:
+            return None
+        sub = (config.get('subcarpeta') or '').strip()
+        return os.path.join(base, sub, filename) if sub else os.path.join(base, filename)
+
+    return None
 
 
 def _config_desti(desti, timeout=None):
@@ -90,7 +120,31 @@ def _config_desti(desti, timeout=None):
 
 
 def verificar_distribucio(fitxa, versio, desti, filename=None, timeout=None,
-                          esperat=True):
+                          esperat=True, enllac=None):
+    """Comprova el desti i hi afegeix l'enllac al fitxer, per poder-lo revisar.
+
+    L'enllac surt de l'ultima distribucio 'ok' (es la URL exacta amb que es va
+    pujar) i, si no n'hi ha, es dedueix de la configuracio del desti.
+    """
+    if filename is None:
+        # Import mandros: distribucions.py importa models, i aquest modul
+        # s'ha de poder usar sense context Flask quan es passa filename.
+        from app.routes.distribucions import _referencia_al_desti
+        filename, enllac_historic = _referencia_al_desti(fitxa, versio, desti)
+        enllac = enllac or enllac_historic
+
+    resultat = _verificar(fitxa, versio, desti, filename, timeout, esperat)
+
+    if not resultat.get('enllac'):
+        try:
+            config = _config_desti(desti)
+            resultat['enllac'] = enllac or _enllac_previst(desti, config, filename)
+        except Exception:  # una config il·legible no ha de tombar la comprovacio
+            resultat['enllac'] = enllac
+    return resultat
+
+
+def _verificar(fitxa, versio, desti, filename, timeout, esperat):
     """Comprova si l'estat real del desti coincideix amb el que diu la BD.
 
     La comprovacio es bidireccional: `esperat` diu si la fitxa HI HA DE SER.
@@ -118,12 +172,6 @@ def verificar_distribucio(fitxa, versio, desti, filename=None, timeout=None,
         return _resultat(desti, filename, 'no_verificable',
                          f"Els destins de tipus '{tipus}' no es poden comprovar",
                          esperat=esperat)
-
-    if filename is None:
-        # Import mandros: distribucions.py importa models, i aquest modul
-        # s'ha de poder usar sense context Flask quan es passa filename.
-        from app.routes.distribucions import _nom_fitxer_al_desti
-        filename = _nom_fitxer_al_desti(fitxa, versio, desti)
 
     modul, func = _DESCARREGADORS[tipus]
     descarregar = getattr(importlib.import_module(modul), func)
