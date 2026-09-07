@@ -105,15 +105,18 @@ def _connectar_ftp(config):
     password = config.get('password', '')
     ftp_path = config.get('path', '')
     use_tls = config.get('tls', True)
+    # Timeout configurable: la comprovacio sincrona el baixa per no bloquejar
+    # el worker HTTP; per defecte es manté el de sempre.
+    timeout = int(config.get('timeout', 30))
 
     if use_tls:
         ftp = ftplib.FTP_TLS()
-        ftp.connect(host, port, timeout=30)
+        ftp.connect(host, port, timeout=timeout)
         ftp.login(user, password)
         ftp.prot_p()
     else:
         ftp = ftplib.FTP()
-        ftp.connect(host, port, timeout=30)
+        ftp.connect(host, port, timeout=timeout)
         ftp.login(user, password)
 
     if ftp_path and ftp_path != '/':

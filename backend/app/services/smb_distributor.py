@@ -111,6 +111,57 @@ def distribuir_xarxa(pdf_path, art_codi, config, filename=None):
     return {'ok': False, 'error': f"No es pot accedir a {dest_dir}"}
 
 
+def _dir_desti(config):
+    """Directori de desti (ruta_base [+ subcarpeta]), igual que distribuir_xarxa."""
+    ruta_base = config.get('ruta_base', '').strip()
+    subcarpeta = config.get('subcarpeta', '').strip()
+    if not ruta_base:
+        return None, None
+    dest_dir = os.path.join(ruta_base, subcarpeta) if subcarpeta else ruta_base
+    return ruta_base, dest_dir
+
+
+def descarregar_xarxa(filename, config, dest_path):
+    """Copia un PDF de la carpeta de xarxa al disc local.
+
+    Mateix contracte que descarregar_ftp: dict amb 'ok', 'error' i 'not_found'.
+
+    IMPORTANT: os.path.exists() retorna False tant si el fitxer no hi es com si
+    la carpeta no es accessible. Per aixo es comprova PRIMER que el directori
+    sigui llegible: nomes es diu not_found quan el directori si que s'hi arriba.
+    Altrament una auditoria amb el share caigut donaria centenars de falsos
+    "no trobat".
+    """
+    ruta_base, dest_dir = _dir_desti(config)
+    if not dest_dir:
+        return {'ok': False, 'error': "Ruta de xarxa no configurada", 'not_found': False}
+
+    user = config.get('user', '')
+    password = config.get('password', '')
+    domain = config.get('domain', '')
+
+    # 1) Assegurar acces al directori (si cal, autenticant-se al share)
+    if not os.path.isdir(dest_dir) and user and password:
+        conn = _connect_share(ruta_base, user, password, domain)
+        if not conn['ok']:
+            return {'ok': False, 'error': conn['error'], 'not_found': False}
+
+    if not os.path.isdir(dest_dir):
+        return {'ok': False, 'error': f"No s'arriba a la carpeta {dest_dir}",
+                'not_found': False}
+
+    # 2) El directori es accessible: ara si, l'abscencia del fitxer es not_found
+    filepath = os.path.join(dest_dir, filename)
+    if not os.path.isfile(filepath):
+        return {'ok': False, 'error': f"Fitxer no trobat: {filepath}", 'not_found': True}
+
+    try:
+        shutil.copy2(filepath, dest_path)
+        return {'ok': True, 'error': None, 'not_found': False}
+    except Exception as e:
+        return {'ok': False, 'error': str(e), 'not_found': False}
+
+
 def eliminar_xarxa(art_codi, config, filename=None):
     """Elimina un PDF de la carpeta de xarxa."""
     ruta_base = config.get('ruta_base', '').strip()

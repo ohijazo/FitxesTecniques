@@ -161,6 +161,10 @@ export const api = {
   distribuirDesti: (fitxaId, destiId) => request(`/fitxes/${fitxaId}/distribuir/${destiId}`, { method: 'POST' }),
   retirarDesti: (fitxaId, destiId, data) => request(`/fitxes/${fitxaId}/retirar/${destiId}`, { method: 'POST', body: JSON.stringify(data) }),
 
+  // Comprovacio: el PDF hi es realment al desti? (nomes informa, no toca res)
+  comprovarDestins: (fitxaId, data = {}) => request(`/fitxes/${fitxaId}/comprovar`, { method: 'POST', body: JSON.stringify(data) }),
+  comprovarDesti: (fitxaId, destiId) => request(`/fitxes/${fitxaId}/comprovar/${destiId}`, { method: 'POST' }),
+
   // Importar PDF a edició (parser → JSON sense persistir)
   parsePdf: (fitxaId, file) => {
     const formData = new FormData();
@@ -243,6 +247,8 @@ export const api = {
 
   // Jobs massius
   crearJobDistribucio: (data) => request('/jobs/distribucio-massiva', { method: 'POST', body: JSON.stringify(data) }),
+  crearJobVerificacio: (data) => request('/jobs/verificacio-massiva', { method: 'POST', body: JSON.stringify(data) }),
+  informeVerificacio: (id) => request(`/jobs/${id}/informe-verificacio`),
   llistarJobs: (params = {}) => {
     const query = new URLSearchParams(params).toString();
     return request(`/jobs${query ? `?${query}` : ''}`);

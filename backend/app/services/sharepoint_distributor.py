@@ -330,6 +330,79 @@ def distribuir_sharepoint(pdf_path, art_codi, config, filename=None):
     return {'ok': True, 'error': None, 'url': web_url}
 
 
+def descarregar_sharepoint(filename, config, dest_path):
+    """Descarrega un PDF de SharePoint al disc local.
+
+    Mateix contracte que descarregar_ftp: dict amb 'ok', 'error' i 'not_found'
+    (404 vol dir que el fitxer no hi es, no que hi hagi hagut un error).
+
+    Tracta el throttling de Graph (429/503) respectant Retry-After amb un sol
+    reintent: l'auditoria massiva fa centenars de GET seguits.
+    """
+    tenant_id = (config.get('tenant_id') or '').strip()
+    client_id = (config.get('client_id') or '').strip()
+    client_secret = config.get('client_secret') or ''
+    site_url = (config.get('site_url') or '').strip()
+
+    if not (tenant_id and client_id and client_secret and site_url):
+        return {'ok': False, 'error': "Configuracio SharePoint incompleta",
+                'not_found': False}
+
+    token, err = _get_token(tenant_id, client_id, client_secret)
+    if err:
+        return {'ok': False, 'error': err, 'not_found': False}
+
+    res, err = _resolve_site_drive(token, config)
+    if err:
+        return {'ok': False, 'error': err, 'not_found': False}
+
+    folder_path = config.get('folder_path') or ''
+    item_path = _build_item_path(folder_path, filename)
+    url = (f"{GRAPH_BASE}/sites/{res['site_id']}/drives/{res['drive_id']}"
+           f"/root:{_quote_path(item_path)}:/content")
+    headers = {'Authorization': f'Bearer {token}'}
+    timeout = int(config.get('timeout', 60))
+
+    for intent in range(2):
+        try:
+            r = requests.get(url, headers=headers, stream=True,
+                             allow_redirects=True, timeout=timeout)
+        except requests.RequestException as e:
+            return {'ok': False, 'error': str(e), 'not_found': False}
+
+        if r.status_code == 404:
+            return {'ok': False, 'error': f"No trobat a SharePoint: {item_path}",
+                    'not_found': True}
+
+        if r.status_code in (429, 503) and intent == 0:
+            try:
+                espera = int(r.headers.get('Retry-After', 5))
+            except (TypeError, ValueError):
+                espera = 5
+            espera = max(1, min(espera, 60))
+            LOG.warning('[SharePoint] %s en descarregar %s; reintent en %ss',
+                        r.status_code, filename, espera)
+            time.sleep(espera)
+            continue
+
+        if r.status_code != 200:
+            return {'ok': False,
+                    'error': f"Error descarregant ({r.status_code}): {r.text[:200]}",
+                    'not_found': False}
+
+        try:
+            with open(dest_path, 'wb') as f:
+                for chunk in r.iter_content(8192):
+                    if chunk:
+                        f.write(chunk)
+        except Exception as e:
+            return {'ok': False, 'error': str(e), 'not_found': False}
+        return {'ok': True, 'error': None, 'not_found': False}
+
+    return {'ok': False, 'error': "SharePoint no disponible (throttling)",
+            'not_found': False}
+
+
 def eliminar_sharepoint(art_codi, config, filename=None):
     """Elimina un PDF de SharePoint (si no existeix, no es considera error)."""
     tenant_id = (config.get('tenant_id') or '').strip()

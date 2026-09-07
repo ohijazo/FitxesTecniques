@@ -3,6 +3,8 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useToast } from '../components/Toast';
 import ConfirmDialog from '../components/ConfirmDialog';
+import BadgeVerificacio from '../components/BadgeVerificacio';
+import { ESTATS_VERIFICACIO, ETIQUETES_VERIFICACIO } from '../components/verificacioEstats';
 
 const ESTATS_TERMINALS = new Set(['acabat', 'interromput', 'error']);
 const REFRESH_MS = 3000;
@@ -26,6 +28,21 @@ function ItemEstatBadge({ estat }) {
   );
 }
 
+/** Valor de la BD, i el del desti al costat quan difereixen. */
+function ValorComparat({ r, camp }) {
+  if (!r || !r.bd) return <span>-</span>;
+  const bd = r.bd[camp] === '' || r.bd[camp] == null ? '-' : r.bd[camp];
+  const diferent = (r.diferencies || []).includes(camp);
+  if (!diferent) return <span>{bd}</span>;
+  const dest = r.desti_valors?.[camp] || '-';
+  return (
+    <span>
+      {bd} <span style={{ color: 'var(--gray-400)' }}>&rarr;</span>{' '}
+      <strong style={{ color: 'var(--danger)' }}>{dest}</strong>
+    </span>
+  );
+}
+
 function JobDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -33,6 +50,8 @@ function JobDetail() {
   const [job, setJob] = useState(null);
   const [items, setItems] = useState([]);
   const [filterEstat, setFilterEstat] = useState('');
+  const [filterVerif, setFilterVerif] = useState('');
+  const [informe, setInforme] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [reprenent, setReprenent] = useState(false);
@@ -40,12 +59,18 @@ function JobDetail() {
 
   const carregar = async (silenciosos = false) => {
     try {
+      const params = { per_page: 500 };
+      if (filterEstat) params.estat = filterEstat;
+      if (filterVerif) params.verificacio = filterVerif;
       const [j, it] = await Promise.all([
         api.detallJob(id),
-        api.itemsJob(id, filterEstat ? { estat: filterEstat, per_page: 500 } : { per_page: 500 }),
+        api.itemsJob(id, params),
       ]);
       setJob(j);
       setItems(it.items);
+      if (j.tipus === 'verificacio_massiva') {
+        api.informeVerificacio(id).then(setInforme).catch(() => {});
+      }
       setError(null);
       if (!silenciosos) setLoading(false);
     } catch (e) {
@@ -54,7 +79,7 @@ function JobDetail() {
     }
   };
 
-  useEffect(() => { carregar(); }, [id, filterEstat]);
+  useEffect(() => { carregar(); }, [id, filterEstat, filterVerif]);
 
   // Polling només mentre no terminal
   useEffect(() => {
@@ -65,7 +90,7 @@ function JobDetail() {
     }
     intervalRef.current = setInterval(() => carregar(true), REFRESH_MS);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [job?.estat, id, filterEstat]);
+  }, [job?.estat, id, filterEstat, filterVerif]);
 
   const reprendre = async () => {
     setReprenent(true);
@@ -98,6 +123,7 @@ function JobDetail() {
   if (error) return <p style={{ color: 'var(--danger)' }}>Error: {error}</p>;
   if (!job) return <p>Job no trobat</p>;
 
+  const esVerificacio = job.tipus === 'verificacio_massiva';
   const total = job.total_items || 0;
   const fets = (job.items_ok || 0) + (job.items_error || 0);
   const pct = total > 0 ? Math.round((fets / total) * 100) : 0;
@@ -151,6 +177,31 @@ function JobDetail() {
           <div className={`progress-bar-fill ${fillClass}`} style={{ width: `${pct}%` }} />
           <div className="progress-bar-label">{fets} / {total} ({pct}%)</div>
         </div>
+
+        {esVerificacio && informe && (
+          <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.78rem', color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Resultat
+            </span>
+            {ESTATS_VERIFICACIO.filter((e) => informe.per_estat[e]).map((e) => (
+              <button
+                key={e}
+                type="button"
+                className="link-button"
+                onClick={() => setFilterVerif(filterVerif === e ? '' : e)}
+                style={{ margin: 0, padding: 0, border: 'none', background: 'none' }}
+                title={`Filtrar per ${ETIQUETES_VERIFICACIO[e]}`}
+              >
+                <span className={`badge ${e}`} style={{ opacity: !filterVerif || filterVerif === e ? 1 : 0.45 }}>
+                  {ETIQUETES_VERIFICACIO[e]}: {informe.per_estat[e]}
+                </span>
+              </button>
+            ))}
+            {informe.sense_resultat > 0 && (
+              <span className="badge" style={{ opacity: 0.7 }}>Sense comprovar: {informe.sense_resultat}</span>
+            )}
+          </div>
+        )}
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
@@ -172,7 +223,10 @@ function JobDetail() {
               <th>Fitxa</th>
               <th>Destí</th>
               <th>Estat</th>
-              <th>Intents</th>
+              {esVerificacio && <th>Comprovació</th>}
+              {esVerificacio && <th>Rev.</th>}
+              {esVerificacio && <th>Data revisió</th>}
+              {!esVerificacio && <th>Intents</th>}
               <th>Executat</th>
               <th>Missatge</th>
             </tr>
@@ -180,7 +234,7 @@ function JobDetail() {
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', color: 'var(--gray-500)', padding: '1rem' }}>
+                <td colSpan={esVerificacio ? 8 : 6} style={{ textAlign: 'center', color: 'var(--gray-500)', padding: '1rem' }}>
                   Sense items {filterEstat ? `en estat "${filterEstat}"` : ''}
                 </td>
               </tr>
@@ -198,7 +252,18 @@ function JobDetail() {
                 </td>
                 <td>{it.desti_nom || '-'}</td>
                 <td><ItemEstatBadge estat={it.estat} /></td>
-                <td style={{ textAlign: 'center' }}>{it.intent_count || 0}</td>
+                {esVerificacio && (
+                  <td><BadgeVerificacio estat={it.resultat?.estat_verificacio} /></td>
+                )}
+                {esVerificacio && (
+                  <td><ValorComparat r={it.resultat} camp="rev" /></td>
+                )}
+                {esVerificacio && (
+                  <td><ValorComparat r={it.resultat} camp="data_revisio" /></td>
+                )}
+                {!esVerificacio && (
+                  <td style={{ textAlign: 'center' }}>{it.intent_count || 0}</td>
+                )}
                 <td style={{ fontSize: '0.82rem', color: 'var(--gray-500)' }}>
                   {it.executat_at ? new Date(it.executat_at).toLocaleString('ca') : '-'}
                 </td>

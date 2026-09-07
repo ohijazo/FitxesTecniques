@@ -331,6 +331,9 @@ class JobItem(db.Model):
     estat = db.Column(db.String(20), nullable=False, default='pendent')
     # estats: pendent | processant | ok | error | omes
     missatge_error = db.Column(db.Text)
+    # Detall estructurat del resultat (avui: comprovacions de desti). NULL per
+    # als items de distribucio, que no en generen.
+    resultat = db.Column(db.JSON, nullable=True)
     executat_at = db.Column(db.DateTime, nullable=True)
     intent_count = db.Column(db.Integer, default=0)
     locked_at = db.Column(db.DateTime, nullable=True)
@@ -354,6 +357,7 @@ class JobItem(db.Model):
             'desti_nom': self.desti.nom if self.desti else None,
             'estat': self.estat,
             'missatge_error': self.missatge_error,
+            'resultat': self.resultat,
             'executat_at': self.executat_at.isoformat() if self.executat_at else None,
             'intent_count': self.intent_count or 0,
         }

@@ -151,6 +151,33 @@ const SECTIONS = [
           A la pestanya <strong>Distribucions</strong> del detall pots veure l'historial complet
           amb data, usuari, estat i URL per cada distribució.
         </p>
+
+        <h4>Comprovar què hi ha realment al destí</h4>
+        <p>
+          Un <strong>ok</strong> a l'historial només vol dir que la pujada no va fallar en el
+          seu moment. Si després algú esborra o substitueix el PDF al destí, l'historial
+          continua dient <strong>ok</strong>. La comprovació torna a llegir el PDF del destí
+          per veure què hi ha realment.
+        </p>
+        <p>
+          Des del detall de la fitxa, a la pestanya <strong>Distribucions</strong>, tens el botó{' '}
+          <strong>Comprovar destins</strong> (i un botó <strong>Comprovar</strong> a cada fila de
+          l'historial). Per revisar-ho tot de cop, els administradors tenen{' '}
+          <strong>Configuració &gt; Comprovació de destins</strong>, que llança la revisió en
+          segon pla i genera un informe.
+        </p>
+        <ul>
+          <li><span className="badge ok">Correcte</span> — el PDF hi és i coincideix amb la fitxa</li>
+          <li><span className="badge no_trobat">No hi és</span> — s'arriba al destí però el fitxer no hi és</li>
+          <li><span className="badge desfasat">Desfasat</span> — hi és, però la revisió o les dates no coincideixen</li>
+          <li><span className="badge error_acces">No s'hi ha pogut accedir</span> — problema de xarxa o de credencials</li>
+          <li><span className="badge error_parseig">PDF il·legible</span> — s'ha descarregat però no s'ha pogut llegir</li>
+          <li><span className="badge no_verificable">No comprovable</span> — destins com SAP, que no permeten descarregar</li>
+        </ul>
+        <p>
+          La comprovació <strong>mai modifica res</strong>: ni la fitxa, ni l'historial de
+          distribucions, ni els fitxers dels destins. Només informa.
+        </p>
       </>
     ),
   },

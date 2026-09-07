@@ -42,6 +42,8 @@ def _connectar_sftp(config):
     user = config.get('user', '')
     password = config.get('password', '')
     remote_path = config.get('path', '')
+    # Timeout configurable (veure _connectar_ftp): per defecte 30s com sempre.
+    timeout = int(config.get('timeout', 30))
 
     client = paramiko.SSHClient()
     # AutoAddPolicy: accepta la clau del servidor la primera vegada, com fa
@@ -54,9 +56,9 @@ def _connectar_sftp(config):
         port=port,
         username=user,
         password=password,
-        timeout=30,
-        banner_timeout=30,
-        auth_timeout=30,
+        timeout=timeout,
+        banner_timeout=timeout,
+        auth_timeout=timeout,
         allow_agent=False,
         look_for_keys=False,
     )

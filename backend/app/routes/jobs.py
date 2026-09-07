@@ -4,7 +4,8 @@ from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify
 
 from app import db
-from app.models import JobBulk, JobItem, FitxaTecnica, DestiDistribucio
+from app.models import (JobBulk, JobItem, FitxaTecnica, DestiDistribucio,
+                        VersioFitxa, Distribucio)
 from app.auth import login_required, rol_requerit
 
 jobs_bp = Blueprint('jobs', __name__)
@@ -96,6 +97,115 @@ def crear_job_distribucio_massiva():
     return jsonify(job.to_dict()), 201
 
 
+def _parells_distribuits():
+    """Parells (fitxa_id, desti_id) que la BD dona per distribuits ARA.
+
+    Per cada parell nomes compta l'ultima distribucio: si va ser 'ok', la fitxa
+    hi es; si va ser 'retirat' o 'error', no. Es la mateixa regla que fa servir
+    el detall de la fitxa.
+    """
+    sql = db.text("""
+        SELECT DISTINCT ON (v.fitxa_id, d.desti_id) v.fitxa_id, d.desti_id, d.estat
+        FROM distribucio d JOIN versio_fitxa v ON v.id = d.versio_id
+        WHERE d.desti_id IS NOT NULL
+        ORDER BY v.fitxa_id, d.desti_id, d.executat_at DESC NULLS LAST, d.id DESC
+    """)
+    return {(fid, did) for fid, did, estat in db.session.execute(sql) if estat == 'ok'}
+
+
+@jobs_bp.route('/jobs/verificacio-massiva', methods=['POST'])
+@rol_requerit('admin', 'distribuidor')
+def crear_job_verificacio_massiva():
+    """Crea un JobBulk que comprova si les fitxes hi son realment als destins.
+
+    Body (tot opcional):
+      fitxa_ids: llista; per defecte totes les fitxes amb versio activa
+      desti_ids: llista; per defecte tots els destins actius
+      nomes_distribuides: bool (default True) - nomes els parells que la BD
+        dona per distribuits. Amb False es comprova el producte cartesia, que
+        tambe troba copies que haurien d'estar retirades.
+
+    Aquest job NOMES informa: no crea cap Distribucio ni toca l'audit trail.
+    """
+    data = request.get_json(silent=True) or {}
+    nomes_distribuides = data.get('nomes_distribuides', True)
+
+    q_destins = DestiDistribucio.query.filter_by(actiu=True)
+    if data.get('desti_ids'):
+        ids = [int(x) for x in data['desti_ids']]
+        q_destins = q_destins.filter(DestiDistribucio.id.in_(ids))
+    destins = q_destins.all()
+    if not destins:
+        return jsonify({'error': "Cap destí vàlid"}), 400
+
+    q_fitxes = (db.session.query(FitxaTecnica.id)
+                .join(VersioFitxa, VersioFitxa.fitxa_id == FitxaTecnica.id)
+                .filter(VersioFitxa.activa.is_(True)))
+    if data.get('fitxa_ids'):
+        ids = [int(x) for x in data['fitxa_ids']]
+        q_fitxes = q_fitxes.filter(FitxaTecnica.id.in_(ids))
+    fitxa_ids = [r[0] for r in q_fitxes.order_by(FitxaTecnica.art_codi).all()]
+    if not fitxa_ids:
+        return jsonify({'error': "Cap fitxa amb versió activa"}), 400
+
+    parells_ok = _parells_distribuits() if nomes_distribuides else None
+
+    parells = []
+    for fid in fitxa_ids:
+        for d in destins:
+            if parells_ok is not None and (fid, d.id) not in parells_ok:
+                continue
+            parells.append((fid, d.id))
+
+    if not parells:
+        return jsonify({
+            'error': "Cap fitxa consta distribuïda als destins seleccionats. "
+                     "Desmarca 'Només on consta distribuïda' per comprovar-los tots."
+        }), 400
+
+    # Solapament: nomes contra altres verificacions en curs. Sense el filtre
+    # per tipus, una distribucio massiva en curs ometria items de comprovacio.
+    en_curs = {
+        (fid, did) for fid, did in
+        db.session.query(JobItem.fitxa_id, JobItem.desti_id)
+        .join(JobBulk, JobBulk.id == JobItem.job_id)
+        .filter(JobBulk.tipus == 'verificacio_massiva',
+                JobItem.estat.in_(('pendent', 'processant'))).all()
+    }
+
+    job = JobBulk(
+        tipus='verificacio_massiva',
+        estat='creat',
+        params={
+            'abast': 'seleccio' if data.get('fitxa_ids') else 'totes',
+            'desti_ids': [d.id for d in destins],
+            'nomes_distribuides': bool(nomes_distribuides),
+            'total_fitxes': len(fitxa_ids),
+        },
+        created_by=request.usuari.get('email', ''),
+        total_items=0, items_ok=0, items_error=0, items_pendents=0,
+    )
+    db.session.add(job)
+    db.session.flush()
+
+    pendents = 0
+    for fid, did in parells:
+        omes = (fid, did) in en_curs
+        db.session.add(JobItem(
+            job_id=job.id, fitxa_id=fid, desti_id=did,
+            estat='omes' if omes else 'pendent',
+            missatge_error='Ja en curs en un altre job' if omes else None,
+        ))
+        if not omes:
+            pendents += 1
+
+    job.total_items = len(parells)
+    job.items_pendents = pendents
+    db.session.commit()
+
+    return jsonify(job.to_dict()), 201
+
+
 @jobs_bp.route('/jobs', methods=['GET'])
 @login_required
 def llistar_jobs():
@@ -138,10 +248,13 @@ def llistar_items_job(job_id):
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 100, type=int)
     estat = request.args.get('estat', '', type=str)
+    verificacio = request.args.get('verificacio', '', type=str)
 
     q = JobItem.query.filter_by(job_id=job_id)
     if estat:
         q = q.filter(JobItem.estat == estat)
+    if verificacio:
+        q = q.filter(JobItem.resultat['estat_verificacio'].as_string() == verificacio)
     q = q.order_by(JobItem.id)
 
     pag = q.paginate(page=page, per_page=per_page, error_out=False)
@@ -165,7 +278,8 @@ def reprendre_job(job_id):
     JobItem.query.filter(
         JobItem.job_id == job_id,
         JobItem.estat.in_(('processant', 'pendent')),
-    ).update({'estat': 'pendent', 'locked_at': None, 'missatge_error': None}, synchronize_session=False)
+    ).update({'estat': 'pendent', 'locked_at': None, 'missatge_error': None,
+              'resultat': None}, synchronize_session=False)
 
     job.estat = 'processant'
     job.finished_at = None
@@ -187,3 +301,25 @@ def arxivar_job(job_id):
     job.arxivat = True
     db.session.commit()
     return jsonify(job.to_dict())
+
+
+@jobs_bp.route('/jobs/<int:job_id>/informe-verificacio', methods=['GET'])
+@login_required
+def informe_verificacio(job_id):
+    """Recompte d'items per estat de comprovació (per a la pàgina d'informe)."""
+    job = db.get_or_404(JobBulk, job_id)
+    col = JobItem.resultat['estat_verificacio'].as_string()
+    rows = (db.session.query(col, db.func.count())
+            .filter(JobItem.job_id == job_id)
+            .group_by(col).all())
+
+    per_estat = {estat: total for estat, total in rows if estat}
+    sense_resultat = (JobItem.query
+                      .filter(JobItem.job_id == job_id,
+                              JobItem.resultat.is_(None)).count())
+    return jsonify({
+        'job_id': job.id,
+        'tipus': job.tipus,
+        'per_estat': per_estat,
+        'sense_resultat': sense_resultat,
+    })

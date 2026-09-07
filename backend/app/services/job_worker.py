@@ -133,10 +133,12 @@ def _processar_seguent_item(app):
     try:
         result = session.execute(
             text("""
-                SELECT id FROM job_item
-                WHERE estat = 'pendent'
-                ORDER BY id
-                FOR UPDATE SKIP LOCKED
+                SELECT ji.id
+                FROM job_item ji JOIN job_bulk jb ON jb.id = ji.job_id
+                WHERE ji.estat = 'pendent'
+                ORDER BY CASE WHEN jb.tipus = 'verificacio_massiva' THEN 1 ELSE 0 END,
+                         ji.id
+                FOR UPDATE OF ji SKIP LOCKED
                 LIMIT 1
             """)
         )
@@ -180,6 +182,8 @@ def _processar_seguent_item(app):
     try:
         if item.job and item.job.tipus == 'distribucio_massiva':
             estat_final, missatge_error = _executar_item_distribucio(item)
+        elif item.job and item.job.tipus == 'verificacio_massiva':
+            estat_final, missatge_error = _executar_item_verificacio(item)
         else:
             missatge_error = f"Tipus de job desconegut: {item.job.tipus if item.job else '?'}"
     except Exception as e:
@@ -266,6 +270,38 @@ def _executar_item_distribucio(item):
     if dist.estat == 'ok':
         return 'ok', dist.missatge_error  # contains url/path on success
     return 'error', dist.missatge_error or 'Error desconegut'
+
+
+def _executar_item_verificacio(item):
+    """Comprova un JobItem de tipus verificacio_massiva.
+
+    A diferencia de _executar_item_distribucio, NO crea cap registre Distribucio:
+    aquest job nomes informa i no ha de tocar l'audit trail. El detall es guarda
+    a item.resultat (el commit el fa el bloc cridador).
+
+    Retorna tupla (estat_final, missatge_error).
+    """
+    from app.models import FitxaTecnica, VersioFitxa, DestiDistribucio
+    from app.services.verificador import verificar_distribucio
+
+    if not item.fitxa_id or not item.desti_id:
+        return 'error', 'Item incomplet (falta fitxa o destí)'
+
+    fitxa = FitxaTecnica.query.get(item.fitxa_id)
+    if not fitxa:
+        return 'error', f'Fitxa {item.fitxa_id} no trobada'
+
+    desti = DestiDistribucio.query.get(item.desti_id)
+    if not desti:
+        return 'error', f'Destí {item.desti_id} no trobat'
+
+    versio_activa = VersioFitxa.query.filter_by(fitxa_id=fitxa.id, activa=True).first()
+
+    res = verificar_distribucio(fitxa, versio_activa, desti)
+    item.resultat = res
+
+    estat_final = 'ok' if res['estat_verificacio'] == 'ok' else 'error'
+    return estat_final, res.get('missatge') or res['estat_verificacio']
 
 
 def _marcar_encallats(app):

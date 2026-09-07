@@ -7,6 +7,8 @@ import { PdfDocumentView } from '../components/FitxaForm';
 import RichEditor from '../components/RichEditor';
 import { useEscapeKey } from '../components/useEscapeKey';
 import RetirarDestiModal from '../components/RetirarDestiModal';
+import ComprovarDestinsPanel from '../components/ComprovarDestinsPanel';
+import BadgeVerificacio from '../components/BadgeVerificacio';
 import DOMPurify from 'dompurify';
 
 
@@ -862,6 +864,10 @@ function DetallFitxa() {
   const openDist = location.state?.openDistribuir || false;
   const [section, setSection] = useState(openDist ? 'distribucions' : 'contingut');
   const [showDistribuir, setShowDistribuir] = useState(openDist);
+  const [showComprovar, setShowComprovar] = useState(false);
+  // Resultat de la comprovacio puntual per fila d'historial: {desti_id: resultat}
+  const [comprovacions, setComprovacions] = useState({});
+  const [comprovantDesti, setComprovantDesti] = useState(null);
   const [verif, setVerif] = useState(null);
   const [showVerifDetails, setShowVerifDetails] = useState(false);
   const [retirarModalDist, setRetirarModalDist] = useState(null);
@@ -916,6 +922,22 @@ function DetallFitxa() {
       .filter((d) => d.desti_id === dist.desti_id && d.executat_at)
       .sort((a, b) => new Date(b.executat_at) - new Date(a.executat_at));
     return perDesti.length > 0 && perDesti[0].id === dist.id;
+  };
+
+  // Comprova un sol desti des de l'historial. Nomes llegeix: no toca la BD
+  // ni el fitxer del desti.
+  const comprovarUnDesti = async (destiId) => {
+    setComprovantDesti(destiId);
+    try {
+      const r = await api.comprovarDesti(id, destiId);
+      setComprovacions((prev) => ({ ...prev, [destiId]: r }));
+      if (r.estat_verificacio === 'ok') toast.success(r.missatge);
+      else toast.warning(r.missatge);
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setComprovantDesti(null);
+    }
   };
 
   const publicarVersio = async (vid) => {
@@ -1240,10 +1262,20 @@ function DetallFitxa() {
                 />
               )}
 
-              {!showDistribuir && versioActiva && (
-                <div style={{ marginBottom: '1rem' }}>
+              {showComprovar && versioActiva && (
+                <ComprovarDestinsPanel
+                  fitxaId={id}
+                  onClose={() => setShowComprovar(false)}
+                />
+              )}
+
+              {!showDistribuir && !showComprovar && versioActiva && (
+                <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
                   <button onClick={() => setShowDistribuir(true)} className="outline">
                     Distribuir a nous destins
+                  </button>
+                  <button onClick={() => setShowComprovar(true)} className="outline secondary">
+                    Comprovar destins
                   </button>
                 </div>
               )}
@@ -1292,15 +1324,32 @@ function DetallFitxa() {
                         {(usuari.rol === 'admin' || usuari.rol === 'editor' || usuari.rol === 'distribuidor') && (
                           <td style={{ textAlign: 'right' }}>
                             {esUltimaOkPerDesti(d) && (
-                              <button
-                                type="button"
-                                className="outline btn-sm"
-                                onClick={() => setRetirarModalDist(d)}
-                                style={{ margin: 0, color: 'var(--danger)', borderColor: 'var(--danger)', fontSize: '0.78rem' }}
-                                title={`Retirar el PDF de ${d.desti}`}
-                              >
-                                Retirar
-                              </button>
+                              <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                {comprovacions[d.desti_id] && (
+                                  <span title={comprovacions[d.desti_id].missatge}>
+                                    <BadgeVerificacio estat={comprovacions[d.desti_id].estat_verificacio} />
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  className="outline btn-sm"
+                                  disabled={comprovantDesti === d.desti_id}
+                                  onClick={() => comprovarUnDesti(d.desti_id)}
+                                  style={{ margin: 0, fontSize: '0.78rem' }}
+                                  title={`Comprovar si el PDF hi és realment a ${d.desti}`}
+                                >
+                                  {comprovantDesti === d.desti_id ? 'Comprovant…' : 'Comprovar'}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="outline btn-sm"
+                                  onClick={() => setRetirarModalDist(d)}
+                                  style={{ margin: 0, color: 'var(--danger)', borderColor: 'var(--danger)', fontSize: '0.78rem' }}
+                                  title={`Retirar el PDF de ${d.desti}`}
+                                >
+                                  Retirar
+                                </button>
+                              </div>
                             )}
                           </td>
                         )}

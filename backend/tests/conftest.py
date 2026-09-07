@@ -46,3 +46,28 @@ def config_sftp():
         'password': 'secret',
         'path': '/fitxestecniques',
     }
+
+
+@pytest.fixture
+def config_xarxa(tmp_path):
+    """Carpeta de xarxa simulada amb un directori local real."""
+    base = tmp_path / 'share'
+    base.mkdir()
+    return {
+        'ruta_base': str(base),
+        'subcarpeta': '',
+        'user': '',
+        'password': '',
+        'domain': '',
+    }
+
+
+@pytest.fixture
+def config_sharepoint():
+    return {
+        'tenant_id': 'tenant-1',
+        'client_id': 'client-1',
+        'client_secret': 'secret',
+        'site_url': 'https://exemple.sharepoint.com/sites/qualitat',
+        'folder_path': 'FitxesTecniques',
+    }

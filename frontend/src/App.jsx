@@ -17,6 +17,7 @@ import JobDetail from './pages/JobDetail';
 import Jobs from './pages/Jobs';
 import BulkEdit from './pages/BulkEdit';
 import BulkDistribuir from './pages/BulkDistribuir';
+import ComprovacioDestins from './pages/ComprovacioDestins';
 import Ajuda from './pages/Ajuda';
 
 function ProtectedRoute({ children, usuari, rolsPermesos }) {
@@ -43,10 +44,12 @@ const CONFIG_LINKS = {
     { to: '/admin/seccions', label: 'Camps' },
     { to: '/control-revisions', label: 'Control revisions' },
     { to: '/admin/eliminacions', label: 'Eliminacions' },
+    { to: '/admin/comprovacio-destins', label: 'Comprovació de destins' },
     { to: '/jobs', label: 'Jobs massius' },
   ],
   distribuidor: [
     { to: '/admin/destins', label: 'Destins' },
+    { to: '/admin/comprovacio-destins', label: 'Comprovació de destins' },
     { to: '/jobs', label: 'Jobs massius' },
   ],
 };
@@ -150,7 +153,7 @@ function Breadcrumbs() {
     crumbs.push({ label: 'Ajuda' });
   } else if (path.startsWith('/admin/')) {
     const section = path.split('/')[2];
-    const labels = { seccions: 'Camps', usuaris: 'Usuaris', destins: 'Destins', tipus: 'Tipus', eliminacions: 'Eliminacions', estats: 'Estats' };
+    const labels = { seccions: 'Camps', usuaris: 'Usuaris', destins: 'Destins', tipus: 'Tipus', eliminacions: 'Eliminacions', estats: 'Estats', 'comprovacio-destins': 'Comprovació de destins' };
     crumbs[0] = { label: 'Admin', to: '/' };
     crumbs.push({ label: labels[section] || section });
   }
@@ -244,6 +247,9 @@ function App() {
             } />
             <Route path="/admin/eliminacions" element={
               <ProtectedRoute usuari={usuari} rolsPermesos={['admin']}><AdminEliminacions /></ProtectedRoute>
+            } />
+            <Route path="/admin/comprovacio-destins" element={
+              <ProtectedRoute usuari={usuari} rolsPermesos={['admin', 'distribuidor']}><ComprovacioDestins /></ProtectedRoute>
             } />
             <Route path="/jobs" element={
               <ProtectedRoute usuari={usuari} rolsPermesos={['admin', 'editor', 'distribuidor']}><Jobs /></ProtectedRoute>

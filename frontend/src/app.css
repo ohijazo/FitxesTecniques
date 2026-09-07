@@ -371,6 +371,13 @@ tbody tr:hover { background: var(--gray-50); }
 .badge.error { background: #fee2e2; color: #991b1b; }
 .badge.retirat { background: #ede9fe; color: #5b21b6; }
 
+/* Estats de la comprovacio de destins (verificador.py ESTATS) */
+.badge.no_trobat { background: #fee2e2; color: #991b1b; }
+.badge.desfasat { background: #fef3c7; color: #92400e; }
+.badge.error_acces { background: #ffedd5; color: #9a3412; }
+.badge.error_parseig { background: #e5e7eb; color: #374151; }
+.badge.no_verificable { background: #e5e7eb; color: #6b7280; }
+
 /* -- Tabs / Pestanyes -- */
 .tabs {
   display: flex;

@@ -1,5 +1,6 @@
 import os
 from datetime import datetime, timezone
+from urllib.parse import unquote
 from flask import Blueprint, request, jsonify
 from app import db
 from app.models import FitxaTecnica, VersioFitxa, Distribucio, DestiDistribucio, Usuari
@@ -27,6 +28,39 @@ def _generar_nom_fitxer(patro, fitxa, versio):
     if not nom:
         nom = f'{fitxa.art_codi}.pdf'
     return nom
+
+
+def _filename_de_referencia(ref):
+    """Nom del fitxer a partir de la URL/path guardats a Distribucio.missatge_error.
+
+    Quan estat='ok', missatge_error conte la URL publica (ftp/sftp/sharepoint) o
+    el path complet (xarxa). Retorna None si la referencia no apunta a cap .pdf
+    (per exemple quan es un motiu de retirada o un missatge d'error).
+
+    L'unquote es imprescindible: el webUrl de Graph percent-encodeja els espais
+    i sense desfer-ho es construiria un nom com '60360%20Farina.pdf' que no
+    existeix al desti.
+    """
+    if not ref:
+        return None
+    candidate = unquote(ref.split('/')[-1].split('\\')[-1].split('?')[0])
+    return candidate if candidate.lower().endswith('.pdf') else None
+
+
+def _nom_fitxer_al_desti(fitxa, versio, desti):
+    """Nom real del fitxer en aquest desti.
+
+    L'infereix de l'ultima distribucio 'ok' (que es la que sap amb quin nom es
+    va pujar realment) i, si no n'hi ha cap, aplica el patro configurat.
+    """
+    dist_ok = Distribucio.query.join(VersioFitxa).filter(
+        VersioFitxa.fitxa_id == fitxa.id,
+        Distribucio.desti_id == desti.id,
+        Distribucio.estat == 'ok',
+    ).order_by(Distribucio.executat_at.desc()).first()
+
+    nom = _filename_de_referencia(dist_ok.missatge_error) if dist_ok else None
+    return nom or _generar_nom_fitxer(desti.patro_nom_fitxer, fitxa, versio)
 
 
 def _executar_distribucio(dist, fitxa, versio, desti, executat_by=None):
@@ -275,21 +309,8 @@ def retirar_desti(fitxa_id, desti_id):
     if not versio_activa:
         return jsonify({'error': "No hi ha cap versió activa"}), 400
 
-    # Buscar l'última distribució 'ok' per inferir el nom de fitxer al destí.
-    dist_ok = Distribucio.query.join(VersioFitxa).filter(
-        VersioFitxa.fitxa_id == fitxa_id,
-        Distribucio.desti_id == desti_id,
-        Distribucio.estat == 'ok',
-    ).order_by(Distribucio.executat_at.desc()).first()
-
-    filename = None
-    if dist_ok and dist_ok.missatge_error:
-        ref = dist_ok.missatge_error
-        candidate = ref.split('/')[-1].split('\\')[-1].split('?')[0]
-        if candidate and candidate.lower().endswith('.pdf'):
-            filename = candidate
-    if not filename:
-        filename = _generar_nom_fitxer(desti.patro_nom_fitxer, fitxa, versio_activa)
+    # Nom real al desti: inferit de l'ultima distribucio 'ok', amb fallback al patro.
+    filename = _nom_fitxer_al_desti(fitxa, versio_activa, desti)
 
     config = desti.configuracio or {}
 
@@ -372,3 +393,115 @@ def distribuir_desti(fitxa_id, desti_id):
     db.session.commit()
 
     return jsonify(dist.to_dict()), 200
+
+
+# --- Comprovacio: la fitxa hi es realment al desti? -------------------------
+# L'estat 'ok' de l'historial nomes vol dir que la pujada no va fallar. Aquests
+# endpoints tornen a llegir el PDF del desti. NO escriuen res a la BD.
+
+MAX_DESTINS_SINCRON = 4   # per sobre d'aixo cal l'auditoria massiva (job)
+TIMEOUT_SINCRON = 10      # segons de connexio per desti
+
+
+def _destins_amb_fitxa(fitxa_id):
+    """Destins on la BD diu que la fitxa hi es ARA.
+
+    Mateixa regla que el frontend (esJaDistribuit): per cada desti compta
+    l'ultima distribucio, i nomes val si va ser 'ok' (no 'retirat' ni 'error').
+    """
+    dists = Distribucio.query.join(VersioFitxa).filter(
+        VersioFitxa.fitxa_id == fitxa_id,
+        Distribucio.desti_id.isnot(None),
+    ).order_by(Distribucio.executat_at.desc().nullslast(),
+               Distribucio.id.desc()).all()
+
+    ultima_per_desti = {}
+    for d in dists:
+        ultima_per_desti.setdefault(d.desti_id, d)
+    return {did for did, d in ultima_per_desti.items() if d.estat == 'ok'}
+
+
+def _comprovar(fitxa, versio, destins, esperats):
+    from app.services.verificador import ESTATS, verificar_distribucio
+
+    resum = {e: 0 for e in ESTATS}
+    resultats = []
+    for desti in destins:
+        res = verificar_distribucio(fitxa, versio, desti, timeout=TIMEOUT_SINCRON)
+        res['esperat_al_desti'] = desti.id in esperats
+        resum[res['estat_verificacio']] = resum.get(res['estat_verificacio'], 0) + 1
+        resultats.append(res)
+
+    return {
+        'fitxa_id': fitxa.id,
+        'art_codi': fitxa.art_codi,
+        'num_versio': versio.num_versio if versio else None,
+        'comprovat_at': datetime.now(timezone.utc).isoformat(),
+        'resum': resum,
+        'resultats': resultats,
+    }
+
+
+@distribucions_bp.route('/fitxes/<int:fitxa_id>/comprovar', methods=['POST'])
+@rol_requerit('admin', 'editor', 'distribuidor')
+def comprovar_destins(fitxa_id):
+    """Comprova si el PDF hi es realment als destins.
+
+    Per defecte comprova nomes els destins on la BD diu que la fitxa hi es.
+    Amb {"tots": true} comprova tots els destins actius (troba copies que
+    haurien d'estar retirades).
+    """
+    fitxa = db.get_or_404(FitxaTecnica, fitxa_id)
+    data = request.get_json(silent=True) or {}
+
+    versio_activa = VersioFitxa.query.filter_by(
+        fitxa_id=fitxa_id, activa=True
+    ).first()
+    if not versio_activa:
+        return jsonify({'error': "No hi ha cap versió publicada"}), 400
+
+    esperats = _destins_amb_fitxa(fitxa_id)
+
+    if data.get('tots'):
+        destins = DestiDistribucio.query.filter_by(actiu=True).all()
+    elif data.get('desti_ids'):
+        destins = DestiDistribucio.query.filter(
+            DestiDistribucio.id.in_(data['desti_ids'])).all()
+    else:
+        if not esperats:
+            return jsonify({
+                'fitxa_id': fitxa.id, 'art_codi': fitxa.art_codi,
+                'num_versio': versio_activa.num_versio,
+                'comprovat_at': datetime.now(timezone.utc).isoformat(),
+                'resum': {}, 'resultats': [],
+                'missatge': "Aquesta fitxa no consta distribuïda a cap destí",
+            }), 200
+        destins = DestiDistribucio.query.filter(
+            DestiDistribucio.id.in_(esperats)).all()
+
+    if len(destins) > MAX_DESTINS_SINCRON:
+        return jsonify({
+            'error': f"Hi ha {len(destins)} destins a comprovar i el màxim "
+                     f"immediat és {MAX_DESTINS_SINCRON}. Fes servir "
+                     f"Configuració > Comprovació de destins."
+        }), 400
+
+    return jsonify(_comprovar(fitxa, versio_activa, destins, esperats)), 200
+
+
+@distribucions_bp.route('/fitxes/<int:fitxa_id>/comprovar/<int:desti_id>', methods=['POST'])
+@rol_requerit('admin', 'editor', 'distribuidor')
+def comprovar_desti(fitxa_id, desti_id):
+    """Comprova un sol desti."""
+    fitxa = db.get_or_404(FitxaTecnica, fitxa_id)
+    desti = db.get_or_404(DestiDistribucio, desti_id)
+
+    versio_activa = VersioFitxa.query.filter_by(
+        fitxa_id=fitxa_id, activa=True
+    ).first()
+    if not versio_activa:
+        return jsonify({'error': "No hi ha cap versió publicada"}), 400
+
+    esperats = _destins_amb_fitxa(fitxa_id)
+    resultat = _comprovar(fitxa, versio_activa, [desti], esperats)
+    return jsonify(resultat['resultats'][0]), 200

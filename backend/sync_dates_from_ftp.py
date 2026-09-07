@@ -35,6 +35,7 @@ from app.models import FitxaTecnica, VersioFitxa, DestiDistribucio
 from app.routes.distribucions import _generar_nom_fitxer
 from app.services.ftp_distributor import descarregar_ftp
 from app.services.pdf_parser import parse_pdf
+from app.services.verificador import _parse_pdf_date, _dates_iguals
 
 
 def _data_str(dt):
@@ -42,25 +43,6 @@ def _data_str(dt):
     if not dt:
         return '-'
     return dt.strftime('%d/%m/%Y')
-
-
-def _parse_pdf_date(s):
-    """Converteix 'dd/mm/aaaa' a datetime UTC. None si invalid."""
-    if not s:
-        return None
-    try:
-        return datetime.strptime(s, '%d/%m/%Y').replace(tzinfo=timezone.utc)
-    except ValueError:
-        return None
-
-
-def _dates_iguals(a, b):
-    """Compara dues dates ignorant l'hora (nomes any/mes/dia)."""
-    if a is None and b is None:
-        return True
-    if a is None or b is None:
-        return False
-    return (a.year, a.month, a.day) == (b.year, b.month, b.day)
 
 
 def _trobar_desti_ftp(nom):
