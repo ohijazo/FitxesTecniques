@@ -251,7 +251,8 @@ def main():
 
         cache_destins = {}
         files_csv = []
-        stats = {'ok': 0, 'ja_correctes': 0, 'omesos': 0, 'errors': 0}
+        stats = {'ok': 0, 'ja_correctes': 0, 'omesos': 0, 'errors': 0,
+                 'a_redistribuir': 0}
 
         for estat, items in descartats.items():
             for it in items:
@@ -317,6 +318,7 @@ def main():
             # 3) Redistribuir
             for desti in a_corregir:
                 if not args.apply:
+                    stats['a_redistribuir'] += 1
                     print(f'  [{desti.nom}] es redistribuiria')
                     files_csv.append({
                         'art_codi': fitxa.art_codi, 'desti': desti.nom,
@@ -353,6 +355,9 @@ def main():
         print('RESUM')
         print('=' * 60)
         print(f'  Fitxes tractades:           {len(per_fitxa)}')
+        if not args.apply:
+            print(f'  ES REDISTRIBUIRIEN:         {stats["a_redistribuir"]}'
+                  ' parells fitxa-desti')
         print(f'  Destins ja correctes:       {stats["ja_correctes"]}')
         print(f'  Destins omesos:             {stats["omesos"]}')
         print(f'  Redistribucions OK:         {stats["ok"]}')
