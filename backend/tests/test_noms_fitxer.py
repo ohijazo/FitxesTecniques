@@ -40,3 +40,20 @@ def test_extreu_el_nom(ref, esperat):
 ])
 def test_referencies_que_no_son_pdf(ref):
     assert _filename_de_referencia(ref) is None
+
+
+# --- Quins estats decideixen si el fitxer HA de ser al desti ----------------
+
+def test_error_no_compta_com_a_retirada():
+    """Un intent de pujada fallit no vol dir que el fitxer s'hagi de treure.
+
+    Es la regressio del fals 'sobrant': una fitxa amb un 'ok' antic i un
+    'error' recent (per exemple un timeout) sortia com a "no esperada al
+    desti", i el fitxer correcte que hi havia es marcava com a sobrant.
+    """
+    from app.routes.distribucions import _destins_amb_fitxa
+    import inspect
+
+    codi = inspect.getsource(_destins_amb_fitxa)
+    # La consulta ha de filtrar explicitament pels dos unics estats que compten
+    assert "'ok', 'retirat'" in codi

@@ -383,12 +383,19 @@ TIMEOUT_SINCRON = 8       # segons de connexio per desti (6*8=48s < 120s Gunicor
 def _destins_amb_fitxa(fitxa_id):
     """Destins on la BD diu que la fitxa hi es ARA.
 
-    Mateixa regla que el frontend (esJaDistribuit): per cada desti compta
-    l'ultima distribucio, i nomes val si va ser 'ok' (no 'retirat' ni 'error').
+    Nomes compten les distribucions que canvien si el fitxer hi ha de ser o no:
+    'ok' (s'hi ha posat) i 'retirat' (s'ha tret). Guanya la mes recent.
+
+    Els 'error' i els 'pendent' s'IGNOREN a proposit. Un error vol dir que la
+    pujada va fallar, no que el fitxer s'hagi de treure: el que hi havia de
+    l'ultima pujada bona hi segueix sent, i legitimament. Comptar-los feia que
+    una fitxa amb un intent fallit recent es considerès "no esperada" al desti
+    i que el fitxer correcte que hi havia sortis marcat com a 'sobrant'.
     """
     dists = Distribucio.query.join(VersioFitxa).filter(
         VersioFitxa.fitxa_id == fitxa_id,
         Distribucio.desti_id.isnot(None),
+        Distribucio.estat.in_(('ok', 'retirat')),
     ).order_by(Distribucio.executat_at.desc().nullslast(),
                Distribucio.id.desc()).all()
 

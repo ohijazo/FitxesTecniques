@@ -108,8 +108,11 @@ function DistribuirPanel({ fitxaId, fitxaArtCodi, distribucions, onDone, onClose
   // Una fitxa està "actualment al destí" si l'última distribució per a aquell
   // destí va ser 'ok' (no 'retirat' o 'error' posterior).
   const esJaDistribuit = (destiId, dists) => {
+    // Nomes 'ok' i 'retirat' canvien si el fitxer hi es: un 'error' es una
+    // pujada fallida, i el fitxer anterior hi segueix sent.
     const perDesti = dists
-      .filter((d) => d.desti_id === destiId && d.executat_at)
+      .filter((d) => d.desti_id === destiId && d.executat_at
+                     && (d.estat === 'ok' || d.estat === 'retirat'))
       .sort((a, b) => new Date(b.executat_at) - new Date(a.executat_at));
     return perDesti.length > 0 && perDesti[0].estat === 'ok';
   };
@@ -918,8 +921,11 @@ function DetallFitxa() {
   // Si sí, es pot retirar. Si hi ha una distribucio posterior (ok, error o retirat), no.
   const esUltimaOkPerDesti = (dist) => {
     if (!dist || dist.desti_id == null || dist.estat !== 'ok') return false;
+    // Nomes compten 'ok' i 'retirat': un 'error' posterior vol dir que va
+    // fallar una pujada, no que el fitxer s'hagi tret del desti.
     const perDesti = distribucions
-      .filter((d) => d.desti_id === dist.desti_id && d.executat_at)
+      .filter((d) => d.desti_id === dist.desti_id && d.executat_at
+                     && (d.estat === 'ok' || d.estat === 'retirat'))
       .sort((a, b) => new Date(b.executat_at) - new Date(a.executat_at));
     return perDesti.length > 0 && perDesti[0].id === dist.id;
   };
