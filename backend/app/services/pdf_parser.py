@@ -104,7 +104,11 @@ def _parse_header(pages):
                     # 'comprov' en minuscula i altres 'Comprov' en majuscula.
                     cell_lc = cell.lower()
                     if 'rev.:' in cell_lc:
-                        m = re.search(r'[Rr]ev\.:\s*(\d+)', cell)
+                        # El (?![\d/]) es imprescindible: a les fitxes en
+                        # castella la capcalera diu "Fecha Rev.: 07/02/2025",
+                        # que tambe conte "rev.:". Sense el lookahead, la
+                        # revisio que s'extreia era el DIA de la data.
+                        m = re.search(r'[Rr]ev\.:\s*(\d+)(?![\d/])', cell)
                         if m:
                             info['rev'] = m.group(1)
                     if 'fecha' in cell_lc and 'rev' in cell_lc and 'comprov' not in cell_lc:
