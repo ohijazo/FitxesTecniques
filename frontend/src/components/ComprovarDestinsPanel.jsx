@@ -3,6 +3,7 @@ import { api } from '../api/client';
 import { useToast } from './Toast';
 import BadgeVerificacio from './BadgeVerificacio';
 import EnllacDesti from './EnllacDesti';
+import RetirarDestiModal from './RetirarDestiModal';
 
 /** "5 → 4" quan difereixen; "5" quan coincideixen. */
 function Comparacio({ bd, desti, diferent }) {
@@ -27,9 +28,13 @@ function ComprovarDestinsPanel({ fitxaId, onClose }) {
   const [resultat, setResultat] = useState(null);
   const [carregant, setCarregant] = useState(false);
   const [error, setError] = useState(null);
+  const [retirant, setRetirant] = useState(null);
   const toast = useToast();
 
+  const [ultimMode, setUltimMode] = useState(false);
+
   const comprovar = async (nomesDistribuides) => {
+    setUltimMode(nomesDistribuides);
     setCarregant(true);
     setError(null);
     try {
@@ -108,6 +113,7 @@ function ComprovarDestinsPanel({ fitxaId, onClose }) {
                   <th>Rev.</th>
                   <th>Data revisió</th>
                   <th>Detall</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -138,6 +144,20 @@ function ComprovarDestinsPanel({ fitxaId, onClose }) {
                       <td style={{ fontSize: '0.82rem', color: 'var(--gray-600)' }}>
                         {r.missatge}
                       </td>
+                      <td style={{ textAlign: 'right' }}>
+                        {r.estat_verificacio === 'sobrant' && (
+                          <button
+                            type="button"
+                            className="outline btn-sm"
+                            onClick={() => setRetirant(r)}
+                            style={{ margin: 0, color: 'var(--danger)',
+                                     borderColor: 'var(--danger)', fontSize: '0.78rem' }}
+                            title={`Esborrar el fitxer de ${r.desti_nom}`}
+                          >
+                            Retirar
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
@@ -145,6 +165,16 @@ function ComprovarDestinsPanel({ fitxaId, onClose }) {
             </table>
           </div>
         )
+      )}
+      {retirant && (
+        <RetirarDestiModal
+          fitxaId={fitxaId}
+          fitxaArtCodi={resultat?.art_codi}
+          desti={{ id: retirant.desti_id, nom: retirant.desti_nom,
+                   tipus: retirant.desti_tipus }}
+          onClose={() => setRetirant(null)}
+          onDone={() => { setRetirant(null); comprovar(ultimMode); }}
+        />
       )}
     </div>
   );
