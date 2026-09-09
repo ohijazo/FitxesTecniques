@@ -6,6 +6,7 @@ import tempfile
 import uuid
 from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, send_file, current_app
+from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.utils import secure_filename
 from app import db
 from app.models import FitxaTecnica, VersioFitxa, Distribucio, DestiDistribucio
@@ -838,7 +839,7 @@ def canviar_estat(fitxa_id):
 @fitxes_bp.route('/fitxes/<int:fitxa_id>', methods=['DELETE'])
 @rol_requerit('admin')
 def eliminar_fitxa(fitxa_id):
-    from app.models import Distribucio, Usuari, RegistreEliminacio
+    from app.models import Distribucio, Usuari, RegistreEliminacio, JobItem
     import shutil
 
     fitxa = db.get_or_404(FitxaTecnica, fitxa_id)
@@ -861,7 +862,9 @@ def eliminar_fitxa(fitxa_id):
     esborrar_destins = data.get('esborrar_destins', [])
     nomes_inactivar = data.get('nomes_inactivar', False)
 
-    # Info per al registre
+    # Info per al registre (art_codi cal guardar-lo abans d'esborrar la fitxa:
+    # despres del commit l'objecte queda detached i no s'hi pot accedir)
+    art_codi = fitxa.art_codi
     versions_list = fitxa.versions.all()
     num_versions = len(versions_list)
     ultima_versio = max((v.num_versio for v in versions_list), default=0)
@@ -872,7 +875,7 @@ def eliminar_fitxa(fitxa_id):
     # Registrar l'acció
     accio_text = 'Inactivada' if nomes_inactivar else 'Eliminada'
     registre = RegistreEliminacio(
-        art_codi=fitxa.art_codi,
+        art_codi=art_codi,
         nom_producte=fitxa.nom_producte,
         num_versions=num_versions,
         ultima_versio=ultima_versio,
@@ -885,21 +888,34 @@ def eliminar_fitxa(fitxa_id):
     if nomes_inactivar:
         # Només canviar l'estat a 'inactiva', no eliminar res
         fitxa.estat = 'inactiva'
-        db.session.commit()
+        try:
+            db.session.commit()
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            current_app.logger.exception('Error inactivant la fitxa %s', art_codi)
+            return jsonify({'error': f"No s'ha pogut inactivar la fitxa: {e}"}), 400
         return jsonify({
-            'message': f'Fitxa {fitxa.art_codi} marcada com a inactiva',
+            'message': f'Fitxa {art_codi} marcada com a inactiva',
             'destins': dest_resultats,
         }), 200
     else:
-        # Eliminar distribucions, versions i fitxa
-        for versio in versions_list:
-            Distribucio.query.filter_by(versio_id=versio.id).delete()
-        VersioFitxa.query.filter_by(fitxa_id=fitxa_id).delete()
-        db.session.delete(fitxa)
-        db.session.commit()
+        # Eliminar items de jobs, distribucions, versions i fitxa.
+        # job_item.fitxa_id es NOT NULL i sense ON DELETE: si no s'esborren
+        # primer, el DELETE de la fitxa peta amb violacio de clau forana.
+        try:
+            JobItem.query.filter_by(fitxa_id=fitxa_id).delete()
+            for versio in versions_list:
+                Distribucio.query.filter_by(versio_id=versio.id).delete()
+            VersioFitxa.query.filter_by(fitxa_id=fitxa_id).delete()
+            db.session.delete(fitxa)
+            db.session.commit()
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            current_app.logger.exception('Error eliminant la fitxa %s', art_codi)
+            return jsonify({'error': f"No s'ha pogut eliminar la fitxa: {e}"}), 400
 
         # Eliminar fitxers locals (uploads)
-        upload_path = os.path.join(UPLOAD_DIR, fitxa.art_codi)
+        upload_path = os.path.join(UPLOAD_DIR, art_codi)
         if os.path.exists(upload_path):
             shutil.rmtree(upload_path, ignore_errors=True)
 
