@@ -220,8 +220,10 @@ FIELD_MAP = {
     'codi ean': 'codi_ean',
     'descripción del producto': 'descripcio',
     'descripció del producte': 'descripcio',
-    'origen del producto y procedencia del cereal': 'origen',
-    'origen del producte i procedència del cereal': 'origen',
+    # Forma curta: hi ha fitxes que titulen només "Origen del producto" (sense
+    # "y procedencia del cereal"). El prefix cobreix igualment la forma llarga.
+    'origen del producto': 'origen',
+    'origen del producte': 'origen',
     'ingredientes': 'ingredients',
     'ingredients': 'ingredients',
     'alérgenos': 'alergens',
