@@ -366,6 +366,68 @@ def _wrap_secondary(text, is_secondary):
     return f'<span style="{SECONDARY_STYLE}">{html.escape(text, quote=False)}</span>'
 
 
+# Formats de numeració del Word que produeixen una llista ordenada (numerada o
+# alfabètica). La resta (bullet i variants) es tracten com a llista amb vinyeta.
+_ORDERED_NUM_FORMATS = (
+    'decimal', 'decimalzero', 'lowerletter', 'upperletter',
+    'lowerroman', 'upperroman', 'ordinal', 'cardinaltext', 'ordinaltext',
+)
+
+
+def _numbering_formats(doc):
+    """Mapa numId -> numFmt del nivell 0, llegit de word/numbering.xml.
+
+    El glif de la vinyeta i el tipus de llista no viuen al paràgraf sinó a la
+    part de numeració, per això cal resoldre numId -> abstractNumId -> numFmt.
+    Retorna {} si el document no té part de numeració.
+    """
+    try:
+        numbering = doc.part.numbering_part.element
+    except (AttributeError, KeyError, NotImplementedError):
+        return {}
+
+    # abstractNumId -> numFmt del nivell 0
+    abstract = {}
+    for abs_num in numbering.findall(qn('w:abstractNum')):
+        abs_id = abs_num.get(qn('w:abstractNumId'))
+        if abs_id is None:
+            continue
+        for lvl in abs_num.findall(qn('w:lvl')):
+            if (lvl.get(qn('w:ilvl')) or '0') != '0':
+                continue
+            fmt = lvl.find(qn('w:numFmt'))
+            if fmt is not None:
+                abstract[abs_id] = (fmt.get(qn('w:val')) or '').lower()
+            break
+
+    formats = {}
+    for num in numbering.findall(qn('w:num')):
+        num_id = num.get(qn('w:numId'))
+        abs_ref = num.find(qn('w:abstractNumId'))
+        if num_id is None or abs_ref is None:
+            continue
+        formats[num_id] = abstract.get(abs_ref.get(qn('w:val')), '')
+    return formats
+
+
+def _list_kind(p, formats):
+    """Retorna 'ul'/'ol' si el paràgraf és un element de llista, o None."""
+    p_elem = p._element if hasattr(p, '_element') else p
+    pPr = p_elem.find(qn('w:pPr'))
+    if pPr is None:
+        return None
+    numPr = pPr.find(qn('w:numPr'))
+    if numPr is None:
+        return None
+    num_id_el = numPr.find(qn('w:numId'))
+    if num_id_el is None:
+        return None
+    num_id = num_id_el.get(qn('w:val'))
+    if not num_id or num_id == '0':  # numId 0 = numeració explícitament anul·lada
+        return None
+    return 'ol' if formats.get(num_id, '') in _ORDERED_NUM_FORMATS else 'ul'
+
+
 def _iter_body_items(doc):
     """Itera els elements del body en ordre de document: (kind, obj)
     on kind és 'p' (paràgraf) o 't' (taula)."""
@@ -455,6 +517,31 @@ def parse_docx(file_path):
     etiquetes_total = 0        # etiquetes reconegudes (per detectar l'idioma)
     etiquetes_bilingues = 0    # ...de les quals escrites "castellà / català"
 
+    num_formats = _numbering_formats(doc)
+    # Buffer d'elements de llista consecutius: (camp destí, 'ul'|'ol', [ítems])
+    list_buf = None
+
+    def _append_text(field, value):
+        existing = contingut.get(field, '')
+        contingut[field] = (existing + '\n' + value) if existing else value
+
+    def _flush_list():
+        """Bolca la llista acumulada al seu camp com un bloc <ul>/<ol>.
+
+        El bloc va en una sola línia (sense salts) perquè la resta del sistema
+        segueix separant els paràgrafs d'un camp per salt de línia.
+        """
+        nonlocal list_buf
+        if not list_buf:
+            list_buf = None
+            return
+        field, kind_list, items = list_buf
+        list_buf = None
+        if not items:
+            return
+        lis = ''.join(f'<li>{it}</li>' for it in items)
+        _append_text(field, f'<{kind_list}>{lis}</{kind_list}>')
+
     for kind, item in _iter_body_items(doc):
         if kind == 'p':
             text = item.text.strip()
@@ -464,6 +551,7 @@ def parse_docx(file_path):
             # Nova etiqueta → canvi de camp
             field = _match_field_label(text)
             if field is not None:
+                _flush_list()
                 etiquetes_total += 1
                 if ' / ' in text:
                     etiquetes_bilingues += 1
@@ -473,6 +561,7 @@ def parse_docx(file_path):
 
             # Títol de secció → reset (però mantenir last_table_key per notes)
             if _is_section_title(text):
+                _flush_list()
                 current_field = None
                 continue
 
@@ -480,18 +569,29 @@ def parse_docx(file_path):
             # Els peus s'emmagatzemen com a text pla (el frontend/PDF els estilitza
             # ja com a secundari per convenció).
             if last_table_key and current_field is None:
-                note_key = f'{last_table_key}_note'
-                existing = contingut.get(note_key, '')
-                contingut[note_key] = (existing + '\n' + text) if existing else text
+                _flush_list()
+                _append_text(f'{last_table_key}_note', text)
                 continue
 
             # Camps de text lliure: preservar format secundari del Word amb span
             if current_field:
                 wrapped = _wrap_secondary(text, _is_secondary_paragraph(item))
-                existing = contingut.get(current_field, '')
-                contingut[current_field] = (existing + '\n' + wrapped) if existing else wrapped
+                kind_list = _list_kind(item, num_formats)
+                if kind_list:
+                    # Element de llista: acumular fins que s'acabi la llista. Un
+                    # canvi de tipus (vinyeta -> numerada) tanca la de dalt.
+                    if list_buf and (list_buf[0] != current_field
+                                     or list_buf[1] != kind_list):
+                        _flush_list()
+                    if list_buf is None:
+                        list_buf = (current_field, kind_list, [])
+                    list_buf[2].append(wrapped)
+                    continue
+                _flush_list()
+                _append_text(current_field, wrapped)
 
         elif kind == 't':
+            _flush_list()
             table_type = _identify_table(item)
             current_field = None  # una taula tanca el camp de text actiu
 
@@ -519,6 +619,8 @@ def parse_docx(file_path):
                 last_table_key = table_type
             else:
                 last_table_key = None
+
+    _flush_list()  # llista encara oberta al final del document
 
     contingut.update(tables_data)
 

@@ -79,20 +79,75 @@ def _starts_with_secondary_prefix(line):
     return stripped.startswith(SECONDARY_PREFIXES)
 
 
-def _split_paragraphs(text):
-    """Separa un text en llista de línies/paràgrafs, gestionant HTML <p>,
-    <br> (inclús dins d'un mateix <p>) i text pla amb \\n."""
-    text = str(text or '').strip()
+_LIST_OPEN_RE = re.compile(r'<(ul|ol)\b[^>]*>', re.IGNORECASE)
+_LIST_TAG_RE = re.compile(r'</?(?:ul|ol)\b[^>]*>', re.IGNORECASE)
+_IS_LIST_BLOCK_RE = re.compile(r'^<(?:ul|ol)\b', re.IGNORECASE)
+
+
+def _extract_list_blocks(text):
+    """Talla el text en trossos (es_llista, contingut).
+
+    Es fa amb un escaneig amb comptador de profunditat i no amb un regex simple
+    per tancar be les llistes niuades (<ul> dins d'un <li>).
+    """
+    chunks = []
+    pos = 0
+    while True:
+        m = _LIST_OPEN_RE.search(text, pos)
+        if not m:
+            break
+        depth = 0
+        end = None
+        for t in _LIST_TAG_RE.finditer(text, m.start()):
+            if t.group(0).startswith('</'):
+                depth -= 1
+                if depth <= 0:
+                    end = t.end()
+                    break
+            else:
+                depth += 1
+        if end is None:
+            break  # llista sense tancar: es tracta com a text normal
+        if m.start() > pos:
+            chunks.append((False, text[pos:m.start()]))
+        chunks.append((True, text[m.start():end]))
+        pos = end
+    if pos < len(text):
+        chunks.append((False, text[pos:]))
+    return chunks
+
+
+def _split_plain(text):
+    """Separa text sense llistes en linies, gestionant <p>, <br> i \n."""
+    text = text.strip()
     if not text:
         return []
     # HTML amb <p>: concatenar contingut de cada <p> amb \n
     p_matches = re.findall(r'<p[^>]*>(.*?)</p>', text, re.DOTALL | re.IGNORECASE)
     if p_matches:
         text = '\n'.join(p_matches)
-    # Normalitzar <br> a \n perquè el split final ho tracti tot igual
+    # Normalitzar <br> a \n perque el split final ho tracti tot igual
     text = re.sub(r'<br\s*/?>', '\n', text, flags=re.IGNORECASE)
     lines = [line.strip() for line in text.split('\n')]
     return [line for line in lines if line and line != '&nbsp;']
+
+
+def _split_paragraphs(text):
+    """Separa un text en blocs: linies de text i blocs de llista <ul>/<ol>.
+
+    Els blocs de llista es retornen sencers i sense tocar (els renderitza
+    param_html); la resta segueix el tractament de sempre (<p>, <br> i \n).
+    """
+    text = str(text or '').strip()
+    if not text:
+        return []
+    blocks = []
+    for is_list, chunk in _extract_list_blocks(text):
+        if is_list:
+            blocks.append(chunk.strip())
+        else:
+            blocks.extend(_split_plain(chunk))
+    return blocks
 
 
 def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
@@ -139,12 +194,45 @@ def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
                 return f'<span style="{secondary_style}">{p}</span>'
             return p
 
-        if len(paragraphs) == 1:
-            return Markup(_render(paragraphs[0]))
+        def _render_list(block):
+            """Converteix un <ul>/<ol> en divs amb sagnat frances.
 
-        parts = [_render(paragraphs[0])]
-        for p in paragraphs[1:]:
-            parts.append(f'<br>{_render(p)}')
+            No es fa servir <li> real perque xhtml2pdf sempre hi pinta un punt
+            rodo (no hi ha cap list-style-type que doni el guio de l'original) i
+            el seu suport de marges a <ul> es nomes parcial.
+            """
+            ordered = block.lstrip().lower().startswith('<ol')
+            items = re.findall(r'<li[^>]*>(.*?)</li>', block, re.DOTALL | re.IGNORECASE)
+            out = []
+            for i, item in enumerate(items, 1):
+                # Els <p> interns que hi posa l'editor no son salts de bloc aqui
+                inner = re.sub(r'</p>\s*<p[^>]*>', '<br>', item, flags=re.IGNORECASE)
+                inner = re.sub(r'</?p[^>]*>', '', inner, flags=re.IGNORECASE).strip()
+                if not inner:
+                    continue
+                marca = f'{i}.' if ordered else '-'
+                out.append(
+                    '<tr>'
+                    f'<td class="list-marker">{marca}</td>'
+                    f'<td class="list-text">{_render(inner)}</td>'
+                    '</tr>')
+            if not out:
+                return ''
+            return '<table class="list-table">' + ''.join(out) + '</table>'
+
+        def _render_block(block):
+            if _IS_LIST_BLOCK_RE.match(block):
+                return _render_list(block)
+            return _render(block)
+
+        parts = []
+        for i, p in enumerate(paragraphs):
+            block = _render_block(p)
+            # Les llistes ja son blocs: no hi va <br> ni abans ni despres
+            if i > 0 and not _IS_LIST_BLOCK_RE.match(p) \
+                    and not _IS_LIST_BLOCK_RE.match(paragraphs[i - 1]):
+                parts.append('<br>')
+            parts.append(block)
         return Markup(''.join(parts))
     env.filters['param_html'] = param_html
 

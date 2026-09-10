@@ -32,9 +32,45 @@ function startsWithSecondaryPrefix(line) {
   return SECONDARY_PREFIXES.some((p) => stripped.startsWith(p));
 }
 
-function splitParagraphs(text) {
-  if (!text) return [];
-  let s = String(text).trim();
+/* Blocs de llista (importats del Word o fets amb l'editor). S'han de deixar
+   passar sencers: no son linies de text sino blocs. Ha de coincidir amb
+   _split_paragraphs() de backend/app/services/pdf_generator.py. */
+const LIST_OPEN_RE = /<(ul|ol)\b[^>]*>/gi;
+const LIST_TAG_RE = /<\/?(?:ul|ol)\b[^>]*>/gi;
+const IS_LIST_BLOCK_RE = /^<(?:ul|ol)\b/i;
+
+function extractListBlocks(text) {
+  // Escaneig amb comptador de profunditat per tancar be les llistes niuades
+  const chunks = [];
+  let pos = 0;
+  LIST_OPEN_RE.lastIndex = 0;
+  let m;
+  while ((m = LIST_OPEN_RE.exec(text)) !== null) {
+    if (m.index < pos) continue;
+    let depth = 0;
+    let end = null;
+    LIST_TAG_RE.lastIndex = m.index;
+    let t;
+    while ((t = LIST_TAG_RE.exec(text)) !== null) {
+      if (t[0].startsWith('</')) {
+        depth -= 1;
+        if (depth <= 0) { end = t.index + t[0].length; break; }
+      } else {
+        depth += 1;
+      }
+    }
+    if (end === null) break; // llista sense tancar: text normal
+    if (m.index > pos) chunks.push([false, text.slice(pos, m.index)]);
+    chunks.push([true, text.slice(m.index, end)]);
+    pos = end;
+    LIST_OPEN_RE.lastIndex = end;
+  }
+  if (pos < text.length) chunks.push([false, text.slice(pos)]);
+  return chunks;
+}
+
+function splitPlain(text) {
+  let s = text.trim();
   if (!s) return [];
   const pMatches = [...s.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)];
   if (pMatches.length > 0) {
@@ -44,11 +80,24 @@ function splitParagraphs(text) {
   return s.split('\n').map((l) => l.trim()).filter((l) => l && l !== '&nbsp;');
 }
 
+function splitParagraphs(text) {
+  if (!text) return [];
+  const s = String(text).trim();
+  if (!s) return [];
+  const blocks = [];
+  for (const [isList, chunk] of extractListBlocks(s)) {
+    if (isList) blocks.push(chunk.trim());
+    else blocks.push(...splitPlain(chunk));
+  }
+  return blocks;
+}
+
 function formatWithSecondary(text) {
   const paragraphs = splitParagraphs(text);
   if (paragraphs.length === 0) return '';
 
   const render = (p) => {
+    if (IS_LIST_BLOCK_RE.test(p)) return p;  // la llista es renderitza tal qual
     if (ALREADY_SECONDARY_RE.test(p)) {
       return p.replace(/<span[^>]*>/, `<span style="${SECONDARY_STYLE}">`);
     }
@@ -59,7 +108,14 @@ function formatWithSecondary(text) {
   };
 
   if (paragraphs.length === 1) return render(paragraphs[0]);
-  return paragraphs.map((p, i) => (i === 0 ? '' : '<br/>') + render(p)).join('');
+  // Les llistes ja son blocs: no hi va <br/> ni abans ni despres
+  return paragraphs
+    .map((p, i) => {
+      const sep = i > 0 && !IS_LIST_BLOCK_RE.test(p) && !IS_LIST_BLOCK_RE.test(paragraphs[i - 1])
+        ? '<br/>' : '';
+      return sep + render(p);
+    })
+    .join('');
 }
 
 /* ============================================================

@@ -79,6 +79,35 @@
     text-align: justify;
   }
 
+  /* -- Elements de llista (importats del Word o fets amb l'editor) --
+     Es fa servir una taula sense vores i no <ul>/<li> reals perque xhtml2pdf
+     nomes sap pintar la vinyeta com a punt rodo i no respecta els marges de
+     la llista. La taula reprodueix el sagnat frances del Word: la columna del
+     text sempre comenca al mateix lloc encara que el text vagi justificat.
+     Vegeu _render_list() a app/services/pdf_generator.py. */
+  .list-table {
+    width: 100%;
+    margin: 2px 0 8px 0;
+    border: none;
+  }
+
+  .list-table td {
+    border: none;
+    padding: 0 0 2px 0;
+    font-size: 10pt;
+    vertical-align: top;
+  }
+
+  .list-table td.list-marker {
+    width: 38pt;
+    padding: 0 0 2px 14pt;
+    text-align: left;
+  }
+
+  .list-table td.list-text {
+    text-align: justify;
+  }
+
   /* -- Títols de secció -- */
   .section-title {
     color: #2F5496;
@@ -252,17 +281,17 @@
 
 {% if certificacio %}
 <div class="field-label">{{ 'Certificación / Certificació'|bil }}</div>
-<div class="field-value">{{ certificacio }}</div>
+<div class="field-value">{{ certificacio|param_html }}</div>
 {% endif %}
 
 {% if denominacio_comercial %}
 <div class="field-label">{{ 'Denominación comercial del Producto / Denominació comercial del producte'|bil }}</div>
-<div class="field-value">{{ denominacio_comercial }}</div>
+<div class="field-value">{{ denominacio_comercial|param_html }}</div>
 {% endif %}
 
 {% if denominacio_juridica %}
 <div class="field-label">{{ 'Denominación jurídica del producto / Denominació jurídica del producte'|bil }}</div>
-<div class="field-value">{{ denominacio_juridica }}</div>
+<div class="field-value">{{ denominacio_juridica|param_html }}</div>
 {% endif %}
 
 {% if codi_ean %}
@@ -272,22 +301,22 @@
 
 {% if descripcio %}
 <div class="field-label">{{ 'Descripción del producto / Descripció del producte'|bil }}</div>
-<div class="field-value">{{ descripcio }}</div>
+<div class="field-value">{{ descripcio|param_html }}</div>
 {% endif %}
 
 {% if origen %}
 <div class="field-label">{{ 'Origen del Producto y Procedencia del cereal / Origen del producte i procedència del cereal'|bil }}</div>
-<div class="field-value">{{ origen }}</div>
+<div class="field-value">{{ origen|param_html }}</div>
 {% endif %}
 
 {% if ingredients %}
 <div class="field-label">{{ 'Ingredientes / Ingredients'|bil }}</div>
-<div class="field-value">{{ ingredients }}</div>
+<div class="field-value">{{ ingredients|param_html }}</div>
 {% endif %}
 
 {% if alergens %}
 <div class="field-label">{{ 'Alérgenos / Al·lèrgens'|bil }}</div>
-<div class="field-value">{{ alergens }}</div>
+<div class="field-value">{{ alergens|param_html }}</div>
 {% endif %}
 
 {% if ogm %}
@@ -303,7 +332,7 @@
 <!-- Característiques -->
 {% if caract_organoleptiques %}
 <div class="section-title">{{ 'Características organolépticas / Característiques organolèptiques'|bil }}</div>
-<div class="field-value">{{ caract_organoleptiques }}</div>
+<div class="field-value">{{ caract_organoleptiques|param_html }}</div>
 {% endif %}
 
 {% if fisicoquimiques %}
@@ -312,10 +341,10 @@
   <tr style="height: 3pt"><td colspan="2" class="espai-taula"></td></tr>
   <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>Valor</th></tr>
   {% for row in fisicoquimiques %}
-  <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor }}</td></tr>
+  <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor|param_html }}</td></tr>
   {% endfor %}
 </table>
-{% if fisicoquimiques_note %}<div class="note">{{ fisicoquimiques_note }}</div>{% endif %}
+{% if fisicoquimiques_note %}<div class="note">{{ fisicoquimiques_note|param_html }}</div>{% endif %}
 {% endif %}
 
 {% if reologiques %}
@@ -324,10 +353,10 @@
   <tr style="height: 3pt"><td colspan="2" class="espai-taula"></td></tr>
   <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>Valor</th></tr>
   {% for row in reologiques %}
-  <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor }}</td></tr>
+  <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor|param_html }}</td></tr>
   {% endfor %}
 </table>
-{% if reologiques_note %}<div class="note">{{ reologiques_note }}</div>{% endif %}
+{% if reologiques_note %}<div class="note">{{ reologiques_note|param_html }}</div>{% endif %}
 {% endif %}
 
 {% if microbiologiques %}
@@ -337,10 +366,10 @@
   <tr><td colspan="2" class="table-subtitle">{{ 'Parámetros microbiológicos / Paràmetres microbiològics'|bil }}</td></tr>
   <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>Valor</th></tr>
   {% for row in microbiologiques %}
-  <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor }}</td></tr>
+  <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor|param_html }}</td></tr>
   {% endfor %}
 </table>
-{% if microbiologiques_note %}<div class="note">{{ microbiologiques_note }}</div>{% endif %}
+{% if microbiologiques_note %}<div class="note">{{ microbiologiques_note|param_html }}</div>{% endif %}
 {% endif %}
 
 <!-- Contaminants -->
@@ -353,10 +382,10 @@
   <tr><td colspan="2" class="table-subtitle">{{ 'Micotoxinas / Micotoxines'|bil }}</td></tr>
   <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>Valor</th></tr>
   {% for row in micotoxines %}
-  <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor }}</td></tr>
+  <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor|param_html }}</td></tr>
   {% endfor %}
 </table>
-{% if micotoxines_note %}<div class="note">{{ micotoxines_note }}</div>{% endif %}
+{% if micotoxines_note %}<div class="note">{{ micotoxines_note|param_html }}</div>{% endif %}
 {% endif %}
 
 {% if alcaloides %}
@@ -364,10 +393,10 @@
   <tr><td colspan="2" class="table-subtitle">{{ 'Alcaloides del cornezuelo / Alcaloides del sègol banyut'|bil }}</td></tr>
   <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>Valor</th></tr>
   {% for row in alcaloides %}
-  <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor }}</td></tr>
+  <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor|param_html }}</td></tr>
   {% endfor %}
 </table>
-{% if alcaloides_note %}<div class="note">{{ alcaloides_note }}</div>{% endif %}
+{% if alcaloides_note %}<div class="note">{{ alcaloides_note|param_html }}</div>{% endif %}
 {% endif %}
 
 {% if metalls_pesants %}
@@ -375,10 +404,10 @@
   <tr><td colspan="2" class="table-subtitle">{{ 'Metales pesados / Metalls pesants'|bil }}</td></tr>
   <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>Valor</th></tr>
   {% for row in metalls_pesants %}
-  <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor }}</td></tr>
+  <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor|param_html }}</td></tr>
   {% endfor %}
 </table>
-{% if metalls_pesants_note %}<div class="note">{{ metalls_pesants_note }}</div>{% endif %}
+{% if metalls_pesants_note %}<div class="note">{{ metalls_pesants_note|param_html }}</div>{% endif %}
 {% endif %}
 
 {% if pesticidas %}
@@ -397,11 +426,11 @@
   {% for row in valors_nutricionals %}
   <tr>
     <td{% if row.sub %} class="sub"{% endif %}>{{ row.parametre|param_html }}</td>
-    <td>{{ row.valor }}</td>
+    <td>{{ row.valor|param_html }}</td>
   </tr>
   {% endfor %}
 </table>
-{% if valors_nutricionals_note %}<div class="note">{{ valors_nutricionals_note }}</div>{% endif %}
+{% if valors_nutricionals_note %}<div class="note">{{ valors_nutricionals_note|param_html }}</div>{% endif %}
 {% endif %}
 
 <!-- Informació comercial -->
@@ -412,7 +441,7 @@
 
 {% if us_previst %}
 <div class="section-title">{{ 'Uso previsto / Ús previst'|bil }}</div>
-<div class="field-value">{{ us_previst }}</div>
+<div class="field-value">{{ us_previst|param_html }}</div>
 {% endif %}
 
 {% if condicions_emmagatzematge %}
@@ -422,27 +451,27 @@
 
 {% if condicions_transport %}
 <div class="section-title">{{ 'Condiciones de transporte / Condicions de transport'|bil }}</div>
-<div class="field-value">{{ condicions_transport }}</div>
+<div class="field-value">{{ condicions_transport|param_html }}</div>
 {% endif %}
 
 {% if vida_util %}
 <div class="section-title">{{ 'Vida útil del producto / Vida útil del producte'|bil }}</div>
-<div class="field-value">{{ vida_util }}</div>
+<div class="field-value">{{ vida_util|param_html }}</div>
 {% endif %}
 
 {% if legislacio_aplicable %}
 <div class="section-title">{{ 'Otra legislación aplicable / Altra legislació aplicable'|bil }}</div>
-<div class="field-value">{{ legislacio_aplicable }}</div>
+<div class="field-value">{{ legislacio_aplicable|param_html }}</div>
 {% endif %}
 
 {% if fabricat_per %}
 <div class="section-title">{{ 'Producto fabricado para / Producte fabricat per a'|bil }}</div>
-<div class="field-value">{{ fabricat_per }}</div>
+<div class="field-value">{{ fabricat_per|param_html }}</div>
 {% endif %}
 
 {% if vigencia_document %}
 <div class="section-title">{{ 'Vigencia del documento / Vigència del document'|bil }}</div>
-<div class="field-value">{{ vigencia_document }}</div>
+<div class="field-value">{{ vigencia_document|param_html }}</div>
 {% endif %}
 
 </body>
