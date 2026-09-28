@@ -26,6 +26,10 @@ class Config:
         'CORS_ORIGINS', 'http://localhost:5173,http://localhost:5174'
     ).split(',')
 
+    # Clau de l'endpoint public de denominacions (/api/public/denominacions).
+    # Buida = endpoint desactivat. El fa servir l'aplicacio del DeCA.
+    API_DENOMINACIONS_KEY = os.environ.get('API_DENOMINACIONS_KEY', '')
+
     # FTP
     FTP_HOST = os.environ.get('FTP_HOST', '')
     FTP_PORT = int(os.environ.get('FTP_PORT', 21))

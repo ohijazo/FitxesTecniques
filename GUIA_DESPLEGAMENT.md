@@ -615,3 +615,42 @@ Contingut:
 | Usuari BD | `fitxes_user` |
 | URL acces | `http://fitxes.agrienergia.local` |
 | Repositori | `https://github.com/ohijazo/FitxesTecniques` |
+
+
+---
+
+## Endpoint de denominacions per al DeCA
+
+L'aplicacio del DeCA necessita la denominacio juridica de cada article per
+imprimir la naturalesa de la mercaderia (art. 6.d de l'Ordre FOM/2861/2012).
+La llegeix de `GET /api/public/denominacions`.
+
+L'endpoint **ve desactivat de serie**. Per activar-lo:
+
+```bash
+# 1. Generar una clau
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+
+# 2. Afegir-la al .env del backend
+sudo nano /var/www/fitxes-tecniques/backend/.env
+#   API_DENOMINACIONS_KEY=<la clau generada>
+
+# 3. Reiniciar
+sudo systemctl restart fitxes-tecniques
+
+# 4. Comprovar
+curl -s -H "X-API-Key: <la clau>"   http://localhost:50002/api/public/denominacions | head -c 300
+```
+
+La mateixa clau ha d'anar al `.env` de l'aplicacio del DeCA, a
+`FITXES_API_KEY`.
+
+### Que torna i que no
+
+Nomes `art_codi`, `denominacio_juridica`, `revisio` i `data_revisio`, i
+unicament de **fitxes publicades amb versio activa**. No exposa composicions,
+vides utils ni valors reologics: el DeCA no els necessita i no els ha de
+poder veure.
+
+Sense la clau, o amb una clau que no coincideix, respon 401. Sense
+`API_DENOMINACIONS_KEY` configurada, respon 503.
