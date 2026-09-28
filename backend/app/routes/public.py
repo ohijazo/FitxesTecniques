@@ -29,11 +29,23 @@ import secrets
 
 from flask import Blueprint, current_app, jsonify, request
 
+from app import db
 from app.models import FitxaTecnica, VersioFitxa
 
 public_bp = Blueprint('public', __name__)
 
 ESTAT_PUBLICADA = 'publicada'
+
+# Per que una fitxa que existeix no dona denominacio. Es important distingir-ho:
+# "no publicada" la resol qui la publiqui, "sense denominacio" la resol Qualitat.
+MOTIU_NO_PUBLICADA = 'fitxa no publicada'
+MOTIU_SENSE_VERSIO = 'sense versio activa'
+MOTIU_SENSE_DENOMINACIO = 'sense denominacio juridica'
+# Un producte comercialitzat no el fabriquem: la fitxa es el PDF del
+# proveidor, i alli la denominacio no esta en cap camp que puguem llegir.
+# Es un cas diferent del d'una fitxa nostra a qui falta omplir-la: aquesta
+# no s'omplira mai sola i algu l'ha d'anotar a ma.
+MOTIU_COMERCIALITZAT = 'article comercialitzat: la fitxa es el PDF del proveidor'
 
 
 def _clau_valida():
@@ -53,17 +65,21 @@ def _sense_html(text):
 
 
 def _consultar():
-    """Fitxes publicades amb la seva versio activa.
+    """Totes les fitxes, amb la seva versio activa si en tenen.
 
-    Nomes aquestes: la denominacio d'un esborrany no esta validada per
-    Qualitat i no ha d'acabar impresa en un document legal.
+    Es porten totes i no nomes les publicades perque qui consumeix aixo pugui
+    saber PER QUE li falta una denominacio. No es el mateix que un article no
+    tingui fitxa que que la tingui sense publicar: la primera la resol
+    Qualitat creant-la, la segona nomes cal publicar-la.
     """
     return (
         FitxaTecnica.query
-        .join(VersioFitxa, VersioFitxa.fitxa_id == FitxaTecnica.id)
-        .filter(FitxaTecnica.estat == ESTAT_PUBLICADA, VersioFitxa.activa.is_(True))
-        .with_entities(FitxaTecnica.art_codi, VersioFitxa.contingut,
-                       VersioFitxa.num_versio, VersioFitxa.data_revisio)
+        .outerjoin(VersioFitxa, db.and_(VersioFitxa.fitxa_id == FitxaTecnica.id,
+                                        VersioFitxa.activa.is_(True)))
+        .with_entities(FitxaTecnica.art_codi, FitxaTecnica.estat,
+                       FitxaTecnica.tipus_producte,
+                       VersioFitxa.contingut, VersioFitxa.num_versio,
+                       VersioFitxa.data_revisio)
         .all()
     )
 
@@ -77,21 +93,37 @@ def denominacions():
     if not valida:
         return jsonify({'error': "Clau invalida"}), 401
 
-    files = _consultar()
-    denominacions_llista = []
-    for art_codi, contingut, num_versio, data_revisio in files:
+    llista, omesos = [], []
+    for art_codi, estat, tipus_producte, contingut, num_versio, data_revisio in _consultar():
+        codi = (art_codi or '').strip()
+        if not codi:
+            continue
+        if estat != ESTAT_PUBLICADA:
+            omesos.append({'art_codi': codi, 'motiu': MOTIU_NO_PUBLICADA})
+            continue
+        if num_versio is None:
+            omesos.append({'art_codi': codi, 'motiu': MOTIU_SENSE_VERSIO})
+            continue
         text = _sense_html((contingut or {}).get('denominacio_juridica'))
         if not text:
+            comercialitzat = (tipus_producte or 'elaborat') == 'comercialitzat'
+            omesos.append({'art_codi': codi,
+                           'motiu': MOTIU_COMERCIALITZAT if comercialitzat
+                                    else MOTIU_SENSE_DENOMINACIO})
             continue
-        denominacions_llista.append({
-            'art_codi': (art_codi or '').strip(),
+        llista.append({
+            'art_codi': codi,
             'denominacio_juridica': text,
             'revisio': num_versio,
             'data_revisio': data_revisio.isoformat() if data_revisio else None,
         })
 
-    denominacions_llista.sort(key=lambda d: d['art_codi'])
+    llista.sort(key=lambda d: d['art_codi'])
+    omesos.sort(key=lambda d: d['art_codi'])
     return jsonify({
-        'denominacions': denominacions_llista,
-        'total': len(denominacions_llista),
+        'denominacions': llista,
+        'total': len(llista),
+        # Fitxes que existeixen pero no donen denominacio, i per que. Nomes el
+        # codi i el motiu: cap altra dada de la fitxa.
+        'omesos': omesos,
     })
