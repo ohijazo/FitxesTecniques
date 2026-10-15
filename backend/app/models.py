@@ -423,3 +423,65 @@ class RegistreEliminacio(db.Model):
             'eliminat_per': self.eliminat_per,
             'eliminat_at': self.eliminat_at.isoformat() if self.eliminat_at else None,
         }
+
+
+class EnviamentEmail(db.Model):
+    """Registre d'audit dels enviaments de fitxes per correu. Mai s'eliminen."""
+    __tablename__ = 'enviament_email'
+
+    id = db.Column(db.Integer, primary_key=True)
+    remitent = db.Column(db.String(200), nullable=False)
+    per_a = db.Column(db.Text, nullable=False)        # adreces separades per ', '
+    cc = db.Column(db.Text)
+    assumpte = db.Column(db.String(500), nullable=False)
+    cos = db.Column(db.Text)
+    estat = db.Column(db.String(20), nullable=False, default='pendent')  # pendent|ok|error
+    missatge_error = db.Column(db.Text)
+    created_by = db.Column(db.String(200), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    executat_at = db.Column(db.DateTime, nullable=True)
+
+    items = db.relationship('EnviamentEmailItem', backref='enviament',
+                            lazy='select', order_by='EnviamentEmailItem.id')
+
+    def to_dict(self, include_items=True):
+        data = {
+            'id': self.id,
+            'remitent': self.remitent,
+            'per_a': self.per_a,
+            'cc': self.cc,
+            'assumpte': self.assumpte,
+            'cos': self.cos,
+            'estat': self.estat,
+            'missatge_error': self.missatge_error,
+            'created_by': self.created_by,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'executat_at': self.executat_at.isoformat() if self.executat_at else None,
+        }
+        if include_items:
+            data['items'] = [i.to_dict() for i in self.items]
+        return data
+
+
+class EnviamentEmailItem(db.Model):
+    """Fitxa i versio exacta adjuntada en un enviament per correu."""
+    __tablename__ = 'enviament_email_item'
+
+    id = db.Column(db.Integer, primary_key=True)
+    enviament_id = db.Column(db.Integer, db.ForeignKey('enviament_email.id'), nullable=False, index=True)
+    # Sense FK a fitxa/versio: el registre ha de sobreviure si la fitxa s'elimina.
+    fitxa_id = db.Column(db.Integer, nullable=False, index=True)
+    versio_id = db.Column(db.Integer, nullable=False)
+    art_codi = db.Column(db.String(50), nullable=False)
+    num_versio = db.Column(db.Integer, nullable=False)
+    nom_fitxer = db.Column(db.String(200), nullable=False)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'fitxa_id': self.fitxa_id,
+            'versio_id': self.versio_id,
+            'art_codi': self.art_codi,
+            'num_versio': self.num_versio,
+            'nom_fitxer': self.nom_fitxer,
+        }

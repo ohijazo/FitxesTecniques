@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useToast } from '../components/Toast';
 import BulkActionBar from '../components/BulkActionBar';
+import EnviarCorreuModal from '../components/EnviarCorreuModal';
 
 function DistBadge({ resum }) {
   if (!resum) return <span className="dist-badge dist-none" title="Sense versió activa">&mdash;</span>;
@@ -63,6 +64,8 @@ function LlistaFitxes({ usuari }) {
   const [pagines, setPagines] = useState(1);
   const [seleccionats, setSeleccionats] = useState(() => new Set());
   const [estatsCatalog, setEstatsCatalog] = useState([]);
+  // Fitxes del correu en curs (null = finestra tancada)
+  const [idsCorreu, setIdsCorreu] = useState(null);
   const toast = useToast();
   const navigate = useNavigate();
 
@@ -203,6 +206,8 @@ function LlistaFitxes({ usuari }) {
   const obrirDistribucioMassiva = () => {
     navigate('/fitxes/bulk-distribuir', { state: { fitxa_ids: [...seleccionats] } });
   };
+
+  const obrirEnviarCorreu = () => setIdsCorreu([...seleccionats]);
 
   return (
     <>
@@ -373,8 +378,17 @@ function LlistaFitxes({ usuari }) {
         usuariRol={usuari?.rol}
         onDistribuir={obrirDistribucioMassiva}
         onEditar={obrirEdicioMassiva}
+        onEnviarCorreu={obrirEnviarCorreu}
         onDeseleccionar={deseleccionar}
       />
+
+      {idsCorreu && (
+        <EnviarCorreuModal
+          fitxaIds={idsCorreu}
+          onClose={() => setIdsCorreu(null)}
+          onEnviat={deseleccionar}
+        />
+      )}
     </>
   );
 }

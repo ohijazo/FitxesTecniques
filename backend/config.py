@@ -39,3 +39,13 @@ class Config:
 
     # Carpeta xarxa (pendent)
     NETWORK_SHARE_PATH = os.environ.get('NETWORK_SHARE_PATH', '')
+
+    # Enviament de fitxes per correu (Microsoft Graph, permis d'aplicacio Mail.Send).
+    # Mateixa app registration d'Azure que la distribucio a SharePoint.
+    # El correu surt de la bustia M365 de l'usuari que envia (el seu email de login).
+    GRAPH_TENANT_ID = os.environ.get('GRAPH_TENANT_ID', '')
+    GRAPH_CLIENT_ID = os.environ.get('GRAPH_CLIENT_ID', '')
+    GRAPH_CLIENT_SECRET = os.environ.get('GRAPH_CLIENT_SECRET', '')
+    EMAIL_MAX_ADJUNTS = int(os.environ.get('EMAIL_MAX_ADJUNTS', 30))
+    EMAIL_PLANTILLA_ASSUMPTE = os.environ.get('EMAIL_PLANTILLA_ASSUMPTE', '')
+    EMAIL_PLANTILLA_COS = os.environ.get('EMAIL_PLANTILLA_COS', '')

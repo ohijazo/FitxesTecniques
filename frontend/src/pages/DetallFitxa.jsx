@@ -859,6 +859,7 @@ function DetallFitxa() {
   const usuari = JSON.parse(localStorage.getItem('usuari') || '{}');
   const [fitxa, setFitxa] = useState(null);
   const [distribucions, setDistribucions] = useState([]);
+  const [enviaments, setEnviaments] = useState([]);
   const [destins, setDestins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -914,6 +915,7 @@ function DetallFitxa() {
   };
 
   useEffect(() => { carregarDades(); }, [id]);
+  useEffect(() => { api.llistarEnviaments(id).then(setEnviaments).catch(() => {}); }, [id]);
   useEffect(() => { if (id) verificarAuto(); }, [id]);
   useEffect(() => { api.llistarDestins().then(setDestins).catch(() => {}); }, []);
 
@@ -1196,6 +1198,9 @@ function DetallFitxa() {
             <button type="button" className={section === 'distribucions' ? 'active' : ''} onClick={() => setSection('distribucions')}>
               Distribucions ({distribucions.length})
             </button>
+            <button type="button" className={section === 'correus' ? 'active' : ''} onClick={() => setSection('correus')}>
+              Correus ({enviaments.length})
+            </button>
           </div>
 
           {section === 'contingut' && (
@@ -1365,6 +1370,50 @@ function DetallFitxa() {
                 </table>
               )}
             </>
+          )}
+
+          {section === 'correus' && (
+            enviaments.length === 0 ? (
+              <p style={{ color: 'var(--gray-500)' }}>Aquesta fitxa encara no s'ha enviat mai per correu.</p>
+            ) : (
+              <div className="table-wrapper">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Data</th>
+                      <th>Enviat per</th>
+                      <th>Destinataris</th>
+                      <th>Assumpte</th>
+                      <th>Rev.</th>
+                      <th>Estat</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {enviaments.map((e) => {
+                      const item = e.items.find((i) => String(i.fitxa_id) === String(id));
+                      return (
+                        <tr key={e.id}>
+                          <td style={{ whiteSpace: 'nowrap' }}>{new Date(e.created_at).toLocaleString('ca')}</td>
+                          <td>{e.created_by}</td>
+                          <td>{e.per_a}{e.cc && <div style={{ color: 'var(--gray-500)', fontSize: '0.8rem' }}>CC: {e.cc}</div>}</td>
+                          <td>{e.assumpte}{e.items.length > 1 && <div style={{ color: 'var(--gray-500)', fontSize: '0.8rem' }}>{e.items.length} fitxes adjuntes</div>}</td>
+                          <td style={{ textAlign: 'center' }}>{item?.num_versio ?? '-'}</td>
+                          <td>
+                            <span className={`dist-badge ${e.estat === 'ok' ? 'dist-ok' : e.estat === 'error' ? 'dist-error' : 'dist-pending'}`}
+                              title={e.missatge_error || ''}>
+                              {e.estat === 'ok' ? 'Enviat' : e.estat === 'error' ? 'Error' : 'Pendent'}
+                            </span>
+                            {e.estat === 'error' && e.missatge_error && (
+                              <div style={{ color: 'var(--danger)', fontSize: '0.8rem' }}>{e.missatge_error}</div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )
           )}
         </>
       )}

@@ -1,8 +1,8 @@
 /**
  * Barra flotant inferior que apareix quan hi ha fitxes seleccionades.
- * Mostra el comptador i botons per accions massives (edició / distribució).
+ * Mostra el comptador i botons per accions massives (edició / distribució / correu).
  */
-function BulkActionBar({ count, usuariRol, onDistribuir, onEditar, onDeseleccionar }) {
+function BulkActionBar({ count, usuariRol, onDistribuir, onEditar, onEnviarCorreu, onDeseleccionar }) {
   if (count <= 0) return null;
 
   const potEditar = usuariRol === 'admin';
@@ -22,6 +22,11 @@ function BulkActionBar({ count, usuariRol, onDistribuir, onEditar, onDeseleccion
         {potDistribuir && (
           <button type="button" onClick={onDistribuir} title="Distribució massiva">
             Distribució massiva
+          </button>
+        )}
+        {potDistribuir && onEnviarCorreu && (
+          <button type="button" className="outline" onClick={onEnviarCorreu} title="Enviar els PDFs per correu">
+            Enviar per correu
           </button>
         )}
         <button type="button" className="outline secondary" onClick={onDeseleccionar}>

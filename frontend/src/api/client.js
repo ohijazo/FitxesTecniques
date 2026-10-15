@@ -265,4 +265,11 @@ export const api = {
 
   // Bulk edit
   bulkEditFitxes: (data) => request('/fitxes/bulk-edit', { method: 'POST', body: JSON.stringify(data) }),
+
+  // Enviament de fitxes per correu
+  plantillaEnviament: () => request('/enviaments/plantilla'),
+  prepararEnviament: (fitxaIds) => request('/enviaments/preparar', { method: 'POST', body: JSON.stringify({ fitxa_ids: fitxaIds }) }),
+  crearEnviament: (data) => request('/enviaments', { method: 'POST', body: JSON.stringify(data) }),
+  detallEnviament: (id) => request(`/enviaments/${id}`),
+  llistarEnviaments: (fitxaId) => request(`/enviaments${fitxaId ? `?fitxa_id=${fitxaId}` : ''}`),
 };

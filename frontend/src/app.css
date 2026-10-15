@@ -2071,6 +2071,24 @@ textarea.pdf-field-input {
   max-height: 90vh;
   overflow-y: auto;
 }
+/* -- Enviar per correu -- */
+.modal-content.modal-correu { max-width: 680px; }
+.modal-correu label { font-size: 0.9rem; }
+.modal-correu textarea { font-family: inherit; font-size: 0.9rem; }
+.correu-remitent { font-size: 0.88rem; color: var(--gray-600); margin-bottom: 1rem; }
+.correu-opcional { color: var(--gray-500); font-weight: normal; font-size: 0.85rem; }
+.correu-adjunts { font-size: 0.88rem; margin-bottom: 1.25rem; }
+.correu-adjunts ul { margin: 0.4rem 0 0.5rem; padding-left: 1.2rem; max-height: 10rem; overflow-y: auto; }
+.correu-adjunts li { margin-bottom: 0.15rem; }
+.correu-avis {
+  background: var(--warning-bg, #fef3c7);
+  color: var(--warning, #92400e);
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  margin-bottom: 0.75rem;
+}
+.correu-avis-error { background: var(--danger-bg); color: var(--danger); }
 @keyframes fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
