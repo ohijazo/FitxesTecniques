@@ -28,7 +28,6 @@ COS_DEFECTE = (
     "Benvolguts,\n\n"
     "Us adjuntem les fitxes tècniques sol·licitades:\n\n"
     "{fitxes}\n\n"
-    "Per a qualsevol dubte, no dubteu a contactar-nos.\n\n"
     "Salutacions cordials,"
 )
 
