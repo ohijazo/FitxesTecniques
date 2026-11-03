@@ -56,6 +56,10 @@ def create_app():
         from app.services.job_worker import iniciar_worker
         iniciar_worker(app)
 
+    # Ordres de la traducció inicial (exportar / importar traduccions)
+    from app.cli_traduccions import registrar as registrar_cli_traduccions
+    registrar_cli_traduccions(app)
+
     # Comanda per crear l'admin inicial
     @app.cli.command('crear-admin')
     @click.argument('email')

@@ -20,6 +20,7 @@ const ORIGENS = {
   manual: 'escrita a mà',
   copiada: 'de la versió anterior',
   automatica: 'actualitzada automàticament',
+  importada: 'traducció inicial',
 };
 
 /* El text importat del Word és pla amb salts de línia; l'editor treballa amb
@@ -41,6 +42,7 @@ const ACCIONS = {
   revisada: 'Revisada',
   automatica: 'Actualitzada automàticament',
   inicial: 'Còpia inicial',
+  importada: 'Traducció inicial (importada)',
 };
 
 /* Historial de la traducció d'un idioma (totes les versions de la fitxa):

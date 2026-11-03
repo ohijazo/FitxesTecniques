@@ -889,6 +889,56 @@ migració.
 **Tornar enrere:** `git revert <commit del pas 19>`, tornar a compilar i
 reiniciar.
 
+### Pas 20 — Ordres per a la traducció inicial de totes les fitxes
+**Decisió de l'usuari:**
+- La traducció inicial de les fitxes de producció es fa **des de Claude Code**,
+  sense la clau d'API.
+- La clau d'API només es fa servir per a les fitxes noves i les modificacions
+  (actualització automàtica).
+- Idiomes: català, castellà, anglès i portuguès.
+- En importar, l'idioma es **marca com a disponible** a la fitxa. Així,
+  l'actualització automàtica manté les traduccions al dia.
+
+**Ordres noves** (`backend/app/cli_traduccions.py`):
+| Ordre | Què fa |
+| ----- | ------ |
+| `flask exportar-per-traduir [--sortida FITXER]` | **Només llegeix.** Escriu (per defecte a `/tmp/fitxes_per_traduir.json`) el contingut traduïble de la versió activa de cada fitxa elaborada, amb `versio_id`, `num_versio` i els idiomes que ja estan traduïts |
+| `flask importar-traduccions FITXER [--aplicar]` | **Per defecte és una simulació** i no desa res. Amb `--aplicar` crea les traduccions en estat **"Pendent de revisar"**, amb origen `importada`, autor "traducció inicial (Claude Code)" i còpia a l'historial (acció `importada`). També marca l'idioma a la fitxa |
+
+**Proteccions de la importació:**
+- si la versió activa ha canviat des de l'exportació, se salta aquella fitxa
+  (avís);
+- si ja hi ha traducció en aquell idioma, no la toca;
+- les fitxes que no existeixen, les comercialitzades i els registres invàlids
+  se salten (avís);
+- el contingut passa pel mateix filtre que l'editor (`_netejar_contingut`).
+
+**Format del fitxer d'importació:**
+`{"traduccions": [{"art_codi", "versio_id", "num_versio", "idioma", "contingut"}]}`
+
+**Provat en local:**
+- l'exportació ha tret 171 fitxes;
+- s'ha importat un fitxer amb 5 casos (1 de bo, 1 ja existent, 1 amb la
+  versió canviada, 1 de fitxa inexistent i 1 amb un idioma invàlid);
+- la simulació no ha desat res, i l'aplicació ha creat només la bona,
+  pendent, amb historial i l'idioma marcat;
+- la traducció CA existent de la 30150 ha quedat intacta.
+
+Les dades de prova s'han esborrat després.
+
+**Fitxers:**
+- `backend/app/cli_traduccions.py` (nou)
+- `backend/app/__init__.py`
+- `backend/app/routes/traduccions.py` i `backend/app/models.py`: origen i acció
+  `importada`
+- `frontend/src/pages/TraduccioFitxa.jsx`: textos
+- `backend/tests/test_cli_traduccions.py`
+
+**Desplegament:** `git pull`, `npm run build` i reiniciar el servei.
+
+**Tornar enrere:** `git revert <commit del pas 20>`. Les traduccions importades
+es poden localitzar amb `origen = 'importada'`.
+
 ---
 
 ## Estat i pendents
@@ -915,6 +965,8 @@ reiniciar.
 - [x] Pas 17: títols traduïts a la vista web (mateix diccionari que el PDF)
 - [x] Pas 18: traducció automàtica més ràpida (Sonnet 5.5, trossos en paral·lel, precàrrega)
 - [x] Pas 19: la IA resol els camps amb separació dubtosa
+- [x] Pas 20: ordres exportar-per-traduir i importar-traduccions
+- [ ] Traducció inicial de les fitxes de producció (ca, es, en, pt) des de Claude Code
 
 ## Desplegament de la fase 0 + 1 (servidor Ubuntu)
 ```bash

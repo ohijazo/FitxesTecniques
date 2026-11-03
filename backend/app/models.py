@@ -273,7 +273,7 @@ class TraduccioHistorial(db.Model):
     contingut = db.Column(db.JSON, nullable=False)
     estat = db.Column(db.String(20), nullable=False)       # pendent | revisada
     origen = db.Column(db.String(20))
-    accio = db.Column(db.String(20), nullable=False)       # desada | revisada | automatica | inicial
+    accio = db.Column(db.String(20), nullable=False)       # desada | revisada | automatica | inicial | importada
     camps_canviats = db.Column(db.JSON)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     created_by = db.Column(db.String(100))
