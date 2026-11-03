@@ -120,8 +120,11 @@ function ComprovarDestinsPanel({ fitxaId, onClose }) {
                 {resultat.resultats.map((r) => {
                   const dif = r.diferencies || [];
                   return (
-                    <tr key={r.desti_id}>
-                      <td>{r.desti_nom}</td>
+                    <tr key={`${r.desti_id}-${r.idioma || ''}`}>
+                      <td>
+                        {r.desti_nom}
+                        {r.idioma && <span className="idioma-tag" title="PDF d'idioma">{r.idioma.toUpperCase()}</span>}
+                      </td>
                       <td style={{ fontSize: '0.82rem', color: 'var(--gray-600)' }}>
                         {r.esperat_al_desti ? 'Sí' : 'No'}
                       </td>
@@ -172,6 +175,7 @@ function ComprovarDestinsPanel({ fitxaId, onClose }) {
           fitxaArtCodi={resultat?.art_codi}
           desti={{ id: retirant.desti_id, nom: retirant.desti_nom,
                    tipus: retirant.desti_tipus }}
+          idioma={retirant.idioma}
           onClose={() => setRetirant(null)}
           onDone={() => { setRetirant(null); comprovar(ultimMode); }}
         />

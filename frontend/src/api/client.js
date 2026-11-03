@@ -158,12 +158,13 @@ export const api = {
   // Distribucions
   llistarDistribucions: (fitxaId) => request(`/fitxes/${fitxaId}/distribucions`),
   distribuirTots: (fitxaId) => request(`/fitxes/${fitxaId}/distribuir`, { method: 'POST' }),
-  distribuirDesti: (fitxaId, destiId) => request(`/fitxes/${fitxaId}/distribuir/${destiId}`, { method: 'POST' }),
-  retirarDesti: (fitxaId, destiId, data) => request(`/fitxes/${fitxaId}/retirar/${destiId}`, { method: 'POST', body: JSON.stringify(data) }),
+  // idioma: sense valor = PDF principal ({art_codi}.pdf); 'ca'|'es'|'en'|'pt' = PDF d'aquell idioma
+  distribuirDesti: (fitxaId, destiId, idioma) => request(`/fitxes/${fitxaId}/distribuir/${destiId}${idioma ? `?idioma=${idioma}` : ''}`, { method: 'POST' }),
+  retirarDesti: (fitxaId, destiId, data, idioma) => request(`/fitxes/${fitxaId}/retirar/${destiId}${idioma ? `?idioma=${idioma}` : ''}`, { method: 'POST', body: JSON.stringify(data) }),
 
   // Comprovacio: el PDF hi es realment al desti? (nomes informa, no toca res)
   comprovarDestins: (fitxaId, data = {}) => request(`/fitxes/${fitxaId}/comprovar`, { method: 'POST', body: JSON.stringify(data) }),
-  comprovarDesti: (fitxaId, destiId) => request(`/fitxes/${fitxaId}/comprovar/${destiId}`, { method: 'POST' }),
+  comprovarDesti: (fitxaId, destiId, idioma) => request(`/fitxes/${fitxaId}/comprovar/${destiId}${idioma ? `?idioma=${idioma}` : ''}`, { method: 'POST' }),
 
   // Importar PDF a edició (parser → JSON sense persistir)
   parsePdf: (fitxaId, file) => {

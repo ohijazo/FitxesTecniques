@@ -100,6 +100,10 @@ function VerificarPanel({ fitxaId, onClose }) {
 function DistribuirPanel({ fitxaId, fitxaArtCodi, distribucions, onDone, onClose }) {
   const [destins, setDestins] = useState([]);
   const [selected, setSelected] = useState({});
+  // Idiomes de la fitxa (marcats o amb traducció) i selecció manual per destí:
+  // {destiId: {ca: true, en: false...}}. Per defecte cap: només el principal.
+  const [idiomes, setIdiomes] = useState([]);
+  const [selIdiomes, setSelIdiomes] = useState({});
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [resultats, setResultats] = useState([]);
@@ -108,11 +112,13 @@ function DistribuirPanel({ fitxaId, fitxaArtCodi, distribucions, onDone, onClose
 
   // Una fitxa està "actualment al destí" si l'última distribució per a aquell
   // destí va ser 'ok' (no 'retirat' o 'error' posterior).
-  const esJaDistribuit = (destiId, dists) => {
+  const esJaDistribuit = (destiId, dists, idioma = null) => {
     // Nomes 'ok' i 'retirat' canvien si el fitxer hi es: un 'error' es una
     // pujada fallida, i el fitxer anterior hi segueix sent.
+    // idioma null = PDF principal: no s'ha de barrejar amb els fitxers d'idioma.
     const perDesti = dists
       .filter((d) => d.desti_id === destiId && d.executat_at
+                     && (d.idioma || null) === idioma
                      && (d.estat === 'ok' || d.estat === 'retirat'))
       .sort((a, b) => new Date(b.executat_at) - new Date(a.executat_at));
     return perDesti.length > 0 && perDesti[0].estat === 'ok';
@@ -130,22 +136,39 @@ function DistribuirPanel({ fitxaId, fitxaArtCodi, distribucions, onDone, onClose
       setSelected(sel);
       setLoading(false);
     }).catch(() => setLoading(false));
+    api.resumTraduccions(fitxaId)
+      .then((r) => setIdiomes(r.idiomes.filter((i) => i.marcat || i.estat !== 'falta')))
+      .catch(() => setIdiomes([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const toggle = (id) => setSelected((prev) => ({ ...prev, [id]: !prev[id] }));
+  const toggleIdioma = (destiId, idioma) => setSelIdiomes((prev) => ({
+    ...prev, [destiId]: { ...(prev[destiId] || {}), [idioma]: !prev[destiId]?.[idioma] },
+  }));
+
+  // Parells [destiId, idioma] a enviar (idioma null = PDF principal)
+  const enviaments = () => {
+    const parells = [];
+    destins.forEach((d) => {
+      if (selected[d.id]) parells.push([d.id, null]);
+      idiomes.forEach((i) => { if (selIdiomes[d.id]?.[i.idioma]) parells.push([d.id, i.idioma]); });
+    });
+    return parells;
+  };
 
   const distribuir = async () => {
-    const ids = Object.entries(selected).filter(([, v]) => v).map(([k]) => parseInt(k));
-    if (ids.length === 0) return;
+    const parells = enviaments();
+    if (parells.length === 0) return;
     setSending(true);
     const res = [];
-    for (const destiId of ids) {
+    for (const [destiId, idioma] of parells) {
+      const nom = destins.find((d) => d.id === destiId)?.nom + (idioma ? ` (${idioma.toUpperCase()})` : '');
       try {
-        const r = await api.distribuirDesti(fitxaId, destiId);
-        res.push({ desti: destins.find((d) => d.id === destiId)?.nom, ok: true, url: r.missatge_error });
+        const r = await api.distribuirDesti(fitxaId, destiId, idioma);
+        res.push({ desti: nom, ok: r.estat === 'ok', url: r.missatge_error, error: r.missatge_error });
       } catch (err) {
-        res.push({ desti: destins.find((d) => d.id === destiId)?.nom, ok: false, error: err.message });
+        res.push({ desti: nom, ok: false, error: err.message });
       }
     }
     setResultats(res);
@@ -156,7 +179,7 @@ function DistribuirPanel({ fitxaId, fitxaArtCodi, distribucions, onDone, onClose
     if (errors > 0) {
       toast.warning(`Distribució: ${oks} ok, ${errors} errors`);
     } else {
-      toast.success(`Distribuït correctament a ${oks} destins`);
+      toast.success(`Distribuïts correctament ${oks} fitxers`);
     }
     onDone();
   };
@@ -180,7 +203,11 @@ function DistribuirPanel({ fitxaId, fitxaArtCodi, distribucions, onDone, onClose
       ) : (
         <>
           <p style={{ fontSize: '0.88rem', color: 'var(--gray-500)', marginBottom: '1rem' }}>
-            Selecciona els destins on vols distribuir la versió activa:
+            Selecciona els destins on vols distribuir la versió activa. La casella de cada destí és el
+            PDF principal ({fitxaArtCodi}.pdf); a sota pots afegir els PDFs d'idioma revisats.
+            {idiomes.length > 0 && idiomes.some((i) => i.estat !== 'revisada') && (
+              <> Els idiomes sense revisar no es poden distribuir.</>
+            )}
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.25rem' }}>
             {destins.map((d) => {
@@ -197,6 +224,7 @@ function DistribuirPanel({ fitxaId, fitxaArtCodi, distribucions, onDone, onClose
                     type="checkbox"
                     checked={selected[d.id] || false}
                     onChange={() => toggle(d.id)}
+                    aria-label={`PDF principal a ${d.nom}`}
                     style={{ width: '18px', height: '18px', margin: 0, accentColor: 'var(--brand)' }}
                   />
                   <div style={{ flex: 1 }}>
@@ -205,6 +233,24 @@ function DistribuirPanel({ fitxaId, fitxaArtCodi, distribucions, onDone, onClose
                       Tipus: {d.tipus.toUpperCase()} &middot; Patro: {d.patro_nom_fitxer}
                     </div>
                   </div>
+                  {idiomes.length > 0 && (
+                    <div className="desti-idiomes" onClick={(e) => e.stopPropagation()}>
+                      <span className="desti-idiomes-titol">Idiomes:</span>
+                      {idiomes.map((i) => {
+                        const revisada = i.estat === 'revisada';
+                        const jaIdioma = esJaDistribuit(d.id, distribucions, i.idioma);
+                        return (
+                          <label key={i.idioma} className={`desti-idioma ${revisada ? '' : 'desactivat'}`}
+                            title={revisada ? `PDF en ${i.nom}` : `${i.nom}: la traducció no està revisada`}>
+                            <input type="checkbox" disabled={!revisada}
+                              checked={!!selIdiomes[d.id]?.[i.idioma]}
+                              onChange={() => toggleIdioma(d.id, i.idioma)} />
+                            {i.idioma.toUpperCase()}{jaIdioma && <span title="Ja hi és"> ✓</span>}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
                   {jaOk && (
                     <>
                       <span className="badge ok" style={{ fontSize: '0.72rem' }}>Ja distribuït</span>
@@ -250,7 +296,7 @@ function DistribuirPanel({ fitxaId, fitxaArtCodi, distribucions, onDone, onClose
             </div>
           )}
 
-          <button onClick={distribuir} disabled={sending || !Object.values(selected).some(Boolean)} aria-busy={sending}>
+          <button onClick={distribuir} disabled={sending || enviaments().length === 0} aria-busy={sending}>
             {sending ? 'Distribuint...' : 'Distribuir als destins seleccionats'}
           </button>
         </>
@@ -926,8 +972,10 @@ function DetallFitxa() {
     if (!dist || dist.desti_id == null || dist.estat !== 'ok') return false;
     // Nomes compten 'ok' i 'retirat': un 'error' posterior vol dir que va
     // fallar una pujada, no que el fitxer s'hagi tret del desti.
+    // Cada idioma és un fitxer diferent: es compara només amb el mateix idioma.
     const perDesti = distribucions
       .filter((d) => d.desti_id === dist.desti_id && d.executat_at
+                     && (d.idioma || null) === (dist.idioma || null)
                      && (d.estat === 'ok' || d.estat === 'retirat'))
       .sort((a, b) => new Date(b.executat_at) - new Date(a.executat_at));
     return perDesti.length > 0 && perDesti[0].id === dist.id;
@@ -935,11 +983,12 @@ function DetallFitxa() {
 
   // Comprova un sol desti des de l'historial. Nomes llegeix: no toca la BD
   // ni el fitxer del desti.
-  const comprovarUnDesti = async (destiId) => {
-    setComprovantDesti(destiId);
+  const comprovarUnDesti = async (destiId, idioma = null) => {
+    const clau = `${destiId}|${idioma || ''}`;
+    setComprovantDesti(clau);
     try {
-      const r = await api.comprovarDesti(id, destiId);
-      setComprovacions((prev) => ({ ...prev, [destiId]: r }));
+      const r = await api.comprovarDesti(id, destiId, idioma);
+      setComprovacions((prev) => ({ ...prev, [clau]: r }));
       if (r.estat_verificacio === 'ok') toast.success(r.missatge);
       else toast.warning(r.missatge);
     } catch (err) {
@@ -1307,6 +1356,7 @@ function DetallFitxa() {
                   <thead>
                     <tr>
                       <th>Desti</th>
+                      <th>Fitxer</th>
                       <th>Rev.</th>
                       <th>Estat</th>
                       <th>Data</th>
@@ -1321,6 +1371,9 @@ function DetallFitxa() {
                     {distribucions.map((d) => (
                       <tr key={d.id}>
                         <td style={{ fontWeight: 500 }}>{d.desti}</td>
+                        <td>{d.idioma
+                          ? <span className="idioma-tag">{d.idioma.toUpperCase()}</span>
+                          : <span style={{ fontSize: '0.8rem', color: 'var(--gray-500)' }}>Principal</span>}</td>
                         <td style={{ textAlign: 'center', fontWeight: 600 }}>{d.num_versio != null ? d.num_versio : '-'}</td>
                         <td><span className={`badge ${d.estat}`}>{d.estat}</span></td>
                         <td style={{ fontSize: '0.85rem', color: 'var(--gray-500)' }}>
@@ -1340,20 +1393,20 @@ function DetallFitxa() {
                           <td style={{ textAlign: 'right' }}>
                             {esUltimaOkPerDesti(d) && (
                               <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                {comprovacions[d.desti_id] && (
-                                  <span title={comprovacions[d.desti_id].missatge}>
-                                    <BadgeVerificacio estat={comprovacions[d.desti_id].estat_verificacio} />
+                                {comprovacions[`${d.desti_id}|${d.idioma || ''}`] && (
+                                  <span title={comprovacions[`${d.desti_id}|${d.idioma || ''}`].missatge}>
+                                    <BadgeVerificacio estat={comprovacions[`${d.desti_id}|${d.idioma || ''}`].estat_verificacio} />
                                   </span>
                                 )}
                                 <button
                                   type="button"
                                   className="outline btn-sm"
-                                  disabled={comprovantDesti === d.desti_id}
-                                  onClick={() => comprovarUnDesti(d.desti_id)}
+                                  disabled={comprovantDesti === `${d.desti_id}|${d.idioma || ''}`}
+                                  onClick={() => comprovarUnDesti(d.desti_id, d.idioma)}
                                   style={{ margin: 0, fontSize: '0.78rem' }}
                                   title={`Comprovar si el PDF hi és realment a ${d.desti}`}
                                 >
-                                  {comprovantDesti === d.desti_id ? 'Comprovant…' : 'Comprovar'}
+                                  {comprovantDesti === `${d.desti_id}|${d.idioma || ''}` ? 'Comprovant…' : 'Comprovar'}
                                 </button>
                                 <button
                                   type="button"
@@ -1486,6 +1539,7 @@ function DetallFitxa() {
             fitxaId={id}
             fitxaArtCodi={fitxa.art_codi}
             desti={desti}
+            idioma={retirarModalDist.idioma}
             onDone={() => { setRetirarModalDist(null); carregarDades(); }}
             onClose={() => setRetirarModalDist(null)}
           />

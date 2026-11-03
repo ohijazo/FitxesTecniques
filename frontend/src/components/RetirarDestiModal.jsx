@@ -3,7 +3,7 @@ import { api } from '../api/client';
 import { useToast } from './Toast';
 import { useEscapeKey } from './useEscapeKey';
 
-function RetirarDestiModal({ fitxaId, fitxaArtCodi, desti, onDone, onClose }) {
+function RetirarDestiModal({ fitxaId, fitxaArtCodi, desti, idioma, onDone, onClose }) {
   useEscapeKey(onClose);
   const [motiu, setMotiu] = useState('');
   const [password, setPassword] = useState('');
@@ -19,7 +19,7 @@ function RetirarDestiModal({ fitxaId, fitxaArtCodi, desti, onDone, onClose }) {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.retirarDesti(fitxaId, desti.id, { motiu, password });
+      const res = await api.retirarDesti(fitxaId, desti.id, { motiu, password }, idioma);
       toast.success(res.missatge || `Retirat de ${desti.nom}`);
       onDone();
     } catch (err) {
@@ -32,12 +32,17 @@ function RetirarDestiModal({ fitxaId, fitxaArtCodi, desti, onDone, onClose }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h3 style={{ margin: 0, color: 'var(--danger)' }}>Retirar de {desti.nom}</h3>
+          <h3 style={{ margin: 0, color: 'var(--danger)' }}>
+            Retirar de {desti.nom}{idioma ? ` (${idioma.toUpperCase()})` : ''}
+          </h3>
           <button className="outline secondary btn-sm" onClick={onClose}>&times;</button>
         </div>
 
         <div style={{ background: 'var(--danger-bg)', padding: '0.75rem 1rem', borderRadius: 'var(--radius)', marginBottom: '1rem', fontSize: '0.88rem' }}>
-          S'esborrarà el PDF de la fitxa <strong>{fitxaArtCodi}</strong> del destí <strong>{desti.nom}</strong> ({desti.tipus.toUpperCase()}).
+          S'esborrarà {idioma
+            ? <>el PDF en <strong>{idioma.toUpperCase()}</strong></>
+            : <>el PDF principal</>} de la fitxa <strong>{fitxaArtCodi}</strong> del destí <strong>{desti.nom}</strong>{desti.tipus ? ` (${desti.tipus.toUpperCase()})` : ''}.
+          {idioma ? " Els altres fitxers d'aquesta fitxa al destí no es toquen. " : ''}
           La fitxa i la versió activa es mantenen intactes — només es retira d'aquest destí.
         </div>
 

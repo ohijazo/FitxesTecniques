@@ -2801,3 +2801,34 @@ tr.row-selected { background: var(--brand-50); }
   .trad-taula thead { display: none; }
   .trad-taula td { display: block; border: none; padding: 0.15rem 0; }
 }
+
+/* Distribució per idioma */
+.idioma-tag {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  background: var(--brand-light);
+  color: var(--brand-dark);
+}
+.desti-idiomes {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+}
+.desti-idiomes-titol { color: var(--gray-500); }
+.desti-idioma {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0;
+  font-weight: 600;
+  cursor: pointer;
+}
+.desti-idioma input { margin: 0; width: 15px; height: 15px; }
+.desti-idioma.desactivat { color: var(--gray-400); cursor: not-allowed; }

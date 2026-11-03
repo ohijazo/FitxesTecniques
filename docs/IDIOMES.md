@@ -351,6 +351,52 @@ Les dades de prova (destí, registres i traducció) s'han esborrat després.
 **Tornar enrere:** `git revert <commit del pas 6>`. Abans, cal retirar els fitxers
 d'idioma que s'hagin distribuït (vegeu el pas 5).
 
+### Pas 7 — Pantalla de distribució per idioma (fase 2)
+**Què fa:** permet triar a mà, en cada distribució, quins PDF d'idioma s'envien.
+
+**Com es fa servir:**
+- **Distribuir:**
+  - la casella de cada destí és el PDF principal (`30150.pdf`), com fins ara;
+  - a la dreta hi ha "Idiomes: CA ES EN PT" amb els idiomes marcats o que
+    tenen traducció;
+  - per defecte no n'hi ha cap de marcat;
+  - els idiomes sense revisar surten desactivats;
+  - un ✓ vol dir que aquell fitxer ja és al destí.
+- **Historial:** columna nova "Fitxer" (Principal o CA/ES/EN/PT). **Comprovar** i
+  **Retirar** de cada fila actuen només sobre aquell fitxer. El modal de retirar
+  ho indica ("S'esborrarà el PDF en CA… Els altres fitxers no es toquen").
+- **Comprovar destins:** una fila per fitxer, amb una etiqueta d'idioma.
+
+**Fitxers:**
+- `frontend/src/pages/DetallFitxa.jsx`:
+  - `DistribuirPanel`: selecció d'idiomes;
+  - `esJaDistribuit` i `esUltimaOkPerDesti` comparen pel mateix idioma;
+  - les comprovacions de l'historial es guarden per destí i idioma.
+- `frontend/src/components/RetirarDestiModal.jsx`: prop `idioma`.
+- `frontend/src/components/ComprovarDestinsPanel.jsx`: etiqueta d'idioma i
+  Retirar per idioma.
+- `frontend/src/api/client.js`: `distribuirDesti`, `retirarDesti` i
+  `comprovarDesti` accepten `idioma`.
+- `frontend/src/app.css`: `.idioma-tag` i `.desti-idiomes`.
+
+**Correcció d'un error que ja hi era:** el panell donava per "Distribuït" un
+destí encara que el servidor hagués respost amb `estat: 'error'` (HTTP 200). Ara
+es mira l'estat que retorna el servidor.
+
+**Provat al navegador** amb un destí "xarxa" temporal:
+- només s'ha marcat el PDF principal + CA, als altres destins no s'hi ha enviat
+  res;
+- s'han creat `30150.pdf` i `30150_CA.pdf`;
+- a l'historial surten dues files;
+- el ✓ del CA apareix correctament;
+- el modal de retirar indica que es retira el CA;
+- la comprovació marca només la fila del CA.
+
+Les dades de prova s'han esborrat després.
+
+**Tornar enrere:** `git revert <commit del pas 7>` i tornar a compilar el
+frontend.
+
 ---
 
 ## Estat i pendents
@@ -364,7 +410,8 @@ d'idioma que s'hagin distribuït (vegeu el pas 5).
 - [ ] Vist-i-plau de l'empresa per enviar text a Anthropic i clau `ANTHROPIC_API_KEY`
 - [x] Pas 5: migració de la fase 2
 - [x] Pas 6: distribució per idioma al backend
-- [ ] Fase 2: pantalla de distribució (pas 7) i correu (pas 8)
+- [x] Pas 7: pantalla de distribució per idioma
+- [ ] Pas 8: correu amb PDFs d'idioma
 
 ## Desplegament de la fase 0 + 1 (servidor Ubuntu)
 ```bash
