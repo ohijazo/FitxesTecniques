@@ -974,6 +974,42 @@ di riferimento", "Data rev."…).
 **Tornar enrere:** `git revert <commit del pas 21>`. Si ja hi ha traduccions o
 distribucions en italià, queden a la BD però l'aplicació deixa de mostrar-les.
 
+### Traducció inicial de totes les fitxes (des de Claude Code)
+**Procés** (scripts a `traduccio_inicial/`, carpeta ignorada per git perquè conté
+dades reals):
+1. **Còpia de producció a local.** `pg_dump` al servidor (PG16) restaurat a la
+   BD local (PG17), més la carpeta `backend/uploads`. A la còpia local es van
+   desactivar els destins i neutralitzar els treballs pendents.
+2. **`flask exportar-per-traduir`:** 140 fitxes elaborades (120 bilingües i 20
+   només en castellà).
+3. **`preparar.py`:** decideix què cal traduir de cada fitxa i idioma.
+   - Català i castellà: separació automàtica; només els camps dubtosos van a la
+     IA.
+   - Anglès, portuguès i italià: traducció completa.
+   - Els textos idèntics de diferents fitxes es tradueixen **un sol cop**: de
+     30.882 textos se'n van fer 2.242 d'únics (~264.000 caràcters), repartits
+     en 22 tandes.
+4. **Traducció:** subagents de Claude Code, un per tanda, amb un glossari comú
+   per idioma. Cada tanda es valida amb `validar.py`: no hi pot faltar cap text,
+   l'HTML i els números s'han de conservar, i no hi pot quedar " / ". Les 22
+   tandes, 0 errors.
+5. **`muntar.py`:** genera `traduccions_inicials.json` amb 699 traduccions
+   (140 × 5 idiomes, menys la CA de la 30150, que ja existia).
+6. **Importació local:** `flask importar-traduccions` → simulació neta → `--aplicar`.
+   Es van crear 699 traduccions pendents, amb historial, i les 140 fitxes van
+   quedar amb els 5 idiomes marcats.
+7. **Comprovació:** 310 PDF generats (tots els EN i IT i 30 de mostra), 0
+   errors.
+
+**Incidències a les dades originals:** a `traduccio_inicial/observacions.md`
+(reglaments mal citats, al·lèrgens en minúscula, valors energètics
+sospitosos, superíndexs perduts, errades…). Qualitat les ha de corregir a les
+fitxes. En fer-ho, l'actualització automàtica ajusta les traduccions.
+
+**Producció:** el mateix `traduccions_inicials.json` s'importa al servidor
+(simulació → `--aplicar`). Si alguna fitxa ha canviat de versió després de la
+còpia, la importació se la salta i ho avisa.
+
 ---
 
 ## Estat i pendents
@@ -1002,7 +1038,8 @@ distribucions en italià, queden a la BD però l'aplicació deixa de mostrar-les
 - [x] Pas 19: la IA resol els camps amb separació dubtosa
 - [x] Pas 20: ordres exportar-per-traduir i importar-traduccions
 - [x] Pas 21: idioma italià
-- [ ] Traducció inicial de les fitxes de producció (ca, es, en, pt, it) des de Claude Code
+- [x] Traducció inicial feta i provada en local (699 traduccions)
+- [ ] Revisió en local per part de l'usuari i importació a producció
 
 ## Desplegament de la fase 0 + 1 (servidor Ubuntu)
 ```bash
