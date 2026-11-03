@@ -64,3 +64,41 @@ desar la fitxa, i això crea una versió nova com qualsevol altra edició.
 **Tornar enrere:** `git revert <commit del pas 0>`. Les fitxes que s'hagin desat
 amb "Només català" tornarien a sortir bilingües (el codi antic tracta qualsevol
 valor diferent de `es` com a bilingüe); no es perd cap dada.
+
+### Pas 1 — Model i migració (fase 1)
+**Què fa:** prepara la base de dades per als idiomes. Encara no hi ha cap canvi
+visible per a l'usuari.
+
+**Fitxers:**
+- `backend/app/models.py`:
+  - `FitxaTecnica.idiomes` (JSON, per defecte `[]`), que també surt a `to_dict()`;
+  - model nou `TraduccioVersio`.
+- `backend/migrations/versions/c3a8d5e7f912_idiomes_i_traduccions.py` (nova).
+
+**Taula `traduccio_versio`:**
+| Camp | Descripció |
+| ---- | ---------- |
+| `versio_id` | Versió traduïda (FK amb `ON DELETE CASCADE`) |
+| `idioma` | `ca`, `es`, `en` o `pt` (una sola traducció per versió i idioma) |
+| `contingut` | Només els camps traduïbles; la resta surt de la versió |
+| `estat` | `pendent` o `revisada` |
+| `origen` | `separat`, `ia`, `manual` o `copiada` |
+| `camps_canviats` | Camps on el text font ha canviat respecte la versió anterior |
+| `created_*`, `updated_*`, `revisat_*` | Traçabilitat de qui ha fet què |
+
+**Impacte en dades:** additiva i retrocompatible. Les fitxes existents tenen
+`idiomes = []` (com fins ara: només PDF principal). Les versions continuen sent
+immutables: la traducció mai no modifica `versio_fitxa.contingut`.
+
+`ON DELETE CASCADE` fa que els esborrats de fitxes i versions que ja existien
+continuïn funcionant sense canvis (s'emporten les seves traduccions).
+
+**Desplegament:** `flask db upgrade` (abans del restart).
+
+**Tornar enrere:**
+1. `flask db downgrade` (torna a `b7e3f1a9c2d4`). **Esborra les traduccions desades i
+   les marques d'idioma**: si ja s'han fet servir, cal fer-ne abans una còpia
+   (`pg_dump -t traduccio_versio`).
+2. `git revert <commit del pas 1>`.
+
+Provat en local: `upgrade` → `downgrade` → `upgrade` sense errors.

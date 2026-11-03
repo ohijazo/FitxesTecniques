@@ -104,6 +104,9 @@ class FitxaTecnica(db.Model):
     tipus_producte = db.Column(db.String(20), nullable=False, default='elaborat')
     es_client = db.Column(db.Boolean, default=False)
     observacions = db.Column(db.Text, default='')
+    # Idiomes en què ha d'estar disponible la fitxa (a més del PDF principal):
+    # llista de codis 'ca' | 'es' | 'en' | 'pt'. Ho marca Qualitat.
+    idiomes = db.Column(db.JSON, nullable=False, default=list, server_default='[]')
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
                            onupdate=lambda: datetime.now(timezone.utc))
@@ -125,6 +128,7 @@ class FitxaTecnica(db.Model):
             'tipus_producte': self.tipus_producte or 'elaborat',
             'es_client': self.es_client,
             'observacions': self.observacions or '',
+            'idiomes': self.idiomes or [],
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'created_by': self.created_by,
@@ -180,6 +184,51 @@ class VersioFitxa(db.Model):
             'aprovat_per': self._resolve_nom(self.aprovat_per),
             'aprovat_at': self.aprovat_at.isoformat() if self.aprovat_at else None,
         }
+
+
+class TraduccioVersio(db.Model):
+    """Traducció d'una versió de fitxa a un idioma.
+
+    És una capa a part: no modifica mai versio_fitxa.contingut (les versions
+    són immutables). Corregir una traducció no crea una revisió nova.
+    """
+    __tablename__ = 'traduccio_versio'
+    __table_args__ = (db.UniqueConstraint('versio_id', 'idioma', name='uq_traduccio_versio_idioma'),)
+
+    id = db.Column(db.Integer, primary_key=True)
+    # ON DELETE CASCADE: els esborrats de versions/fitxes existents no s'han de tocar
+    versio_id = db.Column(db.Integer, db.ForeignKey('versio_fitxa.id', ondelete='CASCADE'),
+                          nullable=False, index=True)
+    idioma = db.Column(db.String(5), nullable=False)          # ca | es | en | pt
+    contingut = db.Column(db.JSON, nullable=False, default=dict)  # només camps traduïbles
+    estat = db.Column(db.String(20), nullable=False, default='pendent')  # pendent | revisada
+    origen = db.Column(db.String(20))                          # separat | ia | manual | copiada
+    camps_canviats = db.Column(db.JSON)                        # camps a revisar (text font canviat)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    created_by = db.Column(db.String(100))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_by = db.Column(db.String(100))
+    revisat_at = db.Column(db.DateTime, nullable=True)
+    revisat_by = db.Column(db.String(100))
+
+    def to_dict(self, include_contingut=True):
+        data = {
+            'id': self.id,
+            'versio_id': self.versio_id,
+            'idioma': self.idioma,
+            'estat': self.estat,
+            'origen': self.origen,
+            'camps_canviats': self.camps_canviats or [],
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'created_by': self.created_by,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'updated_by': self.updated_by,
+            'revisat_at': self.revisat_at.isoformat() if self.revisat_at else None,
+            'revisat_by': self.revisat_by,
+        }
+        if include_contingut:
+            data['contingut'] = self.contingut or {}
+        return data
 
 
 class Distribucio(db.Model):
