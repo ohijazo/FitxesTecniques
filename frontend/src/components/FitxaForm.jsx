@@ -346,6 +346,7 @@ function EditableTable({ label, rows, onChange, onRemove, readOnly, toolbar, tab
   const displayNote = note || (tableKey && TABLE_NOTES[tableKey]) || '';
   const shownLabel = bil(label, idioma);
   const paramHeader = bil('Parámetro / Paràmetre', idioma);
+  const valorHeader = bil('Valor', idioma);
 
   if (readOnly) {
     if (!rows || rows.length === 0) return null;
@@ -356,11 +357,11 @@ function EditableTable({ label, rows, onChange, onRemove, readOnly, toolbar, tab
           {displaySubtitle && (
             <thead>
               <tr><td colSpan={2} className="pdf-table-subtitle">{displaySubtitle}</td></tr>
-              <tr><th>{paramHeader}</th><th>Valor</th></tr>
+              <tr><th>{paramHeader}</th><th>{valorHeader}</th></tr>
             </thead>
           )}
           {!displaySubtitle && (
-            <thead><tr><th>{paramHeader}</th><th>Valor</th></tr></thead>
+            <thead><tr><th>{paramHeader}</th><th>{valorHeader}</th></tr></thead>
           )}
           <tbody>
             {rows.map((row, i) => {
