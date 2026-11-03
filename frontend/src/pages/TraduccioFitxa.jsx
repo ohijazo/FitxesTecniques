@@ -110,10 +110,10 @@ function TraduccioFitxa() {
   const estat = dades.traduccio ? dades.traduccio.estat : (dades.base ? 'desactualitzada' : 'falta');
   // Original bilingüe: el català i el castellà es separen. Original en un sol
   // idioma: aquest idioma es copia tal qual i la resta es tradueixen.
-  const original = dades.idioma_original || 'bilingue';
-  const potSeparar = (idioma === 'ca' || idioma === 'es') && (original === 'bilingue' || original === idioma);
-  const textSeparar = original === 'bilingue' ? 'Proposar des del bilingüe' : "Copiar de l'original";
-  const origenIA = original === 'ca' ? 'del català' : 'del castellà';
+  const idiomaOriginal = dades.idioma_original || 'bilingue';
+  const potSeparar = (idioma === 'ca' || idioma === 'es') && (idiomaOriginal === 'bilingue' || idiomaOriginal === idioma);
+  const textSeparar = idiomaOriginal === 'bilingue' ? 'Proposar des del bilingüe' : "Copiar de l'original";
+  const origenIA = idiomaOriginal === 'ca' ? 'del català' : 'del castellà';
   const original = dades.original || {};
 
   const setCamp = (k, v) => { setContingut((c) => ({ ...c, [k]: v })); setDirty(true); };
