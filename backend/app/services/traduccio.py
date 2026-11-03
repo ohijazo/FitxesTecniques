@@ -276,7 +276,9 @@ _SISTEMA_IA = (
     "'Regulation (EU) No 1169/2011').\n"
     "- Keep allergens in CAPITAL LETTERS, as in the source.\n"
     "- Use the standard terminology of EU food law in the target language.\n"
-    "- If a text is only numbers, units or symbols, return it unchanged."
+    "- If a text is only numbers, units or symbols, return it unchanged.\n"
+    "Answer ONLY with a JSON object {{\"items\": [{{\"id\": ..., \"text\": ...}}]}}, "
+    "with no other text before or after it."
 )
 
 _ESQUEMA_IA = {
@@ -298,6 +300,14 @@ _ESQUEMA_IA = {
 
 # Gunicorn talla les peticions als 120 s: 50 s per intent i 1 reintent com a màxim
 _TIMEOUT = 50
+
+# Els textos es tradueixen en trossos en paral·lel: una fitxa sencera (~45
+# textos) passa de ~14 s a ~4 s. Mida mínima d'un tros i nombre màxim de trossos.
+_MIDA_TROS = 8
+_MAX_TROSSOS = 4
+
+# Error que val la pena reintentar: la resposta no s'ha pogut llegir
+ERROR_RESPOSTA = "La resposta del servei de traducció no és vàlida"
 
 
 def proveidor_ia():
@@ -349,7 +359,13 @@ def _items_per_traduir(font, camps=None):
 
 
 def _parse_items(text):
-    return {it['id']: it['text'] for it in json.loads(text)['items']}
+    """Llegeix {"items": [...]} tolerant: accepta el JSON dins de ```json ... ```
+    o amb text al voltant."""
+    text = (text or '').strip()
+    inici, final = text.find('{'), text.rfind('}')
+    if inici == -1 or final == -1:
+        raise ValueError('sense JSON')
+    return {it['id']: it['text'] for it in json.loads(text[inici:final + 1])['items']}
 
 
 def _traduir_anthropic(items, origen, desti):
@@ -357,9 +373,13 @@ def _traduir_anthropic(items, origen, desti):
         import anthropic
     except ImportError:
         return None, "Falta instal·lar la llibreria 'anthropic' al servidor"
-    model = os.environ.get('TRADUCCIO_MODEL') or 'claude-opus-5-5'
+    # Sonnet 5.5: a la prova amb la 30150, mateixa qualitat que Opus 5.5 i el
+    # doble de ràpid (decisió de l'usuari). Es pot canviar amb TRADUCCIO_MODEL.
+    model = os.environ.get('TRADUCCIO_MODEL') or 'claude-sonnet-5-5'
     client = anthropic.Anthropic(timeout=float(_TIMEOUT), max_retries=1)
     try:
+        # L'esquema garanteix que la resposta sigui un JSON vàlid (sense
+        # esquema, els textos amb HTML de vegades el trencaven).
         resp = client.messages.create(
             model=model,
             max_tokens=16000,
@@ -388,7 +408,19 @@ def _traduir_anthropic(items, origen, desti):
     try:
         return _parse_items(text), None
     except (ValueError, KeyError, TypeError):
-        return None, "La resposta del servei de traducció no és vàlida"
+        return None, ERROR_RESPOSTA
+
+
+def precarregar():
+    """Importa la llibreria del proveïdor en segon pla en arrencar l'aplicació.
+
+    'import anthropic' carrega molts mòduls: en una unitat de xarxa pot trigar
+    prop d'un minut i, si es fes en la primera traducció, l'usuari l'esperaria.
+    """
+    if proveidor_ia() == 'anthropic':
+        import threading
+        threading.Thread(target=lambda: __import__('anthropic'), daemon=True,
+                         name='precarrega-traduccio').start()
 
 
 def _post(url, **kwargs):
@@ -451,7 +483,7 @@ def _traduir_azure_openai(items, origen, desti):
             return None, "El text és massa llarg per traduir-lo d'una vegada"
         return _parse_items(opcio['message']['content']), None
     except (ValueError, KeyError, TypeError, IndexError):
-        return None, "La resposta del servei de traducció no és vàlida"
+        return None, ERROR_RESPOSTA
 
 
 def _traduir_azure_translator(items, origen, desti):
@@ -493,7 +525,7 @@ def _traduir_azure_translator(items, origen, desti):
                 text = res['translations'][0]['text']
                 traduits[iid] = re.sub(r'<br\s*/?>', '\n', text, flags=re.IGNORECASE)
         except (ValueError, KeyError, TypeError, IndexError):
-            return None, "La resposta del servei de traducció no és vàlida"
+            return None, ERROR_RESPOSTA
     return traduits, None
 
 
@@ -502,6 +534,42 @@ _PROVEIDORS = {
     'azure_translator': _traduir_azure_translator,
     'anthropic': _traduir_anthropic,
 }
+
+
+def _traduir_tros(proveidor, tros, origen, desti):
+    """Tradueix un tros; si la resposta no porta tots els textos, ho torna a provar un cop."""
+    error = None
+    for _ in range(2):
+        try:
+            traduits, error = _PROVEIDORS[proveidor](tros, origen, desti)
+        except Exception as e:  # cap error del proveïdor ha de tombar la petició
+            LOG.exception('Traducció automàtica (%s)', proveidor)
+            return None, f"Error inesperat del servei de traducció: {e}"
+        if error == ERROR_RESPOSTA:
+            continue                  # resposta il·legible: es torna a demanar
+        if error:
+            return None, error
+        if all(it['id'] in traduits for it in tros):
+            return traduits, None
+        error = "La resposta del servei de traducció no és completa"
+    return None, error
+
+
+def _traduir_en_trossos(proveidor, items, origen, desti):
+    """Parteix els textos en trossos i els tradueix en paral·lel."""
+    from concurrent.futures import ThreadPoolExecutor
+    n = max(1, min(_MAX_TROSSOS, -(-len(items) // _MIDA_TROS)))
+    trossos = [items[i::n] for i in range(n)]
+    if n == 1:
+        return _traduir_tros(proveidor, trossos[0], origen, desti)
+    with ThreadPoolExecutor(max_workers=n) as ex:
+        resultats = list(ex.map(lambda t: _traduir_tros(proveidor, t, origen, desti), trossos))
+    traduits = {}
+    for parcial, error in resultats:
+        if error:
+            return None, error
+        traduits.update(parcial)
+    return traduits, None
 
 
 def traduir_ia(font, idioma, valors_originals=None, idioma_origen='es', camps=None):
@@ -538,11 +606,7 @@ def traduir_ia(font, idioma, valors_originals=None, idioma_origen='es', camps=No
     if not items:
         return {}, None
 
-    try:
-        traduits, error = _PROVEIDORS[proveidor](items, idioma_origen, idioma)
-    except Exception as e:  # cap error del proveïdor ha de tombar la petició
-        LOG.exception('Traducció automàtica (%s)', proveidor)
-        return None, f"Error inesperat del servei de traducció: {e}"
+    traduits, error = _traduir_en_trossos(proveidor, items, idioma_origen, idioma)
     if error:
         return None, error
 

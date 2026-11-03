@@ -47,6 +47,8 @@ def create_app():
     if not app.config.get('TESTING'):
         from app.services.traduccio_auto import registrar
         registrar(app)
+        from app.services.traduccio import precarregar
+        precarregar()
 
     # Worker resident per processar JobBulk en background
     # Es llança un cop per procés (idempotent). Desactivable amb ENABLE_JOB_WORKER=0.

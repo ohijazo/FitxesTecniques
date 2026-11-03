@@ -170,8 +170,9 @@ def test_ia_munta_la_proposta_amb_la_resposta(monkeypatch):
     proposta, error = traduir_ia(es, 'en', valors_originals=versio)
 
     assert error is None
-    assert rebut['model'] == 'claude-opus-5-5'
+    assert rebut['model'] == 'claude-sonnet-5-5'
     assert rebut['output_config']['format']['type'] == 'json_schema'
+    assert rebut['output_config']['effort'] == 'low'
     ids = [it['id'] for it in json.loads(rebut['messages'][0]['content'])]
     # El valor numèric no s'envia; el que té text sí
     assert 'microbiologiques.0.valor' not in ids
@@ -279,3 +280,36 @@ def test_auto_tradueix_primer_l_idioma_d_origen():
     from app.services.traduccio_auto import _ordre_idiomes
     assert _ordre_idiomes(['en', 'pt', 'es', 'ca'], 'es') == ['es', 'ca', 'en', 'pt']
     assert _ordre_idiomes(['en', 'ca'], 'ca') == ['ca', 'en']
+
+
+def test_resposta_json_amb_text_al_voltant():
+    from app.services.traduccio import _parse_items
+    text = 'Here it is:\n```json\n{"items": [{"id": "a", "text": "Wheat"}]}\n```'
+    assert _parse_items(text) == {'a': 'Wheat'}
+
+
+def test_trossos_en_parallel_i_reintent(monkeypatch):
+    """Molts textos: es parteixen en trossos; si un tros torna incomplet, es reintenta."""
+    import threading
+    from app.services import traduccio as t
+    _sense_proveidor(monkeypatch)
+    monkeypatch.setenv('TRADUCCIO_PROVEIDOR', 'azure_translator')
+    monkeypatch.setenv('AZURE_TRANSLATOR_KEY', 'x')
+    crides, lock, fallat = [], threading.Lock(), {'fet': False}
+
+    def fals(items, origen, desti):
+        with lock:
+            crides.append(len(items))
+            primer_incomplet = not fallat['fet']
+            fallat['fet'] = True
+        res = {i['id']: 'T:' + i['text'] for i in items}
+        if primer_incomplet:
+            res.pop(items[0]['id'])     # resposta incompleta: s'ha de reintentar
+        return res, None
+    monkeypatch.setitem(t._PROVEIDORS, 'azure_translator', fals)
+
+    font = {camp: f'text {camp}' for camp in t.CAMPS_TEXT}   # 16 textos -> 2 trossos
+    proposta, error = t.traduir_ia(font, 'en')
+    assert error is None
+    assert proposta == {camp: f'T:text {camp}' for camp in t.CAMPS_TEXT}
+    assert sorted(crides) == [8, 8, 8]   # 2 trossos + 1 reintent

@@ -574,7 +574,7 @@ AZURE_TRANSLATOR_ENDPOINT=...           # opcional (per defecte, el global)
 
 # Claude (opcional, desactivat per defecte)
 ANTHROPIC_API_KEY=...
-TRADUCCIO_MODEL=claude-opus-5-5         # opcional
+TRADUCCIO_MODEL=claude-sonnet-5-5       # opcional (és el valor per defecte)
 ```
 - Sense cap proveïdor complet, la traducció automàtica no està disponible i es
   tradueix a mà.
@@ -806,6 +806,47 @@ una ruta nova al backend). No cal migració.
 **Tornar enrere:** `git revert <commit del pas 17>`, tornar a compilar el
 frontend i reiniciar.
 
+### Pas 18 — Traducció automàtica més ràpida
+**Per què:** "Traduir amb IA" trigava 14-20 s per fitxa, i la primera vegada
+fins a ~90 s.
+
+**Diagnòstic** (proves reals amb la 30150, la 31984 i la 30360):
+- La primera espera llarga venia d'**`import anthropic`, que trigava ~56 s**:
+  l'entorn virtual local és a la unitat de xarxa `P:` i la llibreria té milers
+  de fitxers. Al servidor Ubuntu, amb disc local, és d'un segon o menys.
+- Cada crida a Claude és ràpida (1-5 s). La resta del temps venia de traduir
+  tota la fitxa d'un sol cop i amb el model més gran.
+
+**Canvis** (decisió de l'usuari: Sonnet 5.5):
+- **Model per defecte `claude-sonnet-5-5`.** A la prova, la qualitat va ser
+  pràcticament igual que Opus 5.5, al doble de velocitat i la meitat de cost. Es
+  pot canviar amb `TRADUCCIO_MODEL`.
+- **Traducció en trossos en paral·lel:** fins a 4 trossos d'almenys 8 textos.
+  Val per a tots els proveïdors.
+- **Reintent per tros:** si la resposta d'un tros no es pot llegir o hi falta
+  algun text, es torna a demanar un cop.
+- **Precàrrega:** si el proveïdor és Claude, la llibreria s'importa en segon pla
+  en arrencar l'aplicació. Ningú no espera la importació en la primera
+  traducció.
+- **Es manté l'esquema de resposta:** a la prova sense esquema, un tros amb HTML
+  va tornar un JSON invàlid. La lectura de la resposta també és tolerant
+  (accepta `` ```json `` i text al voltant).
+
+**Resultat** (Sonnet 5.5, amb l'aplicació ja arrencada): **5-6 s per fitxa i
+idioma**. Abans eren 14-20 s, i fins a 90 s la primera vegada.
+
+**Fitxers:**
+- `backend/app/services/traduccio.py`: `_traduir_en_trossos`, `_traduir_tros`,
+  `precarregar`, `ERROR_RESPOSTA`, `_parse_items` tolerant i model per defecte.
+- `backend/app/__init__.py`: crida `precarregar()`.
+- `backend/tests/test_traduccio.py`: trossos i reintent, lectura tolerant i
+  model.
+
+**Desplegament:** `git pull` i reiniciar el servei.
+
+**Tornar enrere:** `git revert <commit del pas 18>` i reiniciar. Per tornar a
+Opus sense tocar codi: `TRADUCCIO_MODEL=claude-opus-5-5`.
+
 ---
 
 ## Estat i pendents
@@ -830,6 +871,7 @@ frontend i reiniciar.
 - [x] Pas 15: vista prèvia del PDF en l'idioma triat
 - [x] Pas 16: panell Distribuir més clar (nom dels fitxers)
 - [x] Pas 17: títols traduïts a la vista web (mateix diccionari que el PDF)
+- [x] Pas 18: traducció automàtica més ràpida (Sonnet 5.5, trossos en paral·lel, precàrrega)
 
 ## Desplegament de la fase 0 + 1 (servidor Ubuntu)
 ```bash
