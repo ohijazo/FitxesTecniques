@@ -93,6 +93,15 @@ ETIQUETES = {
         'en': 'Product manufactured for', 'pt': 'Produto fabricado para'},
     'Vigencia del documento / Vigència del document': {
         'en': 'Document validity', 'pt': 'Validade do documento'},
+    # Títols de secció i camps que només surten a la vista web (FitxaForm.jsx)
+    'Identificación del producto / Identificació del producte': {
+        'en': 'Product identification', 'pt': 'Identificação do produto'},
+    'Características / Característiques': {
+        'en': 'Characteristics', 'pt': 'Características'},
+    'Otros contaminantes / Altres contaminants': {
+        'en': 'Other contaminants', 'pt': 'Outros contaminantes'},
+    'Información comercial / Informació comercial': {
+        'en': 'Commercial information', 'pt': 'Informação comercial'},
 }
 
 

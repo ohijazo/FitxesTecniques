@@ -275,6 +275,7 @@ export const api = {
   llistarEnviaments: (fitxaId) => request(`/enviaments${fitxaId ? `?fitxa_id=${fitxaId}` : ''}`),
 
   // Idiomes i traduccions
+  etiquetesIdioma: () => request('/etiquetes-idioma'),
   resumTraduccions: (fitxaId) => request(`/fitxes/${fitxaId}/traduccions`),
   marcarIdiomes: (fitxaId, idiomes) => request(`/fitxes/${fitxaId}/idiomes`, { method: 'PUT', body: JSON.stringify({ idiomes }) }),
   llegirTraduccio: (fitxaId, vid, idioma) => request(`/fitxes/${fitxaId}/versions/${vid}/traduccions/${idioma}`),

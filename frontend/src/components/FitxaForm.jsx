@@ -124,11 +124,23 @@ function formatWithSecondary(text) {
    portar els títols duplicats "castellà / català". El parser Word ho detecta
    en importar i es pot corregir a mà amb el selector del formulari.
    ============================================================ */
-function bil(label, idioma) {
+/* Diccionari de títols per idioma (backend/app/services/etiquetes_idioma.py),
+   el mateix que fa servir el PDF. El carrega la pàgina amb
+   definirEtiquetesIdioma(); mentre no hi és, en/pt surten bilingües. */
+let ETIQUETES_IDIOMA = {};
+export function definirEtiquetesIdioma(etiquetes) {
+  ETIQUETES_IDIOMA = etiquetes || {};
+}
+
+export function bil(label, idioma) {
   // Només per a TÍTOLS: els valors també poden contenir ' / '
   // (p.ex. 'No detectado / 25g') i no s'han de tallar mai.
-  // 'es' es queda la part castellana, 'ca' la catalana.
-  if ((idioma !== 'es' && idioma !== 'ca') || !label || !label.includes(' / ')) return label;
+  // Mateixa regla que titol_idioma() del backend: primer el text propi del
+  // diccionari; si no n'hi ha, 'es' la part castellana i 'ca' la catalana.
+  if (!label || !idioma || idioma === 'bilingue') return label;
+  const propi = ETIQUETES_IDIOMA[label]?.[idioma];
+  if (propi) return propi;
+  if ((idioma !== 'es' && idioma !== 'ca') || !label.includes(' / ')) return label;
   const parts = label.split(' / ');
   return (idioma === 'es' ? parts[0] : parts.slice(1).join(' / ')).trim();
 }
@@ -564,7 +576,7 @@ function PdfPageHeader({ rev, dataRevisio, dataComprovacio, editable, onRevChang
             <img src="/logo.png" alt="Farinera Coromina" className="pdf-logo-img" />
           </td>
           <td className="pdf-header-title" rowSpan={3}>
-            {idioma === 'es' ? <>FICHA T&Eacute;CNICA</> : idioma === 'ca' ? <>FITXA T&Egrave;CNICA</> : <>FICHA T&Eacute;CNICA / FITXA T&Egrave;CNICA</>}
+            {bil('FICHA TÉCNICA / FITXA TÈCNICA', idioma)}
           </td>
           <td className="pdf-header-meta">
             Rev.:{' '}
@@ -585,7 +597,7 @@ function PdfPageHeader({ rev, dataRevisio, dataComprovacio, editable, onRevChang
         </tr>
         <tr>
           <td className="pdf-header-meta">
-            {idioma === 'es' ? 'Fecha Rev.:' : idioma === 'ca' ? 'Data Rev.:' : 'Fecha/Data Rev:'}{' '}
+            {bil('Fecha/Data Rev', idioma)}:{' '}
             {editable ? (
               <input
                 type="date"
@@ -602,7 +614,7 @@ function PdfPageHeader({ rev, dataRevisio, dataComprovacio, editable, onRevChang
         </tr>
         <tr>
           <td className="pdf-header-meta">
-            {idioma === 'es' ? 'Fecha Comprov.:' : idioma === 'ca' ? 'Data Comprov.:' : 'Fecha/Data Comprov.:'}{' '}
+            {bil('Fecha/Data Comprov.', idioma)}:{' '}
             {editable ? (
               <input
                 type="date"

@@ -3,7 +3,7 @@ import { useParams, useLocation, Link, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useToast } from '../components/Toast';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { PdfDocumentView } from '../components/FitxaForm';
+import { PdfDocumentView, definirEtiquetesIdioma } from '../components/FitxaForm';
 import RichEditor from '../components/RichEditor';
 import { useEscapeKey } from '../components/useEscapeKey';
 import RetirarDestiModal from '../components/RetirarDestiModal';
@@ -1009,6 +1009,7 @@ function DetallFitxa() {
   // null = encara decidint; 'original' (bilingüe) | 'ca' | 'es' | 'en' | 'pt'
   const [idiomesTrad, setIdiomesTrad] = useState([]);
   const [idiomaVista, setIdiomaVista] = useState(null);
+  const [etiquetesCarregades, setEtiquetesCarregades] = useState(false);
   const [pdfIdioma, setPdfIdioma] = useState(null);   // idioma de la vista prèvia oberta (null = versió antiga)
   const openDist = location.state?.openDistribuir || false;
   const [section, setSection] = useState(openDist ? 'distribucions' : 'contingut');
@@ -1060,6 +1061,14 @@ function DetallFitxa() {
   };
 
   useEffect(() => { carregarDades(); }, [id]);
+
+  // Títols per idioma (els mateixos del PDF) per a la vista web en anglès/portuguès
+  useEffect(() => {
+    api.etiquetesIdioma()
+      .then((e) => definirEtiquetesIdioma(e))
+      .catch(() => {})           // sense diccionari, en/pt surten bilingües
+      .finally(() => setEtiquetesCarregades(true));
+  }, []);
 
   // Idiomes amb traducció de la versió activa. Per defecte es mostra el català.
   const versioActivaId = fitxa?.versions?.find((v) => v.activa)?.id;
@@ -1403,7 +1412,7 @@ function DetallFitxa() {
                   </div>
                 </div>
               ) : (
-                idiomaVista === null ? <p aria-busy="true">Carregant...</p> : (
+                idiomaVista === null || !etiquetesCarregades ? <p aria-busy="true">Carregant...</p> : (
                   <ContingutIdioma fitxaId={id} contingut={contingut} versio={versioActiva}
                     idiomes={idiomesTrad} vista={idiomaVista} setVista={setIdiomaVista} />
                 )

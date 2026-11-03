@@ -768,6 +768,44 @@ comprovat que coincideixen amb els patrons reals (`{art_codi}.pdf` i
 **Tornar enrere:** `git revert <commit del pas 16>` i tornar a compilar el
 frontend.
 
+### Pas 17 — Títols traduïts també a la vista web
+**Per què:** a la pestanya Contingut, en anglès i portuguès, el contingut sortia
+traduït però els títols continuaven bilingües. El diccionari de títols només
+era al backend, i només el feia servir el PDF.
+
+**Què fa:**
+- Ruta nova `GET /api/etiquetes-idioma`, que retorna el diccionari de
+  `etiquetes_idioma.py`. La vista web fa servir **exactament els mateixos
+  títols que el PDF**, així que una correcció de Qualitat al diccionari
+  s'aplica a tot arreu.
+- `bil()` de `FitxaForm.jsx` segueix la mateixa regla que `titol_idioma()`
+  del backend: primer el text propi del diccionari; si no n'hi ha, la part
+  castellana o catalana del títol bilingüe.
+- La capçalera (FITXA TÈCNICA, Data Rev., Data Comprov.) també surt del
+  diccionari, també en anglès i portuguès.
+- 4 títols nous al diccionari, que només surten a la vista web: Identificació
+  del producte, Característiques, Altres contaminants i Informació comercial.
+  També s'han afegit a l'Excel de revisió per a Qualitat
+  (`docs/Revisio_titols_EN_PT.xlsx`, ara amb 40 títols).
+
+**Fitxers:**
+- `backend/app/services/etiquetes_idioma.py`
+- `backend/app/routes/traduccions.py`: ruta `/etiquetes-idioma`
+- `frontend/src/components/FitxaForm.jsx`: `bil()`, `definirEtiquetesIdioma()`
+  i la capçalera
+- `frontend/src/pages/DetallFitxa.jsx`: carrega el diccionari abans de mostrar
+  el contingut
+- `frontend/src/api/client.js`
+
+**Provat al navegador** amb la 00750 en anglès: TECHNICAL DATA SHEET, Rev.
+date, Check date, Reference code, Product trade name, Allergens, GMO…
+
+**Desplegament:** `git pull`, `npm run build` i **reiniciar** el servei (hi ha
+una ruta nova al backend). No cal migració.
+
+**Tornar enrere:** `git revert <commit del pas 17>`, tornar a compilar el
+frontend i reiniciar.
+
 ---
 
 ## Estat i pendents
@@ -791,6 +829,7 @@ frontend.
 - [x] Pas 14: pantalla de l'historial
 - [x] Pas 15: vista prèvia del PDF en l'idioma triat
 - [x] Pas 16: panell Distribuir més clar (nom dels fitxers)
+- [x] Pas 17: títols traduïts a la vista web (mateix diccionari que el PDF)
 
 ## Desplegament de la fase 0 + 1 (servidor Ubuntu)
 ```bash

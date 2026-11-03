@@ -14,7 +14,7 @@ from flask import Blueprint, request, jsonify, send_file, current_app
 from app import db
 from app.models import FitxaTecnica, VersioFitxa, TraduccioVersio, TraduccioHistorial
 from app.auth import login_required, rol_requerit
-from app.services.etiquetes_idioma import IDIOMES, NOMS_IDIOMA
+from app.services.etiquetes_idioma import IDIOMES, NOMS_IDIOMA, ETIQUETES
 from app.services import traduccio as srv
 
 traduccions_bp = Blueprint('traduccions', __name__)
@@ -71,6 +71,15 @@ def _estat_idioma(versio, idioma):
     if _traduccio_anterior(versio, idioma):
         return 'desactualitzada', None
     return 'falta', None
+
+
+# ------------------------------------------------------------------
+# Títols per idioma (els mateixos que fa servir el PDF)
+# ------------------------------------------------------------------
+@traduccions_bp.route('/etiquetes-idioma', methods=['GET'])
+@login_required
+def etiquetes_idioma():
+    return jsonify(ETIQUETES)
 
 
 # ------------------------------------------------------------------
