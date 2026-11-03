@@ -264,6 +264,31 @@ errors a la consola. Les dades de prova s'han esborrat després.
 **Tornar enrere:** `git revert <commit del pas 4>` i tornar a compilar el
 frontend. Les dades no es veuen afectades.
 
+### Pas 5 — Migració de la fase 2
+**Decisió de l'usuari:** en distribuir, els idiomes **es trien a mà**. Per
+defecte només surt marcat el PDF principal.
+
+**Què fa:** afegeix la columna `idioma` (opcional) a `distribucio` i a
+`enviament_email_item`. El valor `NULL` vol dir PDF principal (`{art_codi}.pdf`),
+així que tot l'historial existent continua sent vàlid sense tocar-lo.
+
+**Fitxers:**
+- `backend/app/models.py`: `Distribucio.idioma` i `EnviamentEmailItem.idioma`,
+  també a `to_dict()`.
+- `backend/migrations/versions/d4b9e6f8a013_idioma_a_distribucio_i_correu.py`
+  (nova, va després de `c3a8d5e7f912`).
+
+**Desplegament:** `flask db upgrade`.
+
+**Tornar enrere:**
+1. **Abans**, cal retirar dels destins els fitxers d'idioma que s'hagin
+   distribuït. Si no es fa, després del downgrade aquests registres semblarien
+   del PDF principal i podrien confondre Retirar i Comprovar.
+2. `flask db downgrade c3a8d5e7f912`.
+3. `git revert <commit del pas 5>`.
+
+Provat en local: `upgrade` → `downgrade` → `upgrade`.
+
 ---
 
 ## Estat i pendents
@@ -275,7 +300,8 @@ frontend. Les dades no es veuen afectades.
 - [ ] Validació de Qualitat dels títols en anglès i portuguès
   (`backend/app/services/etiquetes_idioma.py`)
 - [ ] Vist-i-plau de l'empresa per enviar text a Anthropic i clau `ANTHROPIC_API_KEY`
-- [ ] Fase 2: distribució i correu dels PDFs per idioma
+- [x] Pas 5: migració de la fase 2
+- [ ] Fase 2: distribució i correu dels PDFs per idioma (passos 6-9)
 
 ## Desplegament de la fase 0 + 1 (servidor Ubuntu)
 ```bash
@@ -283,7 +309,7 @@ cd /var/www/fitxes-tecniques
 sudo -u www-data git pull
 sudo -u www-data backend/venv/bin/pip install -r backend/requirements.txt   # anthropic
 cd backend
-sudo -u www-data venv/bin/flask db upgrade                                  # c3a8d5e7f912
+sudo -u www-data venv/bin/flask db upgrade                                  # fins a d4b9e6f8a013
 cd ../frontend
 sudo -u www-data npm run build
 sudo systemctl restart fitxes-tecniques

@@ -243,6 +243,9 @@ class Distribucio(db.Model):
     missatge_error = db.Column(db.Text)
     executat_at = db.Column(db.DateTime)
     executat_by = db.Column(db.String(100))
+    # Idioma del fitxer distribuït ('ca'|'es'|'en'|'pt'). NULL = PDF principal
+    # ({art_codi}.pdf), que és el que hi ha a tot l'historial anterior.
+    idioma = db.Column(db.String(5), nullable=True)
 
     def to_dict(self):
         # Obtenir num_versio de la relació
@@ -255,6 +258,7 @@ class Distribucio(db.Model):
             'num_versio': num_versio,
             'desti_id': self.desti_id,
             'desti': self.desti,
+            'idioma': self.idioma,
             'estat': self.estat,
             'intents': self.intents,
             'missatge_error': self.missatge_error,
@@ -524,6 +528,7 @@ class EnviamentEmailItem(db.Model):
     art_codi = db.Column(db.String(50), nullable=False)
     num_versio = db.Column(db.Integer, nullable=False)
     nom_fitxer = db.Column(db.String(200), nullable=False)
+    idioma = db.Column(db.String(5), nullable=True)   # NULL = PDF principal
 
     def to_dict(self):
         return {
@@ -533,4 +538,5 @@ class EnviamentEmailItem(db.Model):
             'art_codi': self.art_codi,
             'num_versio': self.num_versio,
             'nom_fitxer': self.nom_fitxer,
+            'idioma': self.idioma,
         }
