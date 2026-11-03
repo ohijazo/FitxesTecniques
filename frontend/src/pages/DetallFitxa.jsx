@@ -9,7 +9,7 @@ import { useEscapeKey } from '../components/useEscapeKey';
 import RetirarDestiModal from '../components/RetirarDestiModal';
 import ComprovarDestinsPanel from '../components/ComprovarDestinsPanel';
 import BadgeVerificacio from '../components/BadgeVerificacio';
-import IdiomesPanel from '../components/IdiomesPanel';
+import IdiomesPanel, { combinarTraduccio } from '../components/IdiomesPanel';
 import DOMPurify from 'dompurify';
 
 
@@ -898,6 +898,81 @@ function EsborrarDestinsModal({ fitxa, estat, distribucions, onDone, onClose }) 
 }
 
 
+/* Pestanya Contingut: mostra la versió en l'idioma triat. Per defecte el
+   català si té traducció; si no, l'original (bilingüe) com sempre. */
+function ContingutIdioma({ fitxaId, contingut, versio }) {
+  const [idiomes, setIdiomes] = useState([]);   // idiomes amb traducció per a la versió activa
+  const [vista, setVista] = useState(null);     // null = encara decidint; 'original' | 'ca'...
+  const [traduit, setTraduit] = useState(null); // {idioma, contingut, estat}
+  const [carregant, setCarregant] = useState(false);
+
+  useEffect(() => {
+    let cancel = false;
+    api.resumTraduccions(fitxaId)
+      .then((r) => {
+        if (cancel) return;
+        const amb = r.comercialitzat ? [] : r.idiomes.filter((i) => i.traduccio);
+        setIdiomes(amb);
+        setVista(amb.some((i) => i.idioma === 'ca') ? 'ca' : 'original');
+      })
+      .catch(() => { if (!cancel) setVista('original'); });
+    return () => { cancel = true; };
+  }, [fitxaId, versio?.id]);
+
+  useEffect(() => {
+    if (!vista || vista === 'original' || !versio) { setTraduit(null); return; }
+    let cancel = false;
+    setCarregant(true);
+    api.llegirTraduccio(fitxaId, versio.id, vista)
+      .then((d) => {
+        if (cancel) return;
+        if (!d.traduccio) { setVista('original'); return; }
+        setTraduit({
+          idioma: vista,
+          estat: d.traduccio.estat,
+          contingut: combinarTraduccio(d.original, d.traduccio.contingut, d.camps_traduibles, vista),
+        });
+      })
+      .catch(() => { if (!cancel) setVista('original'); })
+      .finally(() => { if (!cancel) setCarregant(false); });
+    return () => { cancel = true; };
+  }, [vista, fitxaId, versio?.id]);
+
+  if (vista === null) return <p aria-busy="true">Carregant...</p>;
+  // Mentre arriba la traducció no es mostra l'original, per no fer pampallugues
+  const esperant = vista !== 'original' && traduit?.idioma !== vista;
+  const mostrat = vista !== 'original' && !esperant ? traduit.contingut : contingut;
+
+  return (
+    <>
+      {idiomes.length > 0 && (
+        <div className="contingut-idiomes" role="group" aria-label="Idioma del contingut">
+          <span>Veure en:</span>
+          <button type="button" className={`outline ${vista === 'original' ? 'active' : ''}`}
+            aria-pressed={vista === 'original'} onClick={() => setVista('original')}>
+            Original
+          </button>
+          {idiomes.map((i) => (
+            <button key={i.idioma} type="button" className={`outline ${vista === i.idioma ? 'active' : ''}`}
+              aria-pressed={vista === i.idioma} onClick={() => setVista(i.idioma)}
+              title={i.estat === 'revisada' ? i.nom : `${i.nom} (pendent de revisar)`}>
+              {i.nom}{i.estat !== 'revisada' && ' *'}
+            </button>
+          ))}
+        </div>
+      )}
+      {vista !== 'original' && traduit?.estat && traduit.estat !== 'revisada' && (
+        <div className="correu-avis" style={{ marginBottom: '0.75rem' }}>
+          Aquesta traducció està pendent de revisar.
+        </div>
+      )}
+      {carregant || esperant ? <p aria-busy="true">Carregant traducció...</p>
+        : <PdfDocumentView contingut={mostrat} versio={versio} />}
+    </>
+  );
+}
+
+
 function DetallFitxa() {
   const { id } = useParams();
   const location = useLocation();
@@ -1276,7 +1351,7 @@ function DetallFitxa() {
                   </div>
                 </div>
               ) : (
-                <PdfDocumentView contingut={contingut} versio={versioActiva} />
+                <ContingutIdioma fitxaId={id} contingut={contingut} versio={versioActiva} />
               )}
             </>
           )}

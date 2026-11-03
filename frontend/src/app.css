@@ -2848,3 +2848,29 @@ tr.row-selected { background: var(--brand-50); }
 .correu-idiomes label { display: inline-flex; align-items: center; gap: 0.3rem; margin: 0; font-size: 0.88rem; white-space: nowrap; width: auto; }
 .correu-idiomes input { margin: 0; }
 .correu-idiomes small { flex-basis: 100%; color: var(--gray-500); font-size: 0.78rem; }
+
+/* Pestanya Contingut: triar l'idioma que es mostra */
+.contingut-idiomes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--gray-500);
+}
+.contingut-idiomes button.outline {
+  margin: 0;
+  padding: 0.2rem 0.75rem;
+  font-size: 0.82rem;
+  border-radius: 9999px;
+  border: 1px solid var(--gray-300);
+  background: #fff;
+  color: var(--gray-700);
+  width: auto;
+}
+.contingut-idiomes button.outline.active {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}

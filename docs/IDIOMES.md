@@ -438,6 +438,32 @@ Les dades de prova s'han esborrat després.
 **Tornar enrere:** `git revert <commit del pas 8>` i tornar a compilar el
 frontend.
 
+### Pas 9 — Pestanya Contingut en l'idioma triat
+**Què fa:** la pestanya "Contingut" del detall té un selector "Veure en":
+**Original** (el contingut de la versió, bilingüe) i un botó per a cada idioma que
+tingui traducció.
+- **Per defecte:** es mostra el **català** si la versió activa en té traducció; si
+  no, l'original, com fins ara.
+- Les traduccions pendents de revisar també es poden veure. Porten un `*` al botó
+  i un avís a sobre del document.
+- Només és visualització: no canvia dades ni el PDF principal.
+
+**Fitxers:**
+- `frontend/src/pages/DetallFitxa.jsx`: component `ContingutIdioma`.
+- `frontend/src/components/IdiomesPanel.jsx`: `combinarTraduccio()`, la mateixa
+  regla que `combinar()` del backend.
+- `frontend/src/app.css`: `.contingut-idiomes`.
+
+**Limitació:** en anglès i portuguès el contingut surt traduït, però els títols de
+la vista web continuen bilingües (el diccionari de títols només és al backend). El
+PDF de l'idioma sí que surt amb els títols traduïts.
+
+**Desplegament:** `git pull`, `npm run build`. No cal migració ni reiniciar el
+backend.
+
+**Tornar enrere:** `git revert <commit del pas 9>` i tornar a compilar el
+frontend.
+
 ---
 
 ## Estat i pendents
@@ -453,6 +479,7 @@ frontend.
 - [x] Pas 6: distribució per idioma al backend
 - [x] Pas 7: pantalla de distribució per idioma
 - [x] Pas 8: correu amb PDFs d'idioma
+- [x] Pas 9: pestanya Contingut en l'idioma triat (català per defecte)
 
 ## Desplegament de la fase 0 + 1 (servidor Ubuntu)
 ```bash

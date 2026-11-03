@@ -11,6 +11,28 @@ export const ESTATS_TRADUCCIO = {
   falta: { text: 'Sense traduir', classe: 'dist-pending' },
 };
 
+/* Contingut de la versió amb la traducció a sobre, per mostrar-lo.
+   Mateixa regla que combinar() del backend (services/traduccio.py): les
+   taules es combinen fila a fila i només se'n canvien 'parametre' i 'valor'. */
+export function combinarTraduccio(contingutVersio, traduccio, camps, idioma) {
+  const resultat = JSON.parse(JSON.stringify(contingutVersio || {}));
+  const t = traduccio || {};
+  [...camps.text, ...camps.nota].forEach((k) => { if (t[k]) resultat[k] = t[k]; });
+  camps.taula.forEach((k) => {
+    if (!Array.isArray(t[k]) || !Array.isArray(resultat[k])) return;
+    resultat[k] = resultat[k].map((fila, i) => {
+      const ft = t[k][i] || {};
+      return {
+        ...fila,
+        ...(ft.parametre ? { parametre: ft.parametre } : {}),
+        ...(ft.valor ? { valor: ft.valor } : {}),
+      };
+    });
+  });
+  resultat._idioma = idioma;
+  return resultat;
+}
+
 export function BadgeTraduccio({ estat }) {
   const e = ESTATS_TRADUCCIO[estat] || ESTATS_TRADUCCIO.falta;
   return <span className={`dist-badge ${e.classe}`}>{e.text}</span>;
