@@ -105,16 +105,35 @@ def test_camps_canviats():
     assert camps_canviats(abans, ara) == ['origen', 'micotoxines']
 
 
-def test_ia_sense_clau_retorna_error(monkeypatch):
-    monkeypatch.delenv('ANTHROPIC_API_KEY', raising=False)
+def _sense_proveidor(monkeypatch):
+    for k in ('TRADUCCIO_PROVEIDOR', 'ANTHROPIC_API_KEY', 'AZURE_OPENAI_ENDPOINT',
+              'AZURE_OPENAI_KEY', 'AZURE_OPENAI_DEPLOYMENT', 'AZURE_TRANSLATOR_KEY'):
+        monkeypatch.delenv(k, raising=False)
+
+
+def test_ia_sense_proveidor_retorna_error(monkeypatch):
+    _sense_proveidor(monkeypatch)
     proposta, error = traduir_ia({'ingredients': 'Harina'}, 'en')
     assert proposta is None
-    assert 'ANTHROPIC_API_KEY' in error
+    assert 'no està configurada' in error
 
 
-def test_ia_nomes_en_i_pt():
-    proposta, error = traduir_ia({'ingredients': 'Harina'}, 'ca')
+def test_ia_mateix_idioma_origen_i_desti(monkeypatch):
+    monkeypatch.setenv('TRADUCCIO_PROVEIDOR', 'anthropic')
+    monkeypatch.setenv('ANTHROPIC_API_KEY', 'x')
+    proposta, error = traduir_ia({'ingredients': 'Harina'}, 'es', idioma_origen='es')
     assert proposta is None and error
+
+
+def test_proveidor_incomplet_no_esta_disponible(monkeypatch):
+    from app.services.traduccio import ia_disponible
+    _sense_proveidor(monkeypatch)
+    monkeypatch.setenv('TRADUCCIO_PROVEIDOR', 'azure_openai')
+    monkeypatch.setenv('AZURE_OPENAI_ENDPOINT', 'https://x.openai.azure.com')
+    assert not ia_disponible()          # falta la clau i el deployment
+    monkeypatch.setenv('AZURE_OPENAI_KEY', 'k')
+    monkeypatch.setenv('AZURE_OPENAI_DEPLOYMENT', 'gpt')
+    assert ia_disponible()
 
 
 def test_ia_munta_la_proposta_amb_la_resposta(monkeypatch):
@@ -139,7 +158,8 @@ def test_ia_munta_la_proposta_amb_la_resposta(monkeypatch):
         def __init__(self, **kwargs):
             self.messages = FakeMessages()
 
-    monkeypatch.setenv('ANTHROPIC_API_KEY', 'test')
+    _sense_proveidor(monkeypatch)
+    monkeypatch.setenv('ANTHROPIC_API_KEY', 'test')   # sense TRADUCCIO_PROVEIDOR: compatibilitat
     monkeypatch.delenv('TRADUCCIO_MODEL', raising=False)
     monkeypatch.setattr(anthropic, 'Anthropic', FakeClient)
 
@@ -161,3 +181,94 @@ def test_ia_munta_la_proposta_amb_la_resposta(monkeypatch):
         'microbiologiques': [{'parametre': 'Moulds and yeasts'},
                              {'parametre': 'Salmonella', 'valor': 'Not detected / 25g'}],
     }
+
+
+class _RespostaFalsa:
+    def __init__(self, status, dades):
+        self.status_code = status
+        self._dades = dades
+
+    def json(self):
+        return self._dades
+
+
+def test_azure_openai(monkeypatch):
+    import json
+    import requests
+    _sense_proveidor(monkeypatch)
+    monkeypatch.setenv('TRADUCCIO_PROVEIDOR', 'azure_openai')
+    monkeypatch.setenv('AZURE_OPENAI_ENDPOINT', 'https://empresa.openai.azure.com/')
+    monkeypatch.setenv('AZURE_OPENAI_KEY', 'clau')
+    monkeypatch.setenv('AZURE_OPENAI_DEPLOYMENT', 'traductor')
+    rebut = {}
+
+    def fals_post(url, **kw):
+        rebut['url'] = url
+        rebut.update(kw)
+        items = json.loads(kw['json']['messages'][1]['content'])
+        out = {'items': [{'id': i['id'], 'text': 'EN:' + i['text']} for i in items]}
+        return _RespostaFalsa(200, {'choices': [{'finish_reason': 'stop',
+                                                 'message': {'content': json.dumps(out)}}]})
+    monkeypatch.setattr(requests, 'post', fals_post)
+
+    proposta, error = traduir_ia({'ingredients': 'Farina de BLAT'}, 'en', idioma_origen='ca')
+    assert error is None
+    assert proposta == {'ingredients': 'EN:Farina de BLAT'}
+    assert rebut['url'] == ('https://empresa.openai.azure.com/openai/deployments/traductor/'
+                            'chat/completions?api-version=2024-10-21')
+    assert rebut['headers'] == {'api-key': 'clau'}
+    assert 'from Catalan into English' in rebut['json']['messages'][0]['content']
+    assert rebut['json']['response_format']['type'] == 'json_schema'
+
+
+def test_azure_openai_clau_incorrecta(monkeypatch):
+    import requests
+    _sense_proveidor(monkeypatch)
+    monkeypatch.setenv('TRADUCCIO_PROVEIDOR', 'azure_openai')
+    monkeypatch.setenv('AZURE_OPENAI_ENDPOINT', 'https://e.openai.azure.com')
+    monkeypatch.setenv('AZURE_OPENAI_KEY', 'dolenta')
+    monkeypatch.setenv('AZURE_OPENAI_DEPLOYMENT', 'd')
+    monkeypatch.setattr(requests, 'post', lambda url, **kw: _RespostaFalsa(401, {}))
+    proposta, error = traduir_ia({'ingredients': 'Harina'}, 'en')
+    assert proposta is None and 'no és vàlida' in error
+
+
+def test_azure_translator_conserva_salts_de_linia(monkeypatch):
+    import requests
+    _sense_proveidor(monkeypatch)
+    monkeypatch.setenv('TRADUCCIO_PROVEIDOR', 'azure_translator')
+    monkeypatch.setenv('AZURE_TRANSLATOR_KEY', 'clau')
+    monkeypatch.setenv('AZURE_TRANSLATOR_REGION', 'westeurope')
+    rebut = {}
+
+    def fals_post(url, **kw):
+        rebut['url'] = url
+        rebut.update(kw)
+        return _RespostaFalsa(200, [{'translations': [{'text': t['Text'].upper()}]} for t in kw['json']])
+    monkeypatch.setattr(requests, 'post', fals_post)
+
+    font = {'ingredients': 'Harina de trigo\nSegún Directiva',
+            'microbiologiques': [{'parametre': 'Hongos'}, {'parametre': 'E. coli', 'valor': '< 10'}]}
+    proposta, error = traduir_ia(font, 'pt')
+    assert error is None
+    assert proposta['ingredients'] == 'HARINA DE TRIGO\nSEGÚN DIRECTIVA'
+    assert proposta['microbiologiques'][0] == {'parametre': 'HONGOS'}
+    assert 'from=es&to=pt-pt' in rebut['url'] and 'textType=html' in rebut['url']
+    assert rebut['headers']['Ocp-Apim-Subscription-Region'] == 'westeurope'
+    assert rebut['json'][0]['Text'] == 'Harina de trigo<br>Según Directiva'
+
+
+def test_nomes_camps_indicats(monkeypatch):
+    """Per a l'actualització automàtica: només es tradueixen els camps canviats."""
+    import requests
+    _sense_proveidor(monkeypatch)
+    monkeypatch.setenv('TRADUCCIO_PROVEIDOR', 'azure_translator')
+    monkeypatch.setenv('AZURE_TRANSLATOR_KEY', 'clau')
+    enviats = []
+
+    def fals_post(url, **kw):
+        enviats.extend(t['Text'] for t in kw['json'])
+        return _RespostaFalsa(200, [{'translations': [{'text': 'X'}]} for _ in kw['json']])
+    monkeypatch.setattr(requests, 'post', fals_post)
+    proposta, _ = traduir_ia({'ingredients': 'A', 'origen': 'B'}, 'en', camps=['origen'])
+    assert enviats == ['B'] and proposta == {'origen': 'X'}

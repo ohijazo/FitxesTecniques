@@ -108,7 +108,12 @@ function TraduccioFitxa() {
 
   const versio = dades.versio;
   const estat = dades.traduccio ? dades.traduccio.estat : (dades.base ? 'desactualitzada' : 'falta');
-  const potSeparar = idioma === 'ca' || idioma === 'es';
+  // Original bilingüe: el català i el castellà es separen. Original en un sol
+  // idioma: aquest idioma es copia tal qual i la resta es tradueixen.
+  const original = dades.idioma_original || 'bilingue';
+  const potSeparar = (idioma === 'ca' || idioma === 'es') && (original === 'bilingue' || original === idioma);
+  const textSeparar = original === 'bilingue' ? 'Proposar des del bilingüe' : "Copiar de l'original";
+  const origenIA = original === 'ca' ? 'del català' : 'del castellà';
   const original = dades.original || {};
 
   const setCamp = (k, v) => { setContingut((c) => ({ ...c, [k]: v })); setDirty(true); };
@@ -198,12 +203,12 @@ function TraduccioFitxa() {
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           {potSeparar && (
             <button className="outline" disabled={!!ocupat} onClick={() => proposta('separar')}>
-              Proposar des del bilingüe
+              {textSeparar}
             </button>
           )}
           {!potSeparar && (
             <button className="outline" disabled={!!ocupat || !dades.ia_disponible}
-              title={dades.ia_disponible ? '' : 'La traducció amb IA no està activada al servidor'}
+              title={dades.ia_disponible ? `Traducció automàtica a partir ${origenIA}` : 'La traducció automàtica no està activada al servidor'}
               aria-busy={ocupat === 'proposta' ? 'true' : undefined}
               onClick={() => proposta('ia')}>
               {ocupat === 'proposta' ? 'Traduint…' : 'Traduir amb IA'}
@@ -235,9 +240,9 @@ function TraduccioFitxa() {
       {!dades.traduccio && !dades.base && !dirty && (
         <div className="card trad-avis">
           Encara no hi ha traducció. {potSeparar
-            ? <>Prem <strong>Proposar des del bilingüe</strong> per partir del text actual de la fitxa.</>
+            ? <>Prem <strong>{textSeparar}</strong> per partir del text actual de la fitxa.</>
             : dades.ia_disponible
-              ? <>Prem <strong>Traduir amb IA</strong> per obtenir una proposta a partir del castellà.</>
+              ? <>Prem <strong>Traduir amb IA</strong> per obtenir una proposta a partir {origenIA}.</>
               : <>Escriu la traducció de cada camp.</>}
         </div>
       )}

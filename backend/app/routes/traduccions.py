@@ -167,7 +167,34 @@ def llegir_traduccio(fitxa_id, vid, idioma):
         'traduccio': t.to_dict() if t else None,
         'base': base,
         'ia_disponible': srv.ia_disponible(),
+        # 'bilingue' | 'es' | 'ca': decideix si es pot separar o cal traduir
+        'idioma_original': idioma_original(versio),
     })
+
+
+def idioma_original(versio):
+    """Idioma en què està escrit el contingut de la versió: 'bilingue', 'es' o 'ca'."""
+    return (versio.contingut or {}).get('_idioma') or 'bilingue'
+
+
+def font_traduccio(versio):
+    """(camps_font, idioma_origen) per traduir automàticament aquesta versió.
+
+    - Original només en català: el català (la traducció CA si n'hi ha; si no,
+      el text de l'original tal qual).
+    - Original bilingüe o en castellà: el castellà (la traducció ES si n'hi ha;
+      si no, la part castellana del bilingüe o el text tal qual).
+    """
+    contingut = versio.contingut or {}
+    original = idioma_original(versio)
+    origen = 'ca' if original == 'ca' else 'es'
+    t = TraduccioVersio.query.filter_by(versio_id=versio.id, idioma=origen).first()
+    if t:
+        return t.contingut or {}, origen
+    if original == 'bilingue':
+        font, _ = srv.separar_bilingue(contingut, 'es')
+        return font, 'es'
+    return srv.extreure_camps(contingut), origen
 
 
 def _netejar_contingut(contingut):
@@ -254,18 +281,19 @@ def proposta_traduccio(fitxa_id, vid, idioma):
     if metode == 'separar':
         if idioma not in ('es', 'ca'):
             return jsonify({'error': "Separar el bilingüe només serveix per al català i el castellà"}), 400
+        original = idioma_original(versio)
+        if original == idioma:
+            # L'original ja és en aquest idioma: es copia tal qual
+            return jsonify({'proposta': srv.extreure_camps(contingut), 'dubtosos': [], 'origen': 'separat'})
+        if original != 'bilingue':
+            return jsonify({'error': "L'original no és bilingüe: aquest idioma s'ha de traduir"}), 400
         proposta, dubtosos = srv.separar_bilingue(contingut, idioma)
         return jsonify({'proposta': proposta, 'dubtosos': dubtosos, 'origen': 'separat'})
 
     if metode == 'ia':
-        # Text font: la traducció castellana d'aquesta versió si existeix;
-        # si no, la part castellana del bilingüe.
-        t_es = TraduccioVersio.query.filter_by(versio_id=versio.id, idioma='es').first()
-        if t_es:
-            font = t_es.contingut or {}
-        else:
-            font, _ = srv.separar_bilingue(contingut, 'es')
-        proposta, error = srv.traduir_ia(font, idioma, valors_originals=contingut)
+        font, idioma_origen = font_traduccio(versio)
+        proposta, error = srv.traduir_ia(font, idioma, valors_originals=contingut,
+                                         idioma_origen=idioma_origen)
         if error:
             current_app.logger.warning('Traducció IA %s %s: %s', fitxa.art_codi, idioma, error)
             # Error del servei extern: missatge clar, no un 500 genèric

@@ -239,14 +239,34 @@ def camps_canviats(contingut_abans, contingut_ara):
 
 
 # ------------------------------------------------------------------
-# Traducció amb IA (anglès i portuguès)
+# Traducció automàtica (IA)
+#
+# El proveïdor es tria amb TRADUCCIO_PROVEIDOR al .env:
+#   azure_openai     -> Azure OpenAI (Microsoft). AZURE_OPENAI_ENDPOINT,
+#                       AZURE_OPENAI_KEY, AZURE_OPENAI_DEPLOYMENT,
+#                       AZURE_OPENAI_API_VERSION (opcional)
+#   azure_translator -> Azure AI Translator (Microsoft). AZURE_TRANSLATOR_KEY,
+#                       AZURE_TRANSLATOR_REGION, AZURE_TRANSLATOR_ENDPOINT (opcional)
+#   anthropic        -> Claude. ANTHROPIC_API_KEY, TRADUCCIO_MODEL (opcional)
+# Sense proveïdor configurat la traducció automàtica no està disponible i les
+# traduccions es fan a mà.
 # ------------------------------------------------------------------
-NOMS_IA = {'en': 'English (British)', 'pt': 'European Portuguese'}
+import logging
+
+LOG = logging.getLogger(__name__)
+
+NOMS_IA = {
+    'ca': 'Catalan', 'es': 'Spanish (Spain)',
+    'en': 'English (British)', 'pt': 'European Portuguese',
+}
+
+# Codis d'idioma d'Azure AI Translator ('pt' és el del Brasil)
+_CODIS_TRANSLATOR = {'ca': 'ca', 'es': 'es', 'en': 'en', 'pt': 'pt-pt'}
 
 _SISTEMA_IA = (
     "You translate technical data sheets for wheat flour and other milled "
     "cereal products, written by the quality department of a Spanish flour "
-    "mill, from Spanish into {lang}. The readers are industrial customers.\n"
+    "mill, from {origen} into {desti}. The readers are industrial customers.\n"
     "You receive a JSON list of items {{id, text}}. Return every item with the "
     "same id and the translated text.\n"
     "- Keep any HTML tags exactly as they are; translate only the text inside.\n"
@@ -259,18 +279,67 @@ _SISTEMA_IA = (
     "- If a text is only numbers, units or symbols, return it unchanged."
 )
 
+_ESQUEMA_IA = {
+    'type': 'object',
+    'properties': {
+        'items': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {'id': {'type': 'string'}, 'text': {'type': 'string'}},
+                'required': ['id', 'text'],
+                'additionalProperties': False,
+            },
+        },
+    },
+    'required': ['items'],
+    'additionalProperties': False,
+}
+
+# Gunicorn talla les peticions als 120 s: 50 s per intent i 1 reintent com a màxim
+_TIMEOUT = 50
+
+
+def proveidor_ia():
+    """Proveïdor configurat, o None si no n'hi ha cap."""
+    p = (os.environ.get('TRADUCCIO_PROVEIDOR') or '').strip().lower()
+    if p == 'azure_openai':
+        ok = all(os.environ.get(k) for k in ('AZURE_OPENAI_ENDPOINT', 'AZURE_OPENAI_KEY',
+                                              'AZURE_OPENAI_DEPLOYMENT'))
+        return p if ok else None
+    if p == 'azure_translator':
+        return p if os.environ.get('AZURE_TRANSLATOR_KEY') else None
+    if p == 'anthropic' or (not p and os.environ.get('ANTHROPIC_API_KEY')):
+        # Compatibilitat: abans n'hi havia prou amb ANTHROPIC_API_KEY
+        return 'anthropic' if os.environ.get('ANTHROPIC_API_KEY') else None
+    return None
+
 
 def ia_disponible():
-    return bool(os.environ.get('ANTHROPIC_API_KEY'))
+    return proveidor_ia() is not None
 
 
-def _items_per_traduir(contingut_es):
+def extreure_camps(contingut):
+    """Només els camps traduïbles d'un contingut (per a originals d'un sol idioma)."""
+    contingut = contingut or {}
+    res = {k: contingut[k] for k in CAMPS_TEXT + CAMPS_NOTA if contingut.get(k)}
+    for camp in CAMPS_TAULA:
+        files = contingut.get(camp)
+        if isinstance(files, list) and files:
+            res[camp] = [{'parametre': (f or {}).get('parametre', '')} for f in files]
+    return res
+
+
+def _items_per_traduir(font, camps=None):
+    """Llista {id, text}. camps: si s'indica, només aquests camps."""
     items = []
     for camp in CAMPS_TEXT + CAMPS_NOTA:
-        if contingut_es.get(camp):
-            items.append({'id': camp, 'text': contingut_es[camp]})
+        if (camps is None or camp in camps) and font.get(camp):
+            items.append({'id': camp, 'text': font[camp]})
     for camp in CAMPS_TAULA:
-        for i, fila in enumerate(contingut_es.get(camp) or []):
+        if camps is not None and camp not in camps:
+            continue
+        for i, fila in enumerate(font.get(camp) or []):
             fila = fila or {}
             if fila.get('parametre') and _LLETRA_RE.search(fila['parametre']):
                 items.append({'id': f'{camp}.{i}.parametre', 'text': fila['parametre']})
@@ -279,73 +348,26 @@ def _items_per_traduir(contingut_es):
     return items
 
 
-def traduir_ia(contingut_es, idioma, valors_originals=None):
-    """Proposta de traducció a 'en' o 'pt' a partir de la versió castellana.
+def _parse_items(text):
+    return {it['id']: it['text'] for it in json.loads(text)['items']}
 
-    Args:
-        contingut_es: camps traduïbles en castellà (p.ex. de separar_bilingue).
-        idioma: 'en' o 'pt'.
-        valors_originals: contingut de la versió, per incloure al text a traduir
-            els valors de taula que no tenen versió castellana pròpia.
 
-    Returns:
-        (proposta, None) o (None, missatge_error). Mai no llança excepcions.
-    """
-    if idioma not in NOMS_IA:
-        return None, "La traducció amb IA només és per a l'anglès i el portuguès"
-    if not ia_disponible():
-        return None, "La traducció amb IA no està configurada (falta ANTHROPIC_API_KEY)"
-
-    contingut_es = copy.deepcopy(contingut_es or {})
-    # Valors de taula: si la proposta castellana no en té, s'agafen de la versió
-    for camp in CAMPS_TAULA:
-        originals = (valors_originals or {}).get(camp) or []
-        for i, fila in enumerate(contingut_es.get(camp) or []):
-            if not fila.get('valor') and i < len(originals) and isinstance(originals[i], dict):
-                fila['valor'] = originals[i].get('valor') or ''
-
-    items = _items_per_traduir(contingut_es)
-    if not items:
-        return {}, None
-
+def _traduir_anthropic(items, origen, desti):
     try:
         import anthropic
     except ImportError:
         return None, "Falta instal·lar la llibreria 'anthropic' al servidor"
-
     model = os.environ.get('TRADUCCIO_MODEL') or 'claude-opus-5-5'
-    # Gunicorn talla les peticions als 120 s: 50 s per intent i 1 reintent com a màxim
-    client = anthropic.Anthropic(timeout=50.0, max_retries=1)
+    client = anthropic.Anthropic(timeout=float(_TIMEOUT), max_retries=1)
     try:
         resp = client.messages.create(
             model=model,
             max_tokens=16000,
-            system=_SISTEMA_IA.format(lang=NOMS_IA[idioma]),
+            system=_SISTEMA_IA.format(origen=NOMS_IA[origen], desti=NOMS_IA[desti]),
             messages=[{'role': 'user', 'content': json.dumps(items, ensure_ascii=False)}],
             output_config={
                 'effort': 'low',      # traduir no necessita raonament llarg; respon abans
-                'format': {
-                    'type': 'json_schema',
-                    'schema': {
-                        'type': 'object',
-                        'properties': {
-                            'items': {
-                                'type': 'array',
-                                'items': {
-                                    'type': 'object',
-                                    'properties': {
-                                        'id': {'type': 'string'},
-                                        'text': {'type': 'string'},
-                                    },
-                                    'required': ['id', 'text'],
-                                    'additionalProperties': False,
-                                },
-                            },
-                        },
-                        'required': ['items'],
-                        'additionalProperties': False,
-                    },
-                },
+                'format': {'type': 'json_schema', 'schema': _ESQUEMA_IA},
             },
         )
     except anthropic.AuthenticationError:
@@ -358,24 +380,179 @@ def traduir_ia(contingut_es, idioma, valors_originals=None):
         return None, "El servei de traducció ha trigat massa; torna-ho a provar"
     except anthropic.APIConnectionError:
         return None, "No s'ha pogut connectar amb el servei de traducció"
-
     if resp.stop_reason == 'refusal':
         return None, "El servei de traducció ha refusat el text"
     if resp.stop_reason == 'max_tokens':
         return None, "El text és massa llarg per traduir-lo d'una vegada"
     text = next((b.text for b in resp.content if b.type == 'text'), '')
     try:
-        traduits = {it['id']: it['text'] for it in json.loads(text)['items']}
+        return _parse_items(text), None
     except (ValueError, KeyError, TypeError):
         return None, "La resposta del servei de traducció no és vàlida"
+
+
+def _post(url, **kwargs):
+    """POST amb 1 reintent per a errors temporals (429 / 5xx / connexió)."""
+    import requests
+    for intent in range(2):
+        try:
+            r = requests.post(url, timeout=_TIMEOUT, **kwargs)
+        except requests.Timeout:
+            if intent:
+                return None, "El servei de traducció ha trigat massa; torna-ho a provar"
+            continue
+        except requests.RequestException:
+            if intent:
+                return None, "No s'ha pogut connectar amb el servei de traducció"
+            continue
+        if (r.status_code == 429 or r.status_code >= 500) and not intent:
+            continue
+        return r, None
+    return None, "El servei de traducció no respon"
+
+
+def _error_http(r):
+    if r.status_code in (401, 403):
+        return "La clau del servei de traducció no és vàlida o no té permisos"
+    if r.status_code == 429:
+        return "El servei de traducció està saturat; torna-ho a provar d'aquí a un minut"
+    try:
+        detall = (r.json().get('error') or {}).get('message') or ''
+    except ValueError:
+        detall = ''
+    return f"Error del servei de traducció ({r.status_code}){': ' + detall if detall else ''}"
+
+
+def _traduir_azure_openai(items, origen, desti):
+    endpoint = os.environ['AZURE_OPENAI_ENDPOINT'].rstrip('/')
+    deployment = os.environ['AZURE_OPENAI_DEPLOYMENT']
+    versio_api = os.environ.get('AZURE_OPENAI_API_VERSION') or '2024-10-21'
+    url = f'{endpoint}/openai/deployments/{deployment}/chat/completions?api-version={versio_api}'
+    cos = {
+        'messages': [
+            {'role': 'system', 'content': _SISTEMA_IA.format(origen=NOMS_IA[origen], desti=NOMS_IA[desti])},
+            {'role': 'user', 'content': json.dumps(items, ensure_ascii=False)},
+        ],
+        'response_format': {
+            'type': 'json_schema',
+            'json_schema': {'name': 'traduccions', 'strict': True, 'schema': _ESQUEMA_IA},
+        },
+    }
+    r, error = _post(url, json=cos, headers={'api-key': os.environ['AZURE_OPENAI_KEY']})
+    if error:
+        return None, error
+    if r.status_code != 200:
+        return None, _error_http(r)
+    try:
+        opcio = r.json()['choices'][0]
+        if opcio.get('finish_reason') == 'content_filter':
+            return None, "El filtre de contingut d'Azure ha bloquejat el text"
+        if opcio.get('finish_reason') == 'length':
+            return None, "El text és massa llarg per traduir-lo d'una vegada"
+        return _parse_items(opcio['message']['content']), None
+    except (ValueError, KeyError, TypeError, IndexError):
+        return None, "La resposta del servei de traducció no és vàlida"
+
+
+def _traduir_azure_translator(items, origen, desti):
+    """Azure AI Translator: traducció literal, sense instruccions.
+
+    textType=html conserva les marques; els salts de línia es passen a <br>
+    perquè en HTML no es perdin. Màxim 1000 textos i ~50.000 caràcters per
+    petició: es fan lots.
+    """
+    endpoint = (os.environ.get('AZURE_TRANSLATOR_ENDPOINT')
+                or 'https://api.cognitive.microsofttranslator.com').rstrip('/')
+    url = (f'{endpoint}/translate?api-version=3.0&textType=html'
+           f'&from={_CODIS_TRANSLATOR[origen]}&to={_CODIS_TRANSLATOR[desti]}')
+    capcaleres = {'Ocp-Apim-Subscription-Key': os.environ['AZURE_TRANSLATOR_KEY']}
+    if os.environ.get('AZURE_TRANSLATOR_REGION'):
+        capcaleres['Ocp-Apim-Subscription-Region'] = os.environ['AZURE_TRANSLATOR_REGION']
+
+    traduits = {}
+    lot, mida = [], 0
+    lots = []
+    for it in items:
+        text = it['text'].replace('\n', '<br>')
+        if lot and (len(lot) >= 900 or mida + len(text) > 45000):
+            lots.append(lot)
+            lot, mida = [], 0
+        lot.append((it['id'], text))
+        mida += len(text)
+    if lot:
+        lots.append(lot)
+
+    for lot in lots:
+        r, error = _post(url, json=[{'Text': t} for _, t in lot], headers=capcaleres)
+        if error:
+            return None, error
+        if r.status_code != 200:
+            return None, _error_http(r)
+        try:
+            for (iid, _), res in zip(lot, r.json()):
+                text = res['translations'][0]['text']
+                traduits[iid] = re.sub(r'<br\s*/?>', '\n', text, flags=re.IGNORECASE)
+        except (ValueError, KeyError, TypeError, IndexError):
+            return None, "La resposta del servei de traducció no és vàlida"
+    return traduits, None
+
+
+_PROVEIDORS = {
+    'azure_openai': _traduir_azure_openai,
+    'azure_translator': _traduir_azure_translator,
+    'anthropic': _traduir_anthropic,
+}
+
+
+def traduir_ia(font, idioma, valors_originals=None, idioma_origen='es', camps=None):
+    """Proposta de traducció a `idioma` a partir de `font` (idioma_origen).
+
+    Args:
+        font: camps traduïbles en l'idioma d'origen (p.ex. de separar_bilingue).
+        idioma: idioma de destí ('ca'|'es'|'en'|'pt').
+        valors_originals: contingut de la versió, per incloure els valors de
+            taula que la font no porta.
+        idioma_origen: 'es' (per defecte) o 'ca' si l'original és en català.
+        camps: si s'indica, només es tradueixen aquests camps.
+
+    Returns:
+        (proposta, None) o (None, missatge_error). Mai no llança excepcions.
+    """
+    if idioma not in NOMS_IA or idioma_origen not in NOMS_IA:
+        return None, f"Idioma no vàlid: {idioma}"
+    if idioma == idioma_origen:
+        return None, "L'idioma de destí és el mateix que el de l'original"
+    proveidor = proveidor_ia()
+    if not proveidor:
+        return None, "La traducció automàtica no està configurada al servidor"
+
+    font = copy.deepcopy(font or {})
+    # Valors de taula: si la font no en té, s'agafen de la versió
+    for camp in CAMPS_TAULA:
+        originals = (valors_originals or {}).get(camp) or []
+        for i, fila in enumerate(font.get(camp) or []):
+            if not fila.get('valor') and i < len(originals) and isinstance(originals[i], dict):
+                fila['valor'] = originals[i].get('valor') or ''
+
+    items = _items_per_traduir(font, camps)
+    if not items:
+        return {}, None
+
+    try:
+        traduits, error = _PROVEIDORS[proveidor](items, idioma_origen, idioma)
+    except Exception as e:  # cap error del proveïdor ha de tombar la petició
+        LOG.exception('Traducció automàtica (%s)', proveidor)
+        return None, f"Error inesperat del servei de traducció: {e}"
+    if error:
+        return None, error
 
     proposta = {}
     for camp in CAMPS_TEXT + CAMPS_NOTA:
         if camp in traduits:
             proposta[camp] = traduits[camp]
     for camp in CAMPS_TAULA:
-        files = contingut_es.get(camp)
-        if not files:
+        files = font.get(camp)
+        if not files or (camps is not None and camp not in camps):
             continue
         noves = []
         for i, fila in enumerate(files):

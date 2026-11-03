@@ -545,6 +545,81 @@ Les dades de prova s'han esborrat després.
 **Tornar enrere:** `git revert <commit del pas 11>`. Les còpies que ja s'hagin
 desat es queden a la taula.
 
+### Pas 12 — Proveïdors de traducció (Microsoft o Claude)
+**Per què:** a l'empresa es fa servir Copilot (Microsoft). Microsoft 365 Copilot
+**no té una clau d'API** per fer-lo servir des d'una aplicació:
+- La seva Chat API només funciona en nom d'un usuari amb llicència de Copilot
+  que hagi iniciat sessió, i no la pot cridar un servidor pel seu compte.
+- Demana permisos de lectura de correu, Teams i SharePoint.
+- Està en *preview*.
+
+La via de Microsoft amb clau és **Azure**: els mateixos models a **Azure OpenAI**,
+o el servei **Azure AI Translator**. Sistemes ha de decidir què pot donar; per
+això el codi admet tots dos, i també Claude, i es tria per configuració.
+
+**Configuració** (`backend/.env`):
+```
+TRADUCCIO_PROVEIDOR=azure_openai        # o azure_translator, o anthropic
+
+# Azure OpenAI
+AZURE_OPENAI_ENDPOINT=https://<recurs>.openai.azure.com
+AZURE_OPENAI_KEY=...
+AZURE_OPENAI_DEPLOYMENT=<nom del deployment del model>
+AZURE_OPENAI_API_VERSION=2024-10-21     # opcional
+
+# Azure AI Translator
+AZURE_TRANSLATOR_KEY=...
+AZURE_TRANSLATOR_REGION=westeurope      # la regió del recurs
+AZURE_TRANSLATOR_ENDPOINT=...           # opcional (per defecte, el global)
+
+# Claude (opcional, desactivat per defecte)
+ANTHROPIC_API_KEY=...
+TRADUCCIO_MODEL=claude-opus-5-5         # opcional
+```
+- Sense cap proveïdor complet, la traducció automàtica no està disponible i es
+  tradueix a mà.
+- Per compatibilitat, si no hi ha `TRADUCCIO_PROVEIDOR` però sí `ANTHROPIC_API_KEY`,
+  es fa servir Claude.
+
+**Què ha canviat:**
+- **Idioma d'origen.** Abans sempre era el castellà. Ara depèn de com està escrit
+  l'original (`_idioma` de la versió):
+  - **bilingüe:** el català i el castellà es **separen**; l'anglès i el
+    portuguès es tradueixen del castellà;
+  - **només castellà:** el castellà **es copia**; la resta es tradueix del
+    castellà;
+  - **només català** (cas de la 30150): el català **es copia**; el castellà,
+    l'anglès i el portuguès es tradueixen del català.
+
+  Si existeix la traducció de l'idioma d'origen, es fa servir com a font.
+- **Azure OpenAI:** rep les mateixes instruccions que Claude (reglaments,
+  al·lèrgens en majúscules, HTML) i fa servir sortida estructurada.
+- **Azure AI Translator:** tradueix literal, sense instruccions. Manté l'HTML, i
+  els salts de línia es conserven passant-los a `<br>`. Per al portuguès fa
+  servir `pt-pt` (de Portugal).
+- **Errors:** sempre retornen un missatge clar (clau no vàlida, servei saturat,
+  temps esgotat, filtre de contingut…), amb un sol reintent per als errors
+  temporals. Cada intent té un temps màxim de 50 s, perquè Gunicorn talla als
+  120 s.
+- `traduir_ia(..., camps=[...])` permet traduir només uns camps concrets. Ho farà
+  servir l'actualització automàtica.
+- A l'editor, el botó s'adapta a l'original: "Proposar des del bilingüe",
+  "Copiar de l'original" o "Traduir amb IA".
+
+**Fitxers:**
+- `backend/app/services/traduccio.py`
+- `backend/app/routes/traduccions.py`: `idioma_original()` i `font_traduccio()`
+- `frontend/src/pages/TraduccioFitxa.jsx`
+- `backend/tests/test_traduccio.py`: tests nous d'Azure OpenAI (petició i clau
+  incorrecta), d'Azure AI Translator (salts de línia, `pt-pt`, regió), de la
+  traducció de només uns camps i de la configuració incompleta. Totes les
+  respostes són simulades.
+
+**No provat amb els serveis reals:** encara no hi ha claus d'Azure. Quan
+sistemes les doni, cal fer una prova real abans d'activar-ho a producció.
+
+**Tornar enrere:** `git revert <commit del pas 12>`.
+
 ---
 
 ## Estat i pendents
@@ -555,7 +630,7 @@ desat es queden a la taula.
 - [x] Pas 4: pantalles
 - [ ] Validació de Qualitat dels títols en anglès i portuguès
   (`backend/app/services/etiquetes_idioma.py`)
-- [ ] Vist-i-plau de l'empresa per enviar text a Anthropic i clau `ANTHROPIC_API_KEY`
+- [ ] Sistemes: decidir proveïdor (Azure OpenAI o Azure AI Translator) i donar-ne la clau
 - [x] Pas 5: migració de la fase 2
 - [x] Pas 6: distribució per idioma al backend
 - [x] Pas 7: pantalla de distribució per idioma
@@ -563,7 +638,7 @@ desat es queden a la taula.
 - [x] Pas 9: pestanya Contingut en l'idioma triat (català per defecte)
 - [x] Pas 10: model i migració de l'historial
 - [x] Pas 11: historial de traduccions al backend
-- [ ] Pas 12: proveïdors de traducció (Azure OpenAI, Azure AI Translator, Claude)
+- [x] Pas 12: proveïdors de traducció (Azure OpenAI, Azure AI Translator, Claude)
 - [ ] Pas 13: actualització automàtica en crear una versió
 - [ ] Pas 14: pantalla de l'historial
 
