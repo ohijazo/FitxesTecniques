@@ -898,26 +898,33 @@ function EsborrarDestinsModal({ fitxa, estat, distribucions, onDone, onClose }) 
 }
 
 
-/* Pestanya Contingut: mostra la versió en l'idioma triat. Per defecte el
-   català si té traducció; si no, l'original (bilingüe) com sempre. */
-function ContingutIdioma({ fitxaId, contingut, versio }) {
-  const [idiomes, setIdiomes] = useState([]);   // idiomes amb traducció per a la versió activa
-  const [vista, setVista] = useState(null);     // null = encara decidint; 'original' | 'ca'...
+/* Botons "Veure en:" (Original + idiomes amb traducció). Els comparteixen la
+   pestanya Contingut i la vista prèvia del PDF. */
+function SelectorIdioma({ idiomes, vista, onChange }) {
+  if (!idiomes.length) return null;
+  return (
+    <div className="contingut-idiomes" role="group" aria-label="Idioma">
+      <span>Veure en:</span>
+      <button type="button" className={`outline ${vista === 'original' ? 'active' : ''}`}
+        aria-pressed={vista === 'original'} onClick={() => onChange('original')}>
+        Original
+      </button>
+      {idiomes.map((i) => (
+        <button key={i.idioma} type="button" className={`outline ${vista === i.idioma ? 'active' : ''}`}
+          aria-pressed={vista === i.idioma} onClick={() => onChange(i.idioma)}
+          title={i.estat === 'revisada' ? i.nom : `${i.nom} (pendent de revisar)`}>
+          {i.nom}{i.estat !== 'revisada' && ' *'}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* Pestanya Contingut: mostra la versió en l'idioma triat (vegeu idiomaVista a
+   DetallFitxa: per defecte el català si té traducció; si no, l'original). */
+function ContingutIdioma({ fitxaId, contingut, versio, idiomes, vista, setVista }) {
   const [traduit, setTraduit] = useState(null); // {idioma, contingut, estat}
   const [carregant, setCarregant] = useState(false);
-
-  useEffect(() => {
-    let cancel = false;
-    api.resumTraduccions(fitxaId)
-      .then((r) => {
-        if (cancel) return;
-        const amb = r.comercialitzat ? [] : r.idiomes.filter((i) => i.traduccio);
-        setIdiomes(amb);
-        setVista(amb.some((i) => i.idioma === 'ca') ? 'ca' : 'original');
-      })
-      .catch(() => { if (!cancel) setVista('original'); });
-    return () => { cancel = true; };
-  }, [fitxaId, versio?.id]);
 
   useEffect(() => {
     if (!vista || vista === 'original' || !versio) { setTraduit(null); return; }
@@ -938,29 +945,13 @@ function ContingutIdioma({ fitxaId, contingut, versio }) {
     return () => { cancel = true; };
   }, [vista, fitxaId, versio?.id]);
 
-  if (vista === null) return <p aria-busy="true">Carregant...</p>;
   // Mentre arriba la traducció no es mostra l'original, per no fer pampallugues
   const esperant = vista !== 'original' && traduit?.idioma !== vista;
   const mostrat = vista !== 'original' && !esperant ? traduit.contingut : contingut;
 
   return (
     <>
-      {idiomes.length > 0 && (
-        <div className="contingut-idiomes" role="group" aria-label="Idioma del contingut">
-          <span>Veure en:</span>
-          <button type="button" className={`outline ${vista === 'original' ? 'active' : ''}`}
-            aria-pressed={vista === 'original'} onClick={() => setVista('original')}>
-            Original
-          </button>
-          {idiomes.map((i) => (
-            <button key={i.idioma} type="button" className={`outline ${vista === i.idioma ? 'active' : ''}`}
-              aria-pressed={vista === i.idioma} onClick={() => setVista(i.idioma)}
-              title={i.estat === 'revisada' ? i.nom : `${i.nom} (pendent de revisar)`}>
-              {i.nom}{i.estat !== 'revisada' && ' *'}
-            </button>
-          ))}
-        </div>
-      )}
+      <SelectorIdioma idiomes={idiomes} vista={vista} onChange={setVista} />
       {vista !== 'original' && traduit?.estat && traduit.estat !== 'revisada' && (
         <div className="correu-avis" style={{ marginBottom: '0.75rem' }}>
           Aquesta traducció està pendent de revisar.
@@ -987,6 +978,11 @@ function DetallFitxa() {
   const [error, setError] = useState(null);
   const [pdfUrl, setPdfUrl] = useState(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+  // Idioma en què es mostren el contingut i la vista prèvia del PDF:
+  // null = encara decidint; 'original' (bilingüe) | 'ca' | 'es' | 'en' | 'pt'
+  const [idiomesTrad, setIdiomesTrad] = useState([]);
+  const [idiomaVista, setIdiomaVista] = useState(null);
+  const [pdfIdioma, setPdfIdioma] = useState(null);   // idioma de la vista prèvia oberta (null = versió antiga)
   const openDist = location.state?.openDistribuir || false;
   const [section, setSection] = useState(openDist ? 'distribucions' : 'contingut');
   const [showDistribuir, setShowDistribuir] = useState(openDist);
@@ -1037,6 +1033,25 @@ function DetallFitxa() {
   };
 
   useEffect(() => { carregarDades(); }, [id]);
+
+  // Idiomes amb traducció de la versió activa. Per defecte es mostra el català.
+  const versioActivaId = fitxa?.versions?.find((v) => v.activa)?.id;
+  useEffect(() => {
+    if (!fitxa) return undefined;
+    let cancel = false;
+    api.resumTraduccions(id)
+      .then((r) => {
+        if (cancel) return;
+        const amb = r.comercialitzat ? [] : r.idiomes.filter((i) => i.traduccio);
+        setIdiomesTrad(amb);
+        setIdiomaVista((actual) => (actual && (actual === 'original' || amb.some((i) => i.idioma === actual))
+          ? actual
+          : (amb.some((i) => i.idioma === 'ca') ? 'ca' : 'original')));
+      })
+      .catch(() => { if (!cancel) setIdiomaVista('original'); });
+    return () => { cancel = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, versioActivaId, !!fitxa]);
   useEffect(() => { api.llistarEnviaments(id).then(setEnviaments).catch(() => {}); }, [id]);
   useEffect(() => { if (id) verificarAuto(); }, [id]);
   useEffect(() => { api.llistarDestins().then(setDestins).catch(() => {}); }, []);
@@ -1172,15 +1187,21 @@ function DetallFitxa() {
       .catch((err) => toast.error(`Error: ${err.message}`));
   };
 
-  const vistaPrevia = (versioId) => {
+  // versioId: vista prèvia d'una versió antiga (pestanya Versions), sempre l'original.
+  // Sense versioId: la versió activa en l'idioma triat (idiomaVista).
+  const vistaPrevia = (versioId, idioma) => {
     if (pdfUrl) URL.revokeObjectURL(pdfUrl);
     setPdfUrl(null);
     setPdfLoading(true);
     setSection('pdf');
     const token = localStorage.getItem('token');
+    const idiomaPdf = versioId ? null : (idioma || idiomaVista || 'original');
+    setPdfIdioma(idiomaPdf);
     const url = versioId
       ? `/api/fitxes/${id}/pdf?versio_id=${versioId}`
-      : `/api/fitxes/${id}/pdf`;
+      : (idiomaPdf !== 'original'
+        ? `/api/fitxes/${id}/pdf/${idiomaPdf}`
+        : `/api/fitxes/${id}/pdf`);
     fetch(url, { headers: { Authorization: `Bearer ${token}` } })
       .then((res) => {
         if (!res.ok) throw new Error('Error carregant el PDF');
@@ -1295,8 +1316,12 @@ function DetallFitxa() {
 
       {pdfUrl && (
         <div style={{ marginBottom: '1rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', gap: '1rem', flexWrap: 'wrap' }}>
             <strong>Vista prèvia del PDF</strong>
+            {pdfIdioma && (
+              <SelectorIdioma idiomes={idiomesTrad} vista={pdfIdioma}
+                onChange={(v) => { setIdiomaVista(v); vistaPrevia(undefined, v); }} />
+            )}
             <button className="outline secondary btn-sm" onClick={tancarPrevia}>Tancar</button>
           </div>
           <iframe
@@ -1351,7 +1376,10 @@ function DetallFitxa() {
                   </div>
                 </div>
               ) : (
-                <ContingutIdioma fitxaId={id} contingut={contingut} versio={versioActiva} />
+                idiomaVista === null ? <p aria-busy="true">Carregant...</p> : (
+                  <ContingutIdioma fitxaId={id} contingut={contingut} versio={versioActiva}
+                    idiomes={idiomesTrad} vista={idiomaVista} setVista={setIdiomaVista} />
+                )
               )}
             </>
           )}

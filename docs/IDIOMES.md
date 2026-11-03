@@ -707,6 +707,37 @@ genera i s'obre. Les dades temporals s'han esborrat després.
 **Tornar enrere:** `git revert <commit del pas 14>` i tornar a compilar el
 frontend.
 
+### Pas 15 — Vista prèvia del PDF en l'idioma triat
+**Què fa:**
+- **"Vista prèvia PDF"** obre el PDF en el mateix idioma que la pestanya
+  Contingut: per defecte el català si la versió activa en té traducció, i si
+  no, l'original bilingüe.
+- **A dalt de la vista prèvia** hi ha els botons "Veure en: Original / Català /
+  …" per canviar d'idioma sense sortir-ne.
+- **L'idioma és compartit:** si es canvia a la vista prèvia, la pestanya
+  Contingut també el fa servir, i al revés.
+- **Sense canvis:**
+  - La vista prèvia de versions antigues (pestanya Versions) sempre mostra
+    l'original.
+  - "Descarregar PDF" continua descarregant el PDF principal.
+
+**Fitxers:**
+- `frontend/src/pages/DetallFitxa.jsx`:
+  - component `SelectorIdioma`, compartit;
+  - `idiomaVista` i `idiomesTrad` passen a la pàgina;
+  - `vistaPrevia(versioId, idioma)` crida `/pdf/:idioma` quan no és l'original.
+
+**Provat al navegador** amb la 30150:
+- la vista prèvia s'obre en català (`/pdf/ca`);
+- en canviar a "Original" carrega el bilingüe (`/pdf`);
+- en tancar, la pestanya Contingut es queda en "Original";
+- no hi ha errors a la consola.
+
+**Desplegament:** `git pull` i `npm run build`. No cal migració ni reiniciar.
+
+**Tornar enrere:** `git revert <commit del pas 15>` i tornar a compilar el
+frontend.
+
 ---
 
 ## Estat i pendents
@@ -728,6 +759,7 @@ frontend.
 - [x] Pas 12: proveïdors de traducció (Azure OpenAI, Azure AI Translator, Claude)
 - [x] Pas 13: actualització automàtica en crear una versió
 - [x] Pas 14: pantalla de l'historial
+- [x] Pas 15: vista prèvia del PDF en l'idioma triat
 
 ## Desplegament de la fase 0 + 1 (servidor Ubuntu)
 ```bash
