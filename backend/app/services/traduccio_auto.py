@@ -112,7 +112,16 @@ def actualitzar_versio(versio_id):
             if original == idioma:
                 proposta, error = srv.extreure_camps(versio.contingut), None
             elif original == 'bilingue' and idioma in ('ca', 'es'):
-                proposta, error = srv.separar_bilingue(versio.contingut, idioma)[0], None
+                proposta, dubtosos = srv.separar_bilingue(versio.contingut, idioma)
+                error = None
+                dubtosos = [c for c in dubtosos if c in canviats]
+                if dubtosos and srv.ia_disponible():
+                    resolts, avis = srv.separar_amb_ia(versio.contingut, idioma, dubtosos)
+                    if resolts:
+                        proposta.update(resolts)
+                    elif avis:
+                        LOG.warning('[Traduccions] %s %s v%s: separació amb IA: %s',
+                                    fitxa.art_codi, idioma, versio.num_versio, avis)
             else:
                 font, origen_font = font_traduccio(versio)
                 proposta, error = srv.traduir_ia(font, idioma, valors_originals=versio.contingut,

@@ -847,6 +847,48 @@ idioma**. Abans eren 14-20 s, i fins a 90 s la primera vegada.
 **Tornar enrere:** `git revert <commit del pas 18>` i reiniciar. Per tornar a
 Opus sense tocar codi: `TRADUCCIO_MODEL=claude-opus-5-5`.
 
+### Pas 19 — La IA resol els camps amb separació dubtosa (català i castellà)
+**Què fa:**
+- **"Proposar des del bilingüe"**:
+  - els camps que se separen bé es continuen separant com ara, sense IA i a
+    l'instant;
+  - només els camps **dubtosos** s'envien a la IA amb una instrucció pròpia:
+    "aquest text és bilingüe castellà/català, potser amb restes de la
+    importació del Word; retorna només la versió en català (o castellà),
+    neta; si hi falta, tradueix-la";
+  - a l'editor surten en blau, **"Separat amb IA: revisa'l"**;
+  - si la IA no està configurada o falla, es queden en groc ("Separació
+    dubtosa") i l'editor mostra un avís.
+- **Actualització automàtica** (versió nova): el mateix, per als camps canviats
+  que surten dubtosos.
+- **Azure AI Translator:** no accepta instruccions. S'agafa la part castellana
+  i, per al català, es tradueix.
+- Les taules no hi entren: ja se separen fila a fila.
+
+**Provat amb Claude** (Sonnet 5.5), amb la 30150, en 3-5 s:
+- **Condicions d'emmagatzematge:** separa bé el castellà del català, treu la
+  data "10/06/2024" que hi havia enmig per error d'importació i uneix les
+  línies tallades.
+- **Legislació aplicable:** l'original només era en castellà. Per al català el
+  tradueix; per al castellà el deixa igual.
+
+**Fitxers:**
+- `backend/app/services/traduccio.py`:
+  - funció `separar_amb_ia()` i instrucció `_SISTEMA_SEPARAR`;
+  - els proveïdors accepten un paràmetre `sistema`.
+- `backend/app/routes/traduccions.py`: la proposta `separar` retorna `amb_ia` i
+  `avis`.
+- `backend/app/services/traduccio_auto.py`
+- `frontend/src/pages/TraduccioFitxa.jsx` i `frontend/src/app.css`: marca blava
+  `.trad-ia`.
+- `backend/tests/test_traduccio.py`: 3 tests nous.
+
+**Desplegament:** `git pull`, `npm run build` i reiniciar el servei. No cal
+migració.
+
+**Tornar enrere:** `git revert <commit del pas 19>`, tornar a compilar i
+reiniciar.
+
 ---
 
 ## Estat i pendents
@@ -872,6 +914,7 @@ Opus sense tocar codi: `TRADUCCIO_MODEL=claude-opus-5-5`.
 - [x] Pas 16: panell Distribuir més clar (nom dels fitxers)
 - [x] Pas 17: títols traduïts a la vista web (mateix diccionari que el PDF)
 - [x] Pas 18: traducció automàtica més ràpida (Sonnet 5.5, trossos en paral·lel, precàrrega)
+- [x] Pas 19: la IA resol els camps amb separació dubtosa
 
 ## Desplegament de la fase 0 + 1 (servidor Ubuntu)
 ```bash

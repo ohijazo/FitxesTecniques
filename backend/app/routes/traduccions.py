@@ -297,7 +297,18 @@ def proposta_traduccio(fitxa_id, vid, idioma):
         if original != 'bilingue':
             return jsonify({'error': "L'original no és bilingüe: aquest idioma s'ha de traduir"}), 400
         proposta, dubtosos = srv.separar_bilingue(contingut, idioma)
-        return jsonify({'proposta': proposta, 'dubtosos': dubtosos, 'origen': 'separat'})
+        # Els camps dubtosos els resol la IA, si està configurada
+        amb_ia, avis = [], None
+        if dubtosos and srv.ia_disponible():
+            resolts, avis = srv.separar_amb_ia(contingut, idioma, dubtosos)
+            if resolts:
+                proposta.update(resolts)
+                amb_ia = list(resolts)
+                dubtosos = [d for d in dubtosos if d not in resolts]
+            if avis:
+                current_app.logger.warning('Separació amb IA %s %s: %s', fitxa.art_codi, idioma, avis)
+        return jsonify({'proposta': proposta, 'dubtosos': dubtosos, 'amb_ia': amb_ia,
+                        'avis': avis, 'origen': 'separat'})
 
     if metode == 'ia':
         font, idioma_origen = font_traduccio(versio)

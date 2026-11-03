@@ -297,7 +297,7 @@ def test_trossos_en_parallel_i_reintent(monkeypatch):
     monkeypatch.setenv('AZURE_TRANSLATOR_KEY', 'x')
     crides, lock, fallat = [], threading.Lock(), {'fet': False}
 
-    def fals(items, origen, desti):
+    def fals(items, origen, desti, sistema=None):
         with lock:
             crides.append(len(items))
             primer_incomplet = not fallat['fet']
@@ -313,3 +313,49 @@ def test_trossos_en_parallel_i_reintent(monkeypatch):
     assert error is None
     assert proposta == {camp: f'T:text {camp}' for camp in t.CAMPS_TEXT}
     assert sorted(crides) == [8, 8, 8]   # 2 trossos + 1 reintent
+
+
+def test_separar_amb_ia_envia_el_text_bilingue_amb_instruccio_propia(monkeypatch):
+    from app.services import traduccio as t
+    _sense_proveidor(monkeypatch)
+    monkeypatch.setenv('TRADUCCIO_PROVEIDOR', 'anthropic')
+    monkeypatch.setenv('ANTHROPIC_API_KEY', 'x')
+    rebut = {}
+
+    def fals(items, origen, desti, sistema=None):
+        rebut.update(items=items, sistema=sistema, desti=desti)
+        return {i['id']: 'NET' for i in items}, None
+    monkeypatch.setitem(t._PROVEIDORS, 'anthropic', fals)
+
+    contingut = {'condicions_emmagatzematge': 'Almacenes a Tª / Magatzems a Tª\n10/06/2024\nambient.',
+                 'microbiologiques': [{'parametre': 'Hongos / Fongs'}], 'codi_ean': '843'}
+    res, error = t.separar_amb_ia(contingut, 'ca', ['condicions_emmagatzematge', 'microbiologiques', 'codi_ean'])
+    assert error is None
+    assert res == {'condicions_emmagatzematge': 'NET'}           # les taules i altres camps no
+    assert rebut['items'] == [{'id': 'condicions_emmagatzematge',
+                               'text': contingut['condicions_emmagatzematge']}]
+    assert 'ONLY the Catalan version' in rebut['sistema']
+    assert rebut['desti'] == 'ca'
+
+
+def test_separar_amb_ia_sense_proveidor(monkeypatch):
+    from app.services.traduccio import separar_amb_ia
+    _sense_proveidor(monkeypatch)
+    res, error = separar_amb_ia({'ogm': 'A / B'}, 'ca', ['ogm'])
+    assert res is None and 'no està configurada' in error
+
+
+def test_separar_amb_ia_amb_translator_tradueix_la_part_castellana(monkeypatch):
+    from app.services import traduccio as t
+    _sense_proveidor(monkeypatch)
+    monkeypatch.setenv('TRADUCCIO_PROVEIDOR', 'azure_translator')
+    monkeypatch.setenv('AZURE_TRANSLATOR_KEY', 'x')
+    enviats = []
+
+    def fals(items, origen, desti, sistema=None):
+        enviats.extend((origen, desti, i['text']) for i in items)
+        return {i['id']: 'CA:' + i['text'] for i in items}, None
+    monkeypatch.setitem(t._PROVEIDORS, 'azure_translator', fals)
+    res, error = t.separar_amb_ia({'ogm': 'Sin OGM / Sense OGM'}, 'ca', ['ogm'])
+    assert error is None and res == {'ogm': 'CA:Sin OGM'}
+    assert enviats == [('es', 'ca', 'Sin OGM')]

@@ -119,6 +119,7 @@ function TraduccioFitxa() {
   const [contingut, setContingut] = useState({});
   const [origen, setOrigen] = useState('manual');
   const [dubtosos, setDubtosos] = useState([]);
+  const [ambIA, setAmbIA] = useState([]);        // camps dubtosos que ha resolt la IA
   const [canviats, setCanviats] = useState([]);
   const [avisBase, setAvisBase] = useState(null);
   const [dirty, setDirty] = useState(false);
@@ -210,12 +211,15 @@ function TraduccioFitxa() {
       setContingut(r.proposta || {});
       setOrigen(r.origen);
       setDubtosos(r.dubtosos || []);
+      setAmbIA(r.amb_ia || []);
       setCanviats([]);
       setAvisBase(null);
       setDirty(true);
-      toast.success(r.dubtosos?.length
-        ? `Proposta preparada. Revisa especialment els ${r.dubtosos.length} camps marcats.`
+      const marcats = (r.dubtosos?.length || 0) + (r.amb_ia?.length || 0);
+      toast.success(marcats
+        ? `Proposta preparada. Revisa especialment els ${marcats} camps marcats.`
         : 'Proposta preparada. Revisa-la i desa-la.');
+      if (r.avis) toast.warning(`La IA no ha pogut resoldre els camps dubtosos: ${r.avis}`, 10000);
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -257,6 +261,7 @@ function TraduccioFitxa() {
 
   const marca = (k) => {
     if (dubtosos.includes(k)) return { classe: 'trad-dubtos', text: 'Separació dubtosa: revisa-la' };
+    if (ambIA.includes(k)) return { classe: 'trad-ia', text: "Separat amb IA: revisa'l" };
     if (canviats.includes(k)) return { classe: 'trad-canviat', text: "L'original ha canviat des de la traducció" };
     return null;
   };

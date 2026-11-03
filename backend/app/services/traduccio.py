@@ -368,7 +368,7 @@ def _parse_items(text):
     return {it['id']: it['text'] for it in json.loads(text[inici:final + 1])['items']}
 
 
-def _traduir_anthropic(items, origen, desti):
+def _traduir_anthropic(items, origen, desti, sistema=None):
     try:
         import anthropic
     except ImportError:
@@ -383,7 +383,7 @@ def _traduir_anthropic(items, origen, desti):
         resp = client.messages.create(
             model=model,
             max_tokens=16000,
-            system=_SISTEMA_IA.format(origen=NOMS_IA[origen], desti=NOMS_IA[desti]),
+            system=sistema or _SISTEMA_IA.format(origen=NOMS_IA[origen], desti=NOMS_IA[desti]),
             messages=[{'role': 'user', 'content': json.dumps(items, ensure_ascii=False)}],
             output_config={
                 'effort': 'low',      # traduir no necessita raonament llarg; respon abans
@@ -455,14 +455,14 @@ def _error_http(r):
     return f"Error del servei de traducció ({r.status_code}){': ' + detall if detall else ''}"
 
 
-def _traduir_azure_openai(items, origen, desti):
+def _traduir_azure_openai(items, origen, desti, sistema=None):
     endpoint = os.environ['AZURE_OPENAI_ENDPOINT'].rstrip('/')
     deployment = os.environ['AZURE_OPENAI_DEPLOYMENT']
     versio_api = os.environ.get('AZURE_OPENAI_API_VERSION') or '2024-10-21'
     url = f'{endpoint}/openai/deployments/{deployment}/chat/completions?api-version={versio_api}'
     cos = {
         'messages': [
-            {'role': 'system', 'content': _SISTEMA_IA.format(origen=NOMS_IA[origen], desti=NOMS_IA[desti])},
+            {'role': 'system', 'content': sistema or _SISTEMA_IA.format(origen=NOMS_IA[origen], desti=NOMS_IA[desti])},
             {'role': 'user', 'content': json.dumps(items, ensure_ascii=False)},
         ],
         'response_format': {
@@ -486,7 +486,8 @@ def _traduir_azure_openai(items, origen, desti):
         return None, ERROR_RESPOSTA
 
 
-def _traduir_azure_translator(items, origen, desti):
+def _traduir_azure_translator(items, origen, desti, sistema=None):
+    # No accepta instruccions: 'sistema' s'ignora (separar_amb_ia ho té en compte)
     """Azure AI Translator: traducció literal, sense instruccions.
 
     textType=html conserva les marques; els salts de línia es passen a <br>
@@ -536,12 +537,12 @@ _PROVEIDORS = {
 }
 
 
-def _traduir_tros(proveidor, tros, origen, desti):
+def _traduir_tros(proveidor, tros, origen, desti, sistema=None):
     """Tradueix un tros; si la resposta no porta tots els textos, ho torna a provar un cop."""
     error = None
     for _ in range(2):
         try:
-            traduits, error = _PROVEIDORS[proveidor](tros, origen, desti)
+            traduits, error = _PROVEIDORS[proveidor](tros, origen, desti, sistema=sistema)
         except Exception as e:  # cap error del proveïdor ha de tombar la petició
             LOG.exception('Traducció automàtica (%s)', proveidor)
             return None, f"Error inesperat del servei de traducció: {e}"
@@ -555,21 +556,77 @@ def _traduir_tros(proveidor, tros, origen, desti):
     return None, error
 
 
-def _traduir_en_trossos(proveidor, items, origen, desti):
+def _traduir_en_trossos(proveidor, items, origen, desti, sistema=None):
     """Parteix els textos en trossos i els tradueix en paral·lel."""
     from concurrent.futures import ThreadPoolExecutor
     n = max(1, min(_MAX_TROSSOS, -(-len(items) // _MIDA_TROS)))
     trossos = [items[i::n] for i in range(n)]
     if n == 1:
-        return _traduir_tros(proveidor, trossos[0], origen, desti)
+        return _traduir_tros(proveidor, trossos[0], origen, desti, sistema)
     with ThreadPoolExecutor(max_workers=n) as ex:
-        resultats = list(ex.map(lambda t: _traduir_tros(proveidor, t, origen, desti), trossos))
+        resultats = list(ex.map(lambda t: _traduir_tros(proveidor, t, origen, desti, sistema), trossos))
     traduits = {}
     for parcial, error in resultats:
         if error:
             return None, error
         traduits.update(parcial)
     return traduits, None
+
+
+_SISTEMA_SEPARAR = (
+    "You receive texts from technical data sheets of a Spanish flour mill. Each "
+    "text is bilingual Spanish and Catalan, usually written as 'Spanish / "
+    "Catalan', but sometimes split across several lines, with the parts in an "
+    "unusual order or with leftovers from a Word import (stray dates, broken "
+    "lines).\n"
+    "For every item, return the same id and ONLY the {desti} version of the "
+    "text, clean and complete.\n"
+    "- Do not translate what is already in {desti}: copy it.\n"
+    "- If the {desti} part is missing, translate it from the other language.\n"
+    "- Keep HTML tags, numbers, units, regulation references and dates that "
+    "belong to the text. Keep allergens in CAPITAL LETTERS.\n"
+    "- Keep line breaks (\\n) between different sentences.\n"
+    "Answer ONLY with a JSON object {{\"items\": [{{\"id\": ..., \"text\": ...}}]}}, "
+    "with no other text before or after it."
+)
+
+
+def separar_amb_ia(contingut, idioma, camps):
+    """Resol amb IA els camps on la separació automàtica és dubtosa.
+
+    Args:
+        contingut: contingut bilingüe de la versió.
+        idioma: 'ca' o 'es'.
+        camps: camps a resoldre (només s'hi tenen en compte els de text i peus
+            de taula; les taules ja se separen fila a fila).
+
+    Returns:
+        (proposta_parcial, None) o (None, missatge_error). No llança excepcions.
+    """
+    if idioma not in ('ca', 'es'):
+        return None, "Separar el bilingüe només serveix per al català i el castellà"
+    proveidor = proveidor_ia()
+    if not proveidor:
+        return None, "La traducció automàtica no està configurada al servidor"
+    contingut = contingut or {}
+    camps = [c for c in camps if c in CAMPS_TEXT + CAMPS_NOTA and contingut.get(c)]
+    if not camps:
+        return {}, None
+
+    if proveidor == 'azure_translator':
+        # Sense instruccions: la part castellana tal qual, o traduïda al català
+        if idioma == 'es':
+            return {c: separar_text(contingut[c], 'es')[0] for c in camps}, None
+        font = {c: separar_text(contingut[c], 'es')[0] for c in camps}
+        return traduir_ia(font, 'ca', idioma_origen='es')
+
+    items = [{'id': c, 'text': contingut[c]} for c in camps]
+    sistema = _SISTEMA_SEPARAR.format(desti=NOMS_IA[idioma])
+    origen = 'es' if idioma == 'ca' else 'ca'
+    traduits, error = _traduir_en_trossos(proveidor, items, origen, idioma, sistema)
+    if error:
+        return None, error
+    return {c: traduits[c] for c in camps if c in traduits}, None
 
 
 def traduir_ia(font, idioma, valors_originals=None, idioma_origen='es', camps=None):

@@ -2882,3 +2882,7 @@ tr.row-selected { background: var(--brand-50); }
 
 /* Idioma que ja és al destí */
 .desti-idioma.ja-distribuit { color: var(--success); }
+
+/* Camp dubtós que ha resolt la IA */
+.trad-ia { border-color: var(--brand); }
+.trad-ia .trad-marca { background: var(--brand-50); color: var(--brand-dark); }
