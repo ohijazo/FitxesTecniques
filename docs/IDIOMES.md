@@ -464,6 +464,49 @@ backend.
 **Tornar enrere:** `git revert <commit del pas 9>` i tornar a compilar el
 frontend.
 
+## Fase 3 — Historial de traduccions i actualització automàtica
+
+**Decisions de l'usuari:**
+- Quan es modifica l'original (versió nova), les traduccions dels idiomes marcats
+  **s'actualitzen soles** en desar:
+  - els camps que no han canviat es copien;
+  - els camps canviats es tornen a proposar, amb IA en el cas de l'anglès i el
+    portuguès;
+  - la traducció queda "Pendent de revisar".
+- Cada traducció té un **historial complet**. A cada distribució i correu queda
+  guardada la còpia exacta que es va enviar.
+
+### Pas 10 — Model i migració de l'historial
+**Què fa:**
+- Taula nova `traduccio_historial`, on només s'afegeixen registres. Cada registre
+  és una còpia completa de la traducció: `traduccio_id`, `versio_id`, `idioma`,
+  `contingut`, `estat`, `origen`, `accio` (`desada` | `revisada` | `automatica`),
+  `camps_canviats`, `created_at` i `created_by`.
+- Columna `traduccio_historial_id` (opcional) a `distribucio` i a
+  `enviament_email_item`.
+
+No té claus foranes a propòsit: l'historial ha de sobreviure encara que
+s'esborri una versió, com ja passa amb els correus.
+
+**Fitxers:**
+- `backend/app/models.py`: `TraduccioHistorial`, i les columnes noves també a
+  `to_dict()`.
+- `backend/migrations/versions/e5c1a7b3d924_historial_de_traduccions.py` (nova,
+  va després de `d4b9e6f8a013`).
+
+**Impacte:** additiva i retrocompatible. Els registres anteriors queden sense
+còpia associada.
+
+**Desplegament:** `flask db upgrade`.
+
+**Tornar enrere:**
+1. `flask db downgrade d4b9e6f8a013`. **Esborra l'historial de traduccions**: si ja
+   s'ha fet servir, cal fer-ne abans una còpia amb
+   `pg_dump -t traduccio_historial`.
+2. `git revert <commit del pas 10>`.
+
+Provat en local: `upgrade` → `downgrade` → `upgrade`.
+
 ---
 
 ## Estat i pendents
@@ -480,6 +523,8 @@ frontend.
 - [x] Pas 7: pantalla de distribució per idioma
 - [x] Pas 8: correu amb PDFs d'idioma
 - [x] Pas 9: pestanya Contingut en l'idioma triat (català per defecte)
+- [x] Pas 10: model i migració de l'historial
+- [ ] Passos 11-13: historial (API + pantalla) i actualització automàtica
 
 ## Desplegament de la fase 0 + 1 (servidor Ubuntu)
 ```bash
@@ -487,7 +532,7 @@ cd /var/www/fitxes-tecniques
 sudo -u www-data git pull
 sudo -u www-data backend/venv/bin/pip install -r backend/requirements.txt   # anthropic
 cd backend
-sudo -u www-data venv/bin/flask db upgrade                                  # fins a d4b9e6f8a013
+sudo -u www-data venv/bin/flask db upgrade                                  # fins a e5c1a7b3d924
 cd ../frontend
 sudo -u www-data npm run build
 sudo systemctl restart fitxes-tecniques

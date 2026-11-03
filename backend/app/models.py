@@ -231,6 +231,44 @@ class TraduccioVersio(db.Model):
         return data
 
 
+class TraduccioHistorial(db.Model):
+    """Còpia completa d'una traducció cada vegada que es desa, es revisa o
+    s'actualitza automàticament. Només s'hi afegeixen registres (audit trail):
+    mai no s'editen ni s'esborren des de l'aplicació."""
+    __tablename__ = 'traduccio_historial'
+
+    id = db.Column(db.Integer, primary_key=True)
+    # Sense FK a traduccio_versio/versio_fitxa: l'historial ha de sobreviure
+    # encara que s'esborri la versió (mateix criteri que EnviamentEmailItem).
+    traduccio_id = db.Column(db.Integer, nullable=False, index=True)
+    versio_id = db.Column(db.Integer, nullable=False, index=True)
+    idioma = db.Column(db.String(5), nullable=False)
+    contingut = db.Column(db.JSON, nullable=False)
+    estat = db.Column(db.String(20), nullable=False)       # pendent | revisada
+    origen = db.Column(db.String(20))
+    accio = db.Column(db.String(20), nullable=False)       # desada | revisada | automatica
+    camps_canviats = db.Column(db.JSON)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    created_by = db.Column(db.String(100))
+
+    def to_dict(self, include_contingut=False):
+        data = {
+            'id': self.id,
+            'traduccio_id': self.traduccio_id,
+            'versio_id': self.versio_id,
+            'idioma': self.idioma,
+            'estat': self.estat,
+            'origen': self.origen,
+            'accio': self.accio,
+            'camps_canviats': self.camps_canviats or [],
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'created_by': self.created_by,
+        }
+        if include_contingut:
+            data['contingut'] = self.contingut or {}
+        return data
+
+
 class Distribucio(db.Model):
     __tablename__ = 'distribucio'
 
@@ -246,6 +284,8 @@ class Distribucio(db.Model):
     # Idioma del fitxer distribuït ('ca'|'es'|'en'|'pt'). NULL = PDF principal
     # ({art_codi}.pdf), que és el que hi ha a tot l'historial anterior.
     idioma = db.Column(db.String(5), nullable=True)
+    # Còpia exacta de la traducció que es va enviar (només fitxers d'idioma)
+    traduccio_historial_id = db.Column(db.Integer, nullable=True)
 
     def to_dict(self):
         # Obtenir num_versio de la relació
@@ -259,6 +299,7 @@ class Distribucio(db.Model):
             'desti_id': self.desti_id,
             'desti': self.desti,
             'idioma': self.idioma,
+            'traduccio_historial_id': self.traduccio_historial_id,
             'estat': self.estat,
             'intents': self.intents,
             'missatge_error': self.missatge_error,
@@ -529,6 +570,7 @@ class EnviamentEmailItem(db.Model):
     num_versio = db.Column(db.Integer, nullable=False)
     nom_fitxer = db.Column(db.String(200), nullable=False)
     idioma = db.Column(db.String(5), nullable=True)   # NULL = PDF principal
+    traduccio_historial_id = db.Column(db.Integer, nullable=True)
 
     def to_dict(self):
         return {
@@ -539,4 +581,5 @@ class EnviamentEmailItem(db.Model):
             'num_versio': self.num_versio,
             'nom_fitxer': self.nom_fitxer,
             'idioma': self.idioma,
+            'traduccio_historial_id': self.traduccio_historial_id,
         }
