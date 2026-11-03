@@ -272,3 +272,10 @@ def test_nomes_camps_indicats(monkeypatch):
     monkeypatch.setattr(requests, 'post', fals_post)
     proposta, _ = traduir_ia({'ingredients': 'A', 'origen': 'B'}, 'en', camps=['origen'])
     assert enviats == ['B'] and proposta == {'origen': 'X'}
+
+
+def test_auto_tradueix_primer_l_idioma_d_origen():
+    """Les traduccions automàtiques parteixen de la de l'idioma d'origen."""
+    from app.services.traduccio_auto import _ordre_idiomes
+    assert _ordre_idiomes(['en', 'pt', 'es', 'ca'], 'es') == ['es', 'ca', 'en', 'pt']
+    assert _ordre_idiomes(['en', 'ca'], 'ca') == ['ca', 'en']

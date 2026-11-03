@@ -20,7 +20,7 @@ from app.services import traduccio as srv
 traduccions_bp = Blueprint('traduccions', __name__)
 
 ROLS_EDICIO = ('admin', 'editor')
-ORIGENS = ('separat', 'ia', 'manual', 'copiada')
+ORIGENS = ('separat', 'ia', 'manual', 'copiada', 'automatica')
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'uploads')
 
 

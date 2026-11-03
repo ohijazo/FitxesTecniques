@@ -19,6 +19,7 @@ const ORIGENS = {
   ia: 'traduïda amb IA',
   manual: 'escrita a mà',
   copiada: 'de la versió anterior',
+  automatica: 'actualitzada automàticament',
 };
 
 /* El text importat del Word és pla amb salts de línia; l'editor treballa amb

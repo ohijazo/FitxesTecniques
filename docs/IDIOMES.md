@@ -620,6 +620,68 @@ sistemes les doni, cal fer una prova real abans d'activar-ho a producció.
 
 **Tornar enrere:** `git revert <commit del pas 12>`.
 
+### Pas 13 — Actualització automàtica de les traduccions
+**Què fa:** quan es desa una **versió nova** d'una fitxa amb idiomes marcats,
+per a cada idioma que ja tenia traducció en una versió anterior es crea sol la
+traducció de la versió nova:
+- **Camps que no han canviat** a l'original: es copien de la traducció anterior.
+- **Camps canviats:**
+  - si l'original ja és en aquest idioma, es copien;
+  - si l'original és bilingüe i l'idioma és el català o el castellà, se
+    separen;
+  - en la resta de casos, es tradueixen amb el proveïdor configurat (pas 12).
+    Només s'envien a traduir els camps canviats.
+- **Si no es poden traduir** (no hi ha proveïdor o el servei dona error), els
+  camps conserven el text anterior i la traducció queda amb origen "de la
+  versió anterior" (`copiada`). Al log del servidor s'escriu el motiu.
+- La traducció queda **"Pendent de revisar"**, amb els camps canviats marcats
+  en taronja a l'editor, i se'n desa una còpia a l'historial (acció
+  `automatica`). No es pot distribuir fins que Qualitat la revisa.
+- Els idiomes que mai no s'han traduït no es creen sols: es fan des de
+  l'editor.
+- Primer es fa l'idioma d'origen (el castellà, o el català si l'original és en
+  català), perquè els altres en parteixin.
+
+**Com s'engega:**
+- La creació de versions **no es modifica**. Un escoltador de SQLAlchemy
+  (`after_insert` de `VersioFitxa` + `after_commit`) detecta les versions noves
+  vingui d'on vingui (editar, importar, editar en massa…). Quan la transacció
+  ja està confirmada, llança un **fil de fons**, com fa l'enviament de correus,
+  així que l'usuari no ha d'esperar.
+- **Si l'usuari crea la traducció abans que el fil**, es respecta la seva
+  (restricció única).
+- **Si el fil falla**, la versió no se'n ressent. L'error queda al log i l'editor
+  continua oferint la traducció anterior com a punt de partida.
+- **Desactivable** amb `TRADUCCIO_AUTOMATICA=0` al `.env`.
+
+**Fitxers:**
+- `backend/app/services/traduccio_auto.py` (nou)
+- `backend/app/__init__.py`: registre de l'escoltador; no s'activa en mode
+  `TESTING`
+- `backend/app/routes/traduccions.py`: nou origen `automatica`
+- `frontend/src/pages/TraduccioFitxa.jsx`: text "actualitzada automàticament"
+- `backend/tests/test_traduccio.py`
+
+**Provat en local** amb la fitxa 60360, amb traduccions CA i EN revisades:
+- **Versió nova canviant els ingredients, sense proveïdor:**
+  - el CA s'ha actualitzat sol separant el bilingüe; la resta de camps s'ha
+    copiat;
+  - l'EN ha conservat el text anterior (`copiada`);
+  - totes dues han quedat pendents, amb `ingredients` marcat.
+- **Versió nova canviant l'origen, amb Azure Translator simulat:** només s'ha
+  enviat a traduir el camp `origen`, del castellà a l'anglès.
+- Tot s'ha restaurat al final: versió activa, estat de la fitxa i traduccions.
+
+**Riscos:**
+- Cada procés de Gunicorn té el seu escoltador. Si el servei es reinicia enmig
+  d'una actualització, aquella traducció no es crea, però l'editor ofereix la
+  base de la versió anterior com fins ara.
+- Una edició en massa sobre moltes fitxes amb idiomes marcats fa una crida al
+  proveïdor per fitxa i idioma, d'una en una.
+
+**Tornar enrere:** `git revert <commit del pas 13>` i reiniciar el servei. També
+es pot desactivar sense tocar codi amb `TRADUCCIO_AUTOMATICA=0`.
+
 ---
 
 ## Estat i pendents
@@ -639,7 +701,7 @@ sistemes les doni, cal fer una prova real abans d'activar-ho a producció.
 - [x] Pas 10: model i migració de l'historial
 - [x] Pas 11: historial de traduccions al backend
 - [x] Pas 12: proveïdors de traducció (Azure OpenAI, Azure AI Translator, Claude)
-- [ ] Pas 13: actualització automàtica en crear una versió
+- [x] Pas 13: actualització automàtica en crear una versió
 - [ ] Pas 14: pantalla de l'historial
 
 ## Desplegament de la fase 0 + 1 (servidor Ubuntu)

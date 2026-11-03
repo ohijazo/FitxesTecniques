@@ -42,6 +42,12 @@ def create_app():
     # Nomes lectura, protegit per clau fixa. El fa servir l'aplicacio del DeCA.
     app.register_blueprint(public_bp, url_prefix='/api')
 
+    # Traduccions: en crear una versió nova s'actualitzen soles (fil de fons).
+    # Desactivable amb TRADUCCIO_AUTOMATICA=0.
+    if not app.config.get('TESTING'):
+        from app.services.traduccio_auto import registrar
+        registrar(app)
+
     # Worker resident per processar JobBulk en background
     # Es llança un cop per procés (idempotent). Desactivable amb ENABLE_JOB_WORKER=0.
     if not app.config.get('TESTING'):
