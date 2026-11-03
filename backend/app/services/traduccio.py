@@ -258,10 +258,11 @@ LOG = logging.getLogger(__name__)
 NOMS_IA = {
     'ca': 'Catalan', 'es': 'Spanish (Spain)',
     'en': 'English (British)', 'pt': 'European Portuguese',
+    'it': 'Italian',
 }
 
 # Codis d'idioma d'Azure AI Translator ('pt' és el del Brasil)
-_CODIS_TRANSLATOR = {'ca': 'ca', 'es': 'es', 'en': 'en', 'pt': 'pt-pt'}
+_CODIS_TRANSLATOR = {'ca': 'ca', 'es': 'es', 'en': 'en', 'pt': 'pt-pt', 'it': 'it'}
 
 _SISTEMA_IA = (
     "You translate technical data sheets for wheat flour and other milled "
@@ -634,7 +635,7 @@ def traduir_ia(font, idioma, valors_originals=None, idioma_origen='es', camps=No
 
     Args:
         font: camps traduïbles en l'idioma d'origen (p.ex. de separar_bilingue).
-        idioma: idioma de destí ('ca'|'es'|'en'|'pt').
+        idioma: idioma de destí ('ca'|'es'|'en'|'pt'|'it').
         valors_originals: contingut de la versió, per incloure els valors de
             taula que la font no porta.
         idioma_origen: 'es' (per defecte) o 'ca' si l'original és en català.

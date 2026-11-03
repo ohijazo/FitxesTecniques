@@ -40,3 +40,6 @@ Thumbs.db
 # Skills i eines d'agents
 .agents/
 .playwright-mcp/
+
+# Dades reals de producció per a la traducció inicial (no pujar mai)
+traduccio_inicial/

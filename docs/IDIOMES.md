@@ -939,6 +939,41 @@ Les dades de prova s'han esborrat després.
 **Tornar enrere:** `git revert <commit del pas 20>`. Les traduccions importades
 es poden localitzar amb `origen = 'importada'`.
 
+### Pas 21 — Idioma italià (IT)
+**Decisió de l'usuari:** a més del català, el castellà, l'anglès i el portuguès,
+les fitxes han d'estar disponibles en **italià**.
+
+**Què canvia:**
+- La llista d'idiomes de l'aplicació passa a ser `ca`, `es`, `en`, `pt`, `it`.
+  Tot el que funciona per idioma (pestanya Idiomes, editor, PDF
+  `{codi}_IT.pdf`, distribució, correu, historial i actualització automàtica)
+  accepta l'italià sense codi nou.
+- **Títols:** els 40 títols del diccionari tenen versió italiana (`_ITALIA` a
+  `etiquetes_idioma.py`). Qualitat els ha de revisar.
+- **Traducció automàtica:** "Italian" per a Claude i Azure OpenAI; codi `it`
+  per a Azure AI Translator.
+- **Excel de revisió:** passa a dir-se `docs/Revisio_titols_EN_PT_IT.xlsx` i
+  inclou l'italià. Abans de regenerar-lo s'ha comprovat que l'anterior no
+  tenia cap correcció escrita.
+
+**Fitxers:**
+- `backend/app/services/etiquetes_idioma.py`
+- `backend/app/services/traduccio.py`
+- `backend/app/models.py`: comentari
+- `frontend/src/components/EnviarCorreuModal.jsx`
+- `backend/tests/test_etiquetes_idioma.py`
+
+**Impacte:** no cal migració, perquè les columnes d'idioma ja admeten
+qualsevol codi, i no canvia cap dada existent.
+
+**Provat:** 198 tests, i un PDF generat en italià ("SCHEDA TECNICA", "Codice
+di riferimento", "Data rev."…).
+
+**Desplegament:** `git pull`, `npm run build` i reiniciar.
+
+**Tornar enrere:** `git revert <commit del pas 21>`. Si ja hi ha traduccions o
+distribucions en italià, queden a la BD però l'aplicació deixa de mostrar-les.
+
 ---
 
 ## Estat i pendents
@@ -966,7 +1001,8 @@ es poden localitzar amb `origen = 'importada'`.
 - [x] Pas 18: traducció automàtica més ràpida (Sonnet 5.5, trossos en paral·lel, precàrrega)
 - [x] Pas 19: la IA resol els camps amb separació dubtosa
 - [x] Pas 20: ordres exportar-per-traduir i importar-traduccions
-- [ ] Traducció inicial de les fitxes de producció (ca, es, en, pt) des de Claude Code
+- [x] Pas 21: idioma italià
+- [ ] Traducció inicial de les fitxes de producció (ca, es, en, pt, it) des de Claude Code
 
 ## Desplegament de la fase 0 + 1 (servidor Ubuntu)
 ```bash

@@ -35,8 +35,13 @@ def test_titol_desconegut_queda_igual():
 def test_tots_els_titols_bilingues_tenen_en_i_pt():
     for text, trad in ETIQUETES.items():
         if ' / ' in text:
-            assert trad.get('en') and trad.get('pt'), text
-    assert IDIOMES == ('ca', 'es', 'en', 'pt')
+            assert trad.get('en') and trad.get('pt') and trad.get('it'), text
+    assert IDIOMES == ('ca', 'es', 'en', 'pt', 'it')
+
+
+def test_italia():
+    assert titol_idioma('FICHA TÉCNICA / FITXA TÈCNICA', 'it') == 'SCHEDA TECNICA'
+    assert titol_idioma('Alérgenos / Al·lèrgens', 'it') == 'Allergeni'
 
 
 def test_tots_els_titols_de_la_plantilla_son_al_diccionari():

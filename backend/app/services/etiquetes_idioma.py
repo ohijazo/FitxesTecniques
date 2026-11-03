@@ -7,13 +7,14 @@ part corresponent; per a 'en' i 'pt' cal el diccionari d'aquí sota.
 Les traduccions a l'anglès i al portuguès s'han de fer validar per Qualitat.
 """
 
-IDIOMES = ('ca', 'es', 'en', 'pt')
+IDIOMES = ('ca', 'es', 'en', 'pt', 'it')
 
 NOMS_IDIOMA = {
     'ca': 'Català',
     'es': 'Castellà',
     'en': 'Anglès',
     'pt': 'Portuguès',
+    'it': 'Italià',
 }
 
 # Títols que no segueixen el patró "castellà / català" o que tenen un text
@@ -103,6 +104,53 @@ ETIQUETES = {
     'Información comercial / Informació comercial': {
         'en': 'Commercial information', 'pt': 'Informação comercial'},
 }
+
+
+# Italià (afegit després). Qualitat l'ha de revisar com l'anglès i el portuguès.
+_ITALIA = {
+    'FICHA TÉCNICA / FITXA TÈCNICA': 'SCHEDA TECNICA',
+    'Fecha/Data Rev': 'Data rev.',
+    'Fecha/Data Comprov.': 'Data verifica',
+    'Valor': 'Valore',
+    'OGM': 'OGM',
+    'Código de referencia / Codi de referència': 'Codice di riferimento',
+    'Certificación / Certificació': 'Certificazione',
+    'Denominación comercial del Producto / Denominació comercial del producte': 'Denominazione commerciale del prodotto',
+    'Denominación jurídica del producto / Denominació jurídica del producte': 'Denominazione legale del prodotto',
+    'Código EAN / Codi EAN': 'Codice EAN',
+    'Descripción del producto / Descripció del producte': 'Descrizione del prodotto',
+    'Origen del Producto y Procedencia del cereal / Origen del producte i procedència del cereal': 'Origine del prodotto e provenienza del cereale',
+    'Ingredientes / Ingredients': 'Ingredienti',
+    'Alérgenos / Al·lèrgens': 'Allergeni',
+    'Irradiación – Ionización / Irradiació – Ionització': 'Irradiazione – Ionizzazione',
+    'Características organolépticas / Característiques organolèptiques': 'Caratteristiche organolettiche',
+    'Características físico-químicas / Característiques fisicoquímiques': 'Caratteristiche chimico-fisiche',
+    'Características reológicas / Característiques reològiques': 'Caratteristiche reologiche',
+    'Características Microbiológicas / Característiques microbiològiques': 'Caratteristiche microbiologiche',
+    'Parámetros microbiológicos / Paràmetres microbiològics': 'Parametri microbiologici',
+    'Parámetro / Paràmetre': 'Parametro',
+    'Parámetros de Contaminantes / Paràmetres de contaminants': 'Parametri dei contaminanti',
+    'Micotoxinas / Micotoxines': 'Micotossine',
+    'Alcaloides del cornezuelo / Alcaloides del sègol banyut': 'Alcaloidi della segale cornuta',
+    'Metales pesados / Metalls pesants': 'Metalli pesanti',
+    'Pesticidas / Pesticides': 'Pesticidi',
+    'Valores nutricionales / Valors nutricionals': 'Valori nutrizionali',
+    'Valores nutricionales (por 100g) / Valors nutricionals (per 100g)': 'Valori nutrizionali (per 100 g)',
+    'Presentación – envase / Presentació – envàs': 'Presentazione – confezione',
+    'Uso previsto / Ús previst': 'Uso previsto',
+    "Condiciones de almacenaje / Condicions d'emmagatzematge": 'Condizioni di conservazione',
+    'Condiciones de transporte / Condicions de transport': 'Condizioni di trasporto',
+    'Vida útil del producto / Vida útil del producte': 'Durata di conservazione del prodotto',
+    'Otra legislación aplicable / Altra legislació aplicable': 'Altra legislazione applicabile',
+    'Producto fabricado para / Producte fabricat per a': 'Prodotto fabbricato per',
+    'Vigencia del documento / Vigència del document': 'Validità del documento',
+    'Identificación del producto / Identificació del producte': 'Identificazione del prodotto',
+    'Características / Característiques': 'Caratteristiche',
+    'Otros contaminantes / Altres contaminants': 'Altri contaminanti',
+    'Información comercial / Informació comercial': 'Informazioni commerciali',
+}
+for _text, _it in _ITALIA.items():
+    ETIQUETES.setdefault(_text, {})['it'] = _it
 
 
 def titol_idioma(text, idioma):

@@ -308,7 +308,7 @@ class Distribucio(db.Model):
     missatge_error = db.Column(db.Text)
     executat_at = db.Column(db.DateTime)
     executat_by = db.Column(db.String(100))
-    # Idioma del fitxer distribuït ('ca'|'es'|'en'|'pt'). NULL = PDF principal
+    # Idioma del fitxer distribuït ('ca'|'es'|'en'|'pt'|'it'). NULL = PDF principal
     # ({art_codi}.pdf), que és el que hi ha a tot l'historial anterior.
     idioma = db.Column(db.String(5), nullable=True)
     # Còpia exacta de la traducció que es va enviar (només fitxers d'idioma)

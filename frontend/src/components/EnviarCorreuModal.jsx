@@ -3,7 +3,7 @@ import { api, missatgeError } from '../api/client';
 import { useToast } from './Toast';
 import { useEscapeKey } from './useEscapeKey';
 
-const IDIOMES = ['ca', 'es', 'en', 'pt'];
+const IDIOMES = ['ca', 'es', 'en', 'pt', 'it'];
 const POLL_MS = 2000;
 const POLL_MAX = 90; // ~3 minuts
 
