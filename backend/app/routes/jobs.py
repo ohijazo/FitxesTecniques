@@ -113,6 +113,7 @@ def _parells_distribuits():
         SELECT DISTINCT ON (v.fitxa_id, d.desti_id) v.fitxa_id, d.desti_id, d.estat
         FROM distribucio d JOIN versio_fitxa v ON v.id = d.versio_id
         WHERE d.desti_id IS NOT NULL
+          AND d.idioma IS NULL  -- els jobs massius només treballen amb el PDF principal
         ORDER BY v.fitxa_id, d.desti_id, d.executat_at DESC NULLS LAST, d.id DESC
     """)
     return {(fid, did) for fid, did, estat in db.session.execute(sql) if estat == 'ok'}

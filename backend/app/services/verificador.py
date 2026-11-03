@@ -120,7 +120,7 @@ def _config_desti(desti, timeout=None):
 
 
 def verificar_distribucio(fitxa, versio, desti, filename=None, timeout=None,
-                          esperat=True, enllac=None):
+                          esperat=True, enllac=None, idioma=None):
     """Comprova el desti i hi afegeix l'enllac al fitxer, per poder-lo revisar.
 
     L'enllac surt de l'ultima distribucio 'ok' (es la URL exacta amb que es va
@@ -130,7 +130,7 @@ def verificar_distribucio(fitxa, versio, desti, filename=None, timeout=None,
         # Import mandros: distribucions.py importa models, i aquest modul
         # s'ha de poder usar sense context Flask quan es passa filename.
         from app.routes.distribucions import _referencia_al_desti
-        filename, enllac_historic = _referencia_al_desti(fitxa, versio, desti)
+        filename, enllac_historic = _referencia_al_desti(fitxa, versio, desti, idioma)
         enllac = enllac or enllac_historic
 
     resultat = _verificar(fitxa, versio, desti, filename, timeout, esperat)
@@ -141,6 +141,8 @@ def verificar_distribucio(fitxa, versio, desti, filename=None, timeout=None,
             resultat['enllac'] = enllac or _enllac_previst(desti, config, filename)
         except Exception:  # una config il·legible no ha de tombar la comprovacio
             resultat['enllac'] = enllac
+    # None = PDF principal; 'ca'|'es'|'en'|'pt' = fitxer d'aquell idioma
+    resultat['idioma'] = idioma
     return resultat
 
 

@@ -111,11 +111,15 @@ def _parse_header(pages):
                         m = re.search(r'[Rr]ev\.:\s*(\d+)(?![\d/])', cell)
                         if m:
                             info['rev'] = m.group(1)
-                    if 'fecha' in cell_lc and 'rev' in cell_lc and 'comprov' not in cell_lc:
+                    # 'Fecha Rev.' / 'Fecha/Data Rev' / 'Data Rev.' / 'Rev. date'
+                    es_comprov = ('comprov' in cell_lc or 'check' in cell_lc
+                                  or 'verif' in cell_lc)
+                    if (('fecha' in cell_lc or 'data' in cell_lc or 'date' in cell_lc)
+                            and 'rev' in cell_lc and not es_comprov):
                         m = re.search(r'(\d{1,2}/\d{1,2}/\d{4})', cell)
                         if m:
                             info['data_revisio'] = m.group(1)
-                    if 'comprov' in cell_lc:
+                    if es_comprov:
                         m = re.search(r'(\d{1,2}/\d{1,2}/\d{4})', cell)
                         if m:
                             info['data_comprovacio'] = m.group(1)

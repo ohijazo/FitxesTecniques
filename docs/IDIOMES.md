@@ -289,6 +289,68 @@ així que tot l'historial existent continua sent vàlid sense tocar-lo.
 
 Provat en local: `upgrade` → `downgrade` → `upgrade`.
 
+### Pas 6 — Distribució per idioma al backend (fase 2)
+**Què fa:** permet distribuir, retirar i comprovar el PDF de cada idioma per
+separat. Sense paràmetre `idioma`, totes les rutes funcionen exactament com
+abans, així que el contracte de l'API no canvia.
+
+**Rutes:**
+| Ruta | Canvi |
+| ---- | ----- |
+| `POST /api/fitxes/:id/distribuir/:desti?idioma=en` | Puja `30150_EN.pdf`. Només si la traducció de la versió activa està **revisada**; si no, retorna 400 amb el motiu i no crea cap registre |
+| `POST /api/fitxes/:id/retirar/:desti?idioma=en` | Retira només el fitxer d'aquell idioma |
+| `POST /api/fitxes/:id/comprovar` | Comprova també els fitxers d'idioma que consten a l'historial. Cada resultat porta `idioma` |
+| `POST /api/fitxes/:id/comprovar/:desti?idioma=en` | Comprova un fitxer d'idioma |
+
+**Fitxers:**
+- `backend/app/routes/distribucions.py`:
+  - `_nom_amb_idioma`, `_filtre_idioma`, `_traduccio_distribuible` i
+    `_assegurar_pdf_idioma` (noves);
+  - `idioma` opcional a `_generar_nom_fitxer`, `_referencia_al_desti`,
+    `_nom_fitxer_al_desti`, `_assegurar_pdf` i `_destins_amb_fitxa`;
+  - `_executar_distribucio` fa servir `dist.idioma`.
+- `backend/app/services/verificador.py`: `verificar_distribucio(..., idioma=None)`.
+- `backend/app/routes/fitxes.py`: el resum de distribucions de la llista només
+  compta el PDF principal.
+- `backend/app/routes/jobs.py`: els jobs massius només treballen amb el PDF
+  principal.
+- `backend/app/services/pdf_parser.py`: la capçalera es llegeix també en català,
+  anglès i portuguès ("Data Rev.", "Rev. date", "Check date", "Data verif.").
+  Sense això, Comprovar no veuria les dates dels PDF en un sol idioma, inclòs el
+  principal amb l'opció "Només català" (pas 0).
+- `backend/tests/test_distribucio_idiomes.py` (nou, 19 tests).
+
+**Nom al destí:** el del patró del destí, amb `_{IDIOMA}` abans de l'extensió
+(`{art_codi}.pdf` → `30150_EN.pdf`).
+
+**PDF d'idioma:**
+- Es genera de nou a cada distribució (la traducció es pot haver corregit), a
+  `uploads/{art_codi}/v{n}/{art_codi}_{IDIOMA}.pdf`.
+- No es desa a `versio.fitxer_pdf`, que continua sent només el principal.
+
+**Regla clau:** totes les consultes de "l'última distribució d'un destí" filtren
+per idioma (`_filtre_idioma`; `NULL` = principal). Així, en retirar o comprovar el
+principal mai no s'agafa un fitxer d'idioma, ni al revés. Hi ha tests que
+vigilen que cap d'aquestes consultes perdi el filtre.
+
+**Sense canvis:**
+- "Distribuir a tots", la distribució massiva i la verificació massiva continuen
+  treballant només amb el PDF principal.
+- En eliminar una fitxa o la seva última versió, s'esborren dels destins tots els
+  fitxers que consten com a `ok`, també els d'idioma. Aquest codi no s'ha tocat,
+  perquè ja funcionava així.
+
+**Provat en local** amb un destí "xarxa" temporal apuntant a una carpeta local:
+- un idioma sense traducció o amb la traducció pendent es rebutja;
+- es pugen `30150.pdf` i `30150_CA.pdf`;
+- Comprovar distingeix els dos fitxers;
+- en retirar el CA, el principal es queda.
+
+Les dades de prova (destí, registres i traducció) s'han esborrat després.
+
+**Tornar enrere:** `git revert <commit del pas 6>`. Abans, cal retirar els fitxers
+d'idioma que s'hagin distribuït (vegeu el pas 5).
+
 ---
 
 ## Estat i pendents
@@ -301,7 +363,8 @@ Provat en local: `upgrade` → `downgrade` → `upgrade`.
   (`backend/app/services/etiquetes_idioma.py`)
 - [ ] Vist-i-plau de l'empresa per enviar text a Anthropic i clau `ANTHROPIC_API_KEY`
 - [x] Pas 5: migració de la fase 2
-- [ ] Fase 2: distribució i correu dels PDFs per idioma (passos 6-9)
+- [x] Pas 6: distribució per idioma al backend
+- [ ] Fase 2: pantalla de distribució (pas 7) i correu (pas 8)
 
 ## Desplegament de la fase 0 + 1 (servidor Ubuntu)
 ```bash
