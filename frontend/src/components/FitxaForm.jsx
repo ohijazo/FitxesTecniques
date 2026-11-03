@@ -127,8 +127,10 @@ function formatWithSecondary(text) {
 function bil(label, idioma) {
   // Només per a TÍTOLS: els valors també poden contenir ' / '
   // (p.ex. 'No detectado / 25g') i no s'han de tallar mai.
-  if (idioma !== 'es' || !label || !label.includes(' / ')) return label;
-  return label.split(' / ')[0].trim();
+  // 'es' es queda la part castellana, 'ca' la catalana.
+  if ((idioma !== 'es' && idioma !== 'ca') || !label || !label.includes(' / ')) return label;
+  const parts = label.split(' / ');
+  return (idioma === 'es' ? parts[0] : parts.slice(1).join(' / ')).trim();
 }
 
 /* ============================================================
@@ -554,7 +556,6 @@ function formatDate(isoStr) {
 }
 
 function PdfPageHeader({ rev, dataRevisio, dataComprovacio, editable, onRevChange, onDataRevisioChange, onDataComprovacioChange, idioma }) {
-  const nomesEs = idioma === 'es';
   return (
     <table className="pdf-header">
       <tbody>
@@ -563,7 +564,7 @@ function PdfPageHeader({ rev, dataRevisio, dataComprovacio, editable, onRevChang
             <img src="/logo.png" alt="Farinera Coromina" className="pdf-logo-img" />
           </td>
           <td className="pdf-header-title" rowSpan={3}>
-            {nomesEs ? <>FICHA T&Eacute;CNICA</> : <>FICHA T&Eacute;CNICA / FITXA T&Egrave;CNICA</>}
+            {idioma === 'es' ? <>FICHA T&Eacute;CNICA</> : idioma === 'ca' ? <>FITXA T&Egrave;CNICA</> : <>FICHA T&Eacute;CNICA / FITXA T&Egrave;CNICA</>}
           </td>
           <td className="pdf-header-meta">
             Rev.:{' '}
@@ -584,7 +585,7 @@ function PdfPageHeader({ rev, dataRevisio, dataComprovacio, editable, onRevChang
         </tr>
         <tr>
           <td className="pdf-header-meta">
-            {nomesEs ? 'Fecha Rev.:' : 'Fecha/Data Rev:'}{' '}
+            {idioma === 'es' ? 'Fecha Rev.:' : idioma === 'ca' ? 'Data Rev.:' : 'Fecha/Data Rev:'}{' '}
             {editable ? (
               <input
                 type="date"
@@ -601,7 +602,7 @@ function PdfPageHeader({ rev, dataRevisio, dataComprovacio, editable, onRevChang
         </tr>
         <tr>
           <td className="pdf-header-meta">
-            {nomesEs ? 'Fecha Comprov.:' : 'Fecha/Data Comprov.:'}{' '}
+            {idioma === 'es' ? 'Fecha Comprov.:' : idioma === 'ca' ? 'Data Comprov.:' : 'Fecha/Data Comprov.:'}{' '}
             {editable ? (
               <input
                 type="date"
@@ -754,10 +755,11 @@ function IdiomaSelector({ idioma, onChange }) {
       <select id="idioma-fitxa" value={idioma} onChange={(e) => onChange(e.target.value)}>
         <option value="bilingue">Biling&uuml;e (castell&agrave; / catal&agrave;)</option>
         <option value="es">Nom&eacute;s castell&agrave;</option>
+        <option value="ca">Nom&eacute;s catal&agrave;</option>
       </select>
       <small>
-        Determina si els t&iacute;tols de la fitxa i del PDF surten en els dos idiomes o
-        nom&eacute;s en castell&agrave;. Es detecta autom&agrave;ticament en importar el Word.
+        Determina si els t&iacute;tols de la fitxa i del PDF principal surten en els dos idiomes,
+        nom&eacute;s en castell&agrave; o nom&eacute;s en catal&agrave;. Es detecta autom&agrave;ticament en importar el Word.
       </small>
     </div>
   );
@@ -1010,7 +1012,7 @@ function FitxaForm({ initialData, onSubmit, isNew, versio, fitxaId, bulkContext 
 
   const [contingut, setContingut] = useState(c);
 
-  // Idioma del document: 'bilingue' (per defecte, comportament de sempre) o 'es'
+  // Idioma del document: 'bilingue' (per defecte, comportament de sempre), 'es' o 'ca'
   const idioma = contingut._idioma || 'bilingue';
 
   const updateForm = (newForm) => { setForm(newForm); setDirty(true); };

@@ -255,10 +255,10 @@
       <td class="header-meta">Rev.: {{ rev }}</td>
     </tr>
     <tr>
-      <td class="header-meta">{% if idioma == 'es' %}Fecha Rev.{% else %}Fecha/Data Rev{% endif %}: {{ data_revisio }}</td>
+      <td class="header-meta">{{ 'Fecha/Data Rev'|bil }}: {{ data_revisio }}</td>
     </tr>
     <tr>
-      <td class="header-meta">{% if idioma == 'es' %}Fecha Comprov.{% else %}Fecha/Data Comprov.{% endif %}: {{ data_comprovacio }}</td>
+      <td class="header-meta">{{ 'Fecha/Data Comprov.'|bil }}: {{ data_comprovacio }}</td>
     </tr>
   </table>
 </div>
@@ -320,7 +320,7 @@
 {% endif %}
 
 {% if ogm %}
-<div class="field-label">OGM</div>
+<div class="field-label">{{ 'OGM'|bil }}</div>
 <div class="field-value">{{ ogm|param_html }}</div>
 {% endif %}
 
@@ -339,7 +339,7 @@
 <table class="param-table" repeat="3">
   <tr><td colspan="2" class="titol-taula">{{ 'Características físico-químicas / Característiques fisicoquímiques'|bil }}</td></tr>
   <tr style="height: 3pt"><td colspan="2" class="espai-taula"></td></tr>
-  <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>Valor</th></tr>
+  <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>{{ 'Valor'|bil }}</th></tr>
   {% for row in fisicoquimiques %}
   <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor|param_html }}</td></tr>
   {% endfor %}
@@ -351,7 +351,7 @@
 <table class="param-table" repeat="3">
   <tr><td colspan="2" class="titol-taula">{{ 'Características reológicas / Característiques reològiques'|bil }}</td></tr>
   <tr style="height: 3pt"><td colspan="2" class="espai-taula"></td></tr>
-  <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>Valor</th></tr>
+  <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>{{ 'Valor'|bil }}</th></tr>
   {% for row in reologiques %}
   <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor|param_html }}</td></tr>
   {% endfor %}
@@ -364,7 +364,7 @@
   <tr><td colspan="2" class="titol-taula">{{ 'Características Microbiológicas / Característiques microbiològiques'|bil }}</td></tr>
   <tr style="height: 3pt"><td colspan="2" class="espai-taula"></td></tr>
   <tr><td colspan="2" class="table-subtitle">{{ 'Parámetros microbiológicos / Paràmetres microbiològics'|bil }}</td></tr>
-  <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>Valor</th></tr>
+  <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>{{ 'Valor'|bil }}</th></tr>
   {% for row in microbiologiques %}
   <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor|param_html }}</td></tr>
   {% endfor %}
@@ -380,7 +380,7 @@
 {% if micotoxines %}
 <table class="param-table">
   <tr><td colspan="2" class="table-subtitle">{{ 'Micotoxinas / Micotoxines'|bil }}</td></tr>
-  <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>Valor</th></tr>
+  <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>{{ 'Valor'|bil }}</th></tr>
   {% for row in micotoxines %}
   <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor|param_html }}</td></tr>
   {% endfor %}
@@ -391,7 +391,7 @@
 {% if alcaloides %}
 <table class="param-table">
   <tr><td colspan="2" class="table-subtitle">{{ 'Alcaloides del cornezuelo / Alcaloides del sègol banyut'|bil }}</td></tr>
-  <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>Valor</th></tr>
+  <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>{{ 'Valor'|bil }}</th></tr>
   {% for row in alcaloides %}
   <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor|param_html }}</td></tr>
   {% endfor %}
@@ -402,7 +402,7 @@
 {% if metalls_pesants %}
 <table class="param-table">
   <tr><td colspan="2" class="table-subtitle">{{ 'Metales pesados / Metalls pesants'|bil }}</td></tr>
-  <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>Valor</th></tr>
+  <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>{{ 'Valor'|bil }}</th></tr>
   {% for row in metalls_pesants %}
   <tr><td>{{ row.parametre|param_html }}</td><td>{{ row.valor|param_html }}</td></tr>
   {% endfor %}
@@ -422,7 +422,7 @@
 <div class="section-title abans-taula">{{ 'Valores nutricionales / Valors nutricionals'|bil }}</div>
 <table class="nutri-table">
   <tr><td colspan="2" class="table-subtitle">{{ 'Valores nutricionales (por 100g) / Valors nutricionals (per 100g)'|bil }}</td></tr>
-  <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>Valor</th></tr>
+  <tr><th>{{ 'Parámetro / Paràmetre'|bil }}</th><th>{{ 'Valor'|bil }}</th></tr>
   {% for row in valors_nutricionals %}
   <tr>
     <td{% if row.sub %} class="sub"{% endif %}>{{ row.parametre|param_html }}</td>

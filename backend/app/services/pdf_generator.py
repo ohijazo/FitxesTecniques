@@ -7,6 +7,8 @@ from jinja2 import Environment, FileSystemLoader
 from markupsafe import Markup
 from xhtml2pdf import pisa
 
+from app.services.etiquetes_idioma import titol_idioma
+
 
 # Mapa de caràcters Unicode superíndex/subíndex a digits normals
 SUPERSCRIPT_MAP = str.maketrans('⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ⁿ', '0123456789+-=()n')
@@ -164,14 +166,7 @@ def generar_pdf(contingut, rev, data_revisio, data_comprovacio):
     # si la fitxa no ho té definit es manté el comportament bilingüe de sempre.
     idioma = contingut.get('_idioma') or 'bilingue'
 
-    def bil(text):
-        """Deixa només la part castellana d'un títol bilingüe.
-        NOMÉS per a títols: els valors també poden contenir ' / '
-        (p.ex. 'No detectado / 25g') i no s'han de tallar mai."""
-        if idioma == 'es' and text and ' / ' in text:
-            return text.split(' / ')[0].strip()
-        return text
-    env.filters['bil'] = bil
+    env.filters['bil'] = lambda text: titol_idioma(text, idioma)
 
     # Filtre per renderitzar text preservant els paràgrafs (\n → <br>) i
     # normalitzant la mida dels spans de text secundari que ja venen marcats
