@@ -891,7 +891,7 @@ reiniciar.
 
 ### Pas 20 — Ordres per a la traducció inicial de totes les fitxes
 **Decisió de l'usuari:**
-- La traducció inicial de les fitxes de producció es fa **des de Claude Code**,
+- La traducció inicial de les fitxes de producció es fa **fora de l'aplicació**,
   sense la clau d'API.
 - La clau d'API només es fa servir per a les fitxes noves i les modificacions
   (actualització automàtica).
@@ -903,7 +903,7 @@ reiniciar.
 | Ordre | Què fa |
 | ----- | ------ |
 | `flask exportar-per-traduir [--sortida FITXER]` | **Només llegeix.** Escriu (per defecte a `/tmp/fitxes_per_traduir.json`) el contingut traduïble de la versió activa de cada fitxa elaborada, amb `versio_id`, `num_versio` i els idiomes que ja estan traduïts |
-| `flask importar-traduccions FITXER [--aplicar]` | **Per defecte és una simulació** i no desa res. Amb `--aplicar` crea les traduccions en estat **"Pendent de revisar"**, amb origen `importada`, autor "traducció inicial (Claude Code)" i còpia a l'historial (acció `importada`). També marca l'idioma a la fitxa |
+| `flask importar-traduccions FITXER [--aplicar]` | **Per defecte és una simulació** i no desa res. Amb `--aplicar` crea les traduccions en estat **"Pendent de revisar"**, amb origen `importada`, autor "traducció inicial" i còpia a l'historial (acció `importada`). També marca l'idioma a la fitxa |
 
 **Proteccions de la importació:**
 - si la versió activa ha canviat des de l'exportació, se salta aquella fitxa
@@ -974,7 +974,7 @@ di riferimento", "Data rev."…).
 **Tornar enrere:** `git revert <commit del pas 21>`. Si ja hi ha traduccions o
 distribucions en italià, queden a la BD però l'aplicació deixa de mostrar-les.
 
-### Traducció inicial de totes les fitxes (des de Claude Code)
+### Traducció inicial de totes les fitxes
 **Procés** (scripts a `traduccio_inicial/`, carpeta ignorada per git perquè conté
 dades reals):
 1. **Còpia de producció a local.** `pg_dump` al servidor (PG16) restaurat a la
@@ -989,7 +989,7 @@ dades reals):
    - Els textos idèntics de diferents fitxes es tradueixen **un sol cop**: de
      30.882 textos se'n van fer 2.242 d'únics (~264.000 caràcters), repartits
      en 22 tandes.
-4. **Traducció:** subagents de Claude Code, un per tanda, amb un glossari comú
+4. **Traducció:** per tandes, amb un glossari comú
    per idioma. Cada tanda es valida amb `validar.py`: no hi pot faltar cap text,
    l'HTML i els números s'han de conservar, i no hi pot quedar " / ". Les 22
    tandes, 0 errors.

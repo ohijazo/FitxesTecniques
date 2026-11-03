@@ -5,7 +5,7 @@
         cada fitxa elaborada.
 
     flask importar-traduccions FITXER [--aplicar]
-        Importa traduccions generades fora (p.ex. amb Claude Code). Per
+        Importa traduccions generades fora de l'aplicació. Per
         defecte és una SIMULACIÓ: només diu què faria. Amb --aplicar, desa.
         - Cada traducció queda 'pendent' de revisar, amb còpia a l'historial.
         - Si la fitxa ha canviat de versió des de l'exportació, se la salta.
@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 
 import click
 
-USUARI_IMPORTACIO = 'traducció inicial (Claude Code)'
+USUARI_IMPORTACIO = 'traducció inicial'
 
 
 def _registre_valid(r):
