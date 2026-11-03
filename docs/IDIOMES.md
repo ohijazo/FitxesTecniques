@@ -164,3 +164,58 @@ però caldria reimplementar els reintents i el tractament d'errors. A Ubuntu cal
 `pip install -r requirements.txt` dins del venv.
 
 **Tornar enrere:** `git revert <commit del pas 2>`. No hi ha dades afectades.
+
+### Pas 3 — API de traduccions (fase 1)
+**Què fa:** exposa les traduccions a l'API. Encara no hi ha pantalla.
+
+**Fitxers:**
+- `backend/app/routes/traduccions.py` (nou blueprint)
+- `backend/app/__init__.py`: registre del blueprint
+
+**Rutes** (les d'escriptura són per als rols `admin` i `editor`, com la resta
+d'edicions de fitxes):
+| Mètode | Ruta | Descripció |
+| ------ | ---- | ---------- |
+| GET | `/api/fitxes/:id/traduccions` | Estat per idioma de la versió activa, idiomes marcats i si la IA està disponible |
+| PUT | `/api/fitxes/:id/idiomes` | Marcar idiomes `{"idiomes": ["ca","en"]}` |
+| GET | `/api/fitxes/:id/versions/:vid/traduccions/:idioma` | Original, traducció desada i, si no n'hi ha, la base de la versió anterior |
+| PUT | `/api/fitxes/:id/versions/:vid/traduccions/:idioma` | Desar `{contingut, origen, camps_canviats}`. Torna l'estat a `pendent` |
+| POST | `…/traduccions/:idioma/revisar` | Marcar com a revisada (usuari i data) |
+| POST | `…/traduccions/:idioma/proposta` | `{"metode": "separar"\|"ia"}`. Retorna una proposta **sense desar-la** |
+| GET | `/api/fitxes/:id/pdf/:idioma[?versio_id=]` | PDF de l'idioma (`30150_CA.pdf`) |
+
+**Estats d'un idioma:**
+| Estat | Significat |
+| ----- | ---------- |
+| `falta` | No hi ha cap traducció |
+| `desactualitzada` | Hi ha la traducció d'una versió anterior, però no de la versió activa |
+| `pendent` | Desada, falta revisar-la |
+| `revisada` | Revisada per Qualitat |
+
+**Canvi respecte al pla inicial:** no es copien les traduccions en crear una
+versió nova. Hi ha 6 llocs que creen versions (editar, importar, massiu…) i
+tocar-los tots era massa invasiu. En lloc d'això, quan s'obre la traducció d'una
+versió que no en té, l'API retorna com a `base` la traducció de la versió
+anterior, amb la llista de camps on el text original ha canviat. L'usuari la
+revisa i la desa. Així **no es modifica cap codi de versions**.
+
+**PDF per idioma:**
+- Es genera amb `combinar()`, que posa la traducció sobre el contingut de la
+  versió.
+- Té el mateix número de revisió i les mateixes dates que el PDF principal.
+- Memòria cau: `uploads/{art_codi}/v{n}/{art_codi}_{IDIOMA}_generat.pdf`. Segueix
+  el patró `*_generat.pdf`, així les invalidacions que ja existien també
+  l'esborren. També s'esborra en desar o revisar la traducció.
+
+**Altres:**
+- Les fitxes de producte comercialitzat no es poden traduir: el seu PDF és un
+  fitxer pujat.
+- Errors de la IA: es retornen com a 502 amb el missatge clar, no com un 500
+  genèric.
+
+**Provat en local** amb la fitxa 30150 (marcar idiomes, proposta, desar, PDF,
+revisar, resum) i amb una fitxa amb 2 versions (base de la versió anterior). Les
+dades de prova s'han esborrat després.
+
+**Tornar enrere:** `git revert <commit del pas 3>`. No toca dades: les traduccions
+ja desades es queden a la taula fins que es faci el downgrade del pas 1.
