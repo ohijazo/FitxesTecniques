@@ -102,3 +102,65 @@ continuïn funcionant sense canvis (s'emporten les seves traduccions).
 2. `git revert <commit del pas 1>`.
 
 Provat en local: `upgrade` → `downgrade` → `upgrade` sense errors.
+
+### Pas 2 — Servei de traducció (fase 1)
+**Què fa:** prepara les propostes de traducció. Encara no és visible per a l'usuari
+(no hi ha rutes ni pantalla). **No escriu res a la base de dades.**
+
+**Fitxers:**
+- `backend/app/services/traduccio.py` (nou)
+- `backend/tests/test_traduccio.py` (nou, 14 tests amb textos reals de les fitxes
+  30150 i 01921)
+- `backend/requirements.txt`: `anthropic>=2.4,<3`
+
+**Camps traduïbles** (constant `CAMPS_TRADUIBLES`):
+- textos: denominació jurídica, descripció, origen, ingredients, al·lèrgens, OGM,
+  irradiació, organolèptiques, pesticides, presentació, ús previst,
+  emmagatzematge, transport, vida útil, legislació, vigència;
+- peus de taula (`*_note`);
+- taules: la columna `parametre` i, només si cal, el `valor`.
+
+Codi, EAN, denominació comercial, certificació, "fabricat per a" i imatges no es
+tradueixen.
+
+**Funcions:**
+| Funció | Què fa |
+| ------ | ------ |
+| `separar_bilingue(contingut, 'ca'\|'es')` | Proposa la part catalana o castellana. Retorna també els camps **dubtosos** |
+| `traduir_ia(contingut_es, 'en'\|'pt')` | Proposa la traducció amb Claude a partir del castellà. Retorna `(proposta, error)` i no llança mai excepcions |
+| `combinar(contingut_versio, traduccio, idioma)` | Contingut per generar el PDF d'un idioma (no modifica la versió) |
+| `camps_canviats(abans, ara)` | Camps traduïbles que han canviat entre dues versions |
+
+**Com separa el bilingüe:** busca la barra amb espai (`" / "`, `"trigo/ Farina"`,
+`"sano /⏎Producte"`), però no talla `1999/2/CE`, `ufc/g`, dates ni etiquetes HTML.
+Quan hi ha diverses parelles, troba on acaba el català d'una i comença el castellà
+de la següent (salt de línia després de punt i seguit de majúscula). Uneix les
+línies tallades a mitja frase. Una data sola al final es manté en els dos idiomes.
+
+**Camps marcats com a dubtosos** (cal revisar-los amb atenció):
+- no tenen separador (potser ja són monolingües, p.ex. "RD 677/2016…");
+- no s'ha trobat on tallar;
+- hi ha una data enmig del text (resta d'una importació del Word, p.ex. la 30150
+  a "Condicions d'emmagatzematge");
+- tenen llistes HTML;
+- les marques HTML queden desquadrades;
+- un valor de taula està escrit en dues línies (p.ex. Salmonella "No detectado / 25g"
+  i "No detectat / 25g").
+
+**IA (anglès i portuguès):**
+- Variables d'entorn:
+  - `ANTHROPIC_API_KEY` (obligatòria; sense aquesta variable la IA no està disponible);
+  - `TRADUCCIO_MODEL` (opcional, per defecte `claude-opus-5-5`).
+- La petició fa servir sortida estructurada (JSON schema), així la resposta
+  sempre té el format esperat.
+- Instruccions al model: no tocar números, unitats, dates ni referències de
+  reglaments, mantenir l'HTML i els salts de línia, i al·lèrgens en majúscules.
+- **S'envia el text de la fitxa a un servei extern (Anthropic).** Cal el
+  vist-i-plau de l'empresa abans d'activar la clau a producció.
+
+**Dependència nova `anthropic`:** és l'SDK oficial. Gestiona reintents i errors
+tipificats. L'alternativa sense dependència seria `requests` contra l'API REST,
+però caldria reimplementar els reintents i el tractament d'errors. A Ubuntu cal
+`pip install -r requirements.txt` dins del venv.
+
+**Tornar enrere:** `git revert <commit del pas 2>`. No hi ha dades afectades.
