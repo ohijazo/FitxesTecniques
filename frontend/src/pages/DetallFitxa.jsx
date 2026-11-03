@@ -97,7 +97,25 @@ function VerificarPanel({ fitxaId, onClose }) {
   );
 }
 
-function DistribuirPanel({ fitxaId, fitxaArtCodi, distribucions, onDone, onClose }) {
+/* Nom del fitxer al destí. Mateixa regla que _generar_nom_fitxer i
+   _nom_amb_idioma del backend (routes/distribucions.py). Només per mostrar-lo:
+   el nom real el decideix sempre el servidor. */
+function nomFitxerDesti(patro, artCodi, nomProducte, numVersio, idioma) {
+  let nom = (patro || '{art_codi}.pdf')
+    .replaceAll('{art_codi}', artCodi || '')
+    .replaceAll('{nom_producte}', nomProducte || '')
+    .replaceAll('{versio}', String(numVersio ?? 0))
+    .replaceAll('{data}', new Date().toISOString().slice(0, 10).replaceAll('-', ''));
+  nom = nom.replace(/[\\/:*?"<>|#%&]/g, '_').replace(/[\u0000-\u001f]/g, '').trim().replace(/\.+$/, '').trim();
+  if (!nom) nom = `${artCodi}.pdf`;
+  if (!idioma) return nom;
+  const punt = nom.lastIndexOf('.');
+  return punt > 0
+    ? `${nom.slice(0, punt)}_${idioma.toUpperCase()}${nom.slice(punt)}`
+    : `${nom}_${idioma.toUpperCase()}.pdf`;
+}
+
+function DistribuirPanel({ fitxaId, fitxaArtCodi, nomProducte, numVersio, distribucions, onDone, onClose }) {
   const [destins, setDestins] = useState([]);
   const [selected, setSelected] = useState({});
   // Idiomes de la fitxa (marcats o amb traducció) i selecció manual per destí:
@@ -204,7 +222,9 @@ function DistribuirPanel({ fitxaId, fitxaArtCodi, distribucions, onDone, onClose
         <>
           <p style={{ fontSize: '0.88rem', color: 'var(--gray-500)', marginBottom: '1rem' }}>
             Selecciona els destins on vols distribuir la versió activa. La casella de cada destí és el
-            PDF principal ({fitxaArtCodi}.pdf); a sota pots afegir els PDFs d'idioma revisats.
+            PDF principal; a la dreta pots afegir els PDFs d'idioma revisats, que es pugen amb el codi
+            d'idioma al final del nom (p.ex. {fitxaArtCodi}_CA.pdf). Un idioma amb ✓ ja és al destí;
+            passa el ratolí per sobre per veure el nom exacte del fitxer.
             {idiomes.length > 0 && idiomes.some((i) => i.estat !== 'revisada') && (
               <> Els idiomes sense revisar no es poden distribuir.</>
             )}
@@ -228,9 +248,12 @@ function DistribuirPanel({ fitxaId, fitxaArtCodi, distribucions, onDone, onClose
                     style={{ width: '18px', height: '18px', margin: 0, accentColor: 'var(--brand)' }}
                   />
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{d.nom}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--gray-500)' }}>
-                      Tipus: {d.tipus.toUpperCase()} &middot; Patro: {d.patro_nom_fitxer}
+                    <div style={{ fontWeight: 600, fontSize: '0.9rem', display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                      {d.nom}
+                      {jaOk && <span className="badge ok" style={{ fontSize: '0.72rem' }}>Principal ja distribuït</span>}
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--gray-500)' }} title={`Patró: ${d.patro_nom_fitxer}`}>
+                      {d.tipus.toUpperCase()} &middot; PDF principal: <code>{nomFitxerDesti(d.patro_nom_fitxer, fitxaArtCodi, nomProducte, numVersio)}</code>
                     </div>
                   </div>
                   {idiomes.length > 0 && (
@@ -239,13 +262,18 @@ function DistribuirPanel({ fitxaId, fitxaArtCodi, distribucions, onDone, onClose
                       {idiomes.map((i) => {
                         const revisada = i.estat === 'revisada';
                         const jaIdioma = esJaDistribuit(d.id, distribucions, i.idioma);
+                        const nom = nomFitxerDesti(d.patro_nom_fitxer, fitxaArtCodi, nomProducte, numVersio, i.idioma);
+                        const titol = !revisada
+                          ? `${i.nom}: la traducció no està revisada`
+                          : `${nom}${jaIdioma ? ' · ja distribuït' : ' · encara no distribuït'}`;
                         return (
-                          <label key={i.idioma} className={`desti-idioma ${revisada ? '' : 'desactivat'}`}
-                            title={revisada ? `PDF en ${i.nom}` : `${i.nom}: la traducció no està revisada`}>
+                          <label key={i.idioma} title={titol}
+                            className={`desti-idioma ${revisada ? '' : 'desactivat'} ${jaIdioma ? 'ja-distribuit' : ''}`}>
                             <input type="checkbox" disabled={!revisada}
+                              aria-label={`PDF en ${i.nom} a ${d.nom} (${nom})`}
                               checked={!!selIdiomes[d.id]?.[i.idioma]}
                               onChange={() => toggleIdioma(d.id, i.idioma)} />
-                            {i.idioma.toUpperCase()}{jaIdioma && <span title="Ja hi és"> ✓</span>}
+                            {i.idioma.toUpperCase()}{jaIdioma && ' ✓'}
                           </label>
                         );
                       })}
@@ -253,7 +281,6 @@ function DistribuirPanel({ fitxaId, fitxaArtCodi, distribucions, onDone, onClose
                   )}
                   {jaOk && (
                     <>
-                      <span className="badge ok" style={{ fontSize: '0.72rem' }}>Ja distribuït</span>
                       <button
                         type="button"
                         className="outline btn-sm"
@@ -1423,6 +1450,8 @@ function DetallFitxa() {
                 <DistribuirPanel
                   fitxaId={id}
                   fitxaArtCodi={fitxa.art_codi}
+                  nomProducte={fitxa.nom_producte}
+                  numVersio={versioActiva?.num_versio}
                   distribucions={distribucions}
                   onDone={carregarDades}
                   onClose={() => setShowDistribuir(false)}

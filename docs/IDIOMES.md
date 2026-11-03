@@ -738,6 +738,36 @@ frontend.
 **Tornar enrere:** `git revert <commit del pas 15>` i tornar a compilar el
 frontend.
 
+### Pas 16 — Panell Distribuir més clar
+**Per què:** l'etiqueta "Ja distribuït" sortia al costat de les caselles
+d'idioma, i semblava que l'idioma ja s'havia distribuït, quan en realitat es
+referia al PDF principal.
+
+**Què fa:**
+- L'etiqueta passa a dir **"Principal ja distribuït"** i surt al costat del nom
+  del destí.
+- Sota el nom del destí es mostra el **nom exacte del PDF principal** en aquell
+  destí (p.ex. `30150.pdf`, o `30150_Nº1.pdf` als SharePoint).
+- Cada idioma mostra, en passar-hi el ratolí, el nom del seu fitxer i si ja és
+  al destí (p.ex. `30150_CA.pdf · encara no distribuït`). Si ja hi és, surt en
+  verd amb ✓.
+- El text d'ajuda del panell explica com s'anomenen els fitxers d'idioma.
+
+**Nom dels fitxers d'idioma:** el del patró del destí, amb `_CA`, `_ES`, `_EN` o
+`_PT` abans de `.pdf`. El nom que es mostra es calcula al navegador amb la
+mateixa regla que el servidor (`nomFitxerDesti` ↔ `_generar_nom_fitxer`). S'ha
+comprovat que coincideixen amb els patrons reals (`{art_codi}.pdf` i
+`{art_codi}/{nom_producte}.pdf`).
+
+**Fitxers:**
+- `frontend/src/pages/DetallFitxa.jsx`: `nomFitxerDesti` i el `DistribuirPanel`.
+- `frontend/src/app.css`: `.desti-idioma.ja-distribuit`.
+
+**Desplegament:** `git pull` i `npm run build`. No cal migració ni reiniciar.
+
+**Tornar enrere:** `git revert <commit del pas 16>` i tornar a compilar el
+frontend.
+
 ---
 
 ## Estat i pendents
@@ -760,6 +790,7 @@ frontend.
 - [x] Pas 13: actualització automàtica en crear una versió
 - [x] Pas 14: pantalla de l'historial
 - [x] Pas 15: vista prèvia del PDF en l'idioma triat
+- [x] Pas 16: panell Distribuir més clar (nom dels fitxers)
 
 ## Desplegament de la fase 0 + 1 (servidor Ubuntu)
 ```bash

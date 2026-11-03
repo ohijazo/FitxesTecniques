@@ -2879,3 +2879,6 @@ tr.row-selected { background: var(--brand-50); }
 .trad-historial h4 { margin-bottom: 0.25rem; }
 .trad-historial h4 button { margin: 0; }
 .trad-historial table { font-size: 0.85rem; margin-top: 0.5rem; }
+
+/* Idioma que ja és al destí */
+.desti-idioma.ja-distribuit { color: var(--success); }
