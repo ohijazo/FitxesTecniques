@@ -438,16 +438,20 @@ def distribuir_desti(fitxa_id, desti_id):
     # ?idioma=en distribueix el PDF d'aquell idioma; sense, el principal (com sempre).
     # Només es pot distribuir una traducció revisada.
     idioma = request.args.get('idioma') or None
+    copia_id = None
     if idioma:
-        _, motiu = _traduccio_distribuible(fitxa, versio_activa, idioma)
+        t, motiu = _traduccio_distribuible(fitxa, versio_activa, idioma)
         if motiu:
             return jsonify({'error': motiu}), 400
+        # Còpia exacta de la traducció que s'envia (historial)
+        copia_id = t.ultima_copia(request.usuari.get('email', '')).id
 
     dist = Distribucio(
         versio_id=versio_activa.id,
         desti_id=desti.id,
         desti=desti.nom,
         idioma=idioma,
+        traduccio_historial_id=copia_id,
         estat='pendent',
     )
     db.session.add(dist)

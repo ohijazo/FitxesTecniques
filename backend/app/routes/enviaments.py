@@ -229,6 +229,10 @@ def crear_enviament():
     db.session.flush()
     for f in fitxes:
         for idioma, nom_fitxer in f['adjunts']:
+            copia_id = None
+            if idioma:
+                t = TraduccioVersio.query.filter_by(versio_id=f['versio_id'], idioma=idioma).first()
+                copia_id = t.ultima_copia(remitent).id if t else None
             db.session.add(EnviamentEmailItem(
                 enviament_id=env.id,
                 fitxa_id=f['fitxa_id'],
@@ -237,6 +241,7 @@ def crear_enviament():
                 num_versio=f['num_versio'],
                 nom_fitxer=nom_fitxer,
                 idioma=idioma,
+                traduccio_historial_id=copia_id,
             ))
     db.session.commit()
 

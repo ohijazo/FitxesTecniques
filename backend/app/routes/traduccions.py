@@ -12,7 +12,7 @@ import os
 from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, send_file, current_app
 from app import db
-from app.models import FitxaTecnica, VersioFitxa, TraduccioVersio
+from app.models import FitxaTecnica, VersioFitxa, TraduccioVersio, TraduccioHistorial
 from app.auth import login_required, rol_requerit
 from app.services.etiquetes_idioma import IDIOMES, NOMS_IDIOMA
 from app.services import traduccio as srv
@@ -215,6 +215,8 @@ def desar_traduccio(fitxa_id, vid, idioma):
     t.revisat_by = None
     t.updated_at = ara
     t.updated_by = usuari
+    db.session.flush()
+    t.desar_historial('desada', usuari)
     db.session.commit()
     _invalidar_pdf(fitxa, versio, idioma)
     return jsonify(t.to_dict())
@@ -233,6 +235,7 @@ def revisar_traduccio(fitxa_id, vid, idioma):
     t.camps_canviats = []
     t.revisat_at = datetime.now(timezone.utc)
     t.revisat_by = request.usuari.get('email', '')
+    t.desar_historial('revisada', t.revisat_by)
     db.session.commit()
     _invalidar_pdf(fitxa, versio, idioma)
     return jsonify(t.to_dict())
@@ -305,21 +308,97 @@ def pdf_idioma(fitxa_id, idioma):
         os.remove(cache_path)
 
     if not os.path.exists(cache_path):
-        from app.services.pdf_generator import generar_pdf
-        contingut = srv.combinar(versio.contingut, t.contingut, idioma)
-        contingut.setdefault('codi_referencia', fitxa.art_codi)
-        contingut.setdefault('denominacio_comercial', fitxa.nom_producte)
-        data_comp = versio.data_comprovacio.strftime('%d/%m/%Y') if versio.data_comprovacio else ''
-        if versio.data_revisio:
-            data_rev = versio.data_revisio.strftime('%d/%m/%Y')
-        elif versio.created_at:
-            data_rev = versio.created_at.strftime('%d/%m/%Y')
-        else:
-            data_rev = ''
-        pdf_bytes = generar_pdf(contingut, versio.num_versio, data_rev, data_comp)
+        pdf_bytes = _generar_pdf_traduccio(fitxa, versio, t.contingut, idioma)
         os.makedirs(os.path.dirname(cache_path), exist_ok=True)
         with open(cache_path, 'wb') as f:
             f.write(pdf_bytes)
 
     return send_file(cache_path, mimetype='application/pdf', as_attachment=False,
                      download_name=f'{fitxa.art_codi}_{idioma.upper()}.pdf')
+
+
+def _generar_pdf_traduccio(fitxa, versio, contingut_traduccio, idioma):
+    from app.services.pdf_generator import generar_pdf
+    contingut = srv.combinar(versio.contingut, contingut_traduccio, idioma)
+    contingut.setdefault('codi_referencia', fitxa.art_codi)
+    contingut.setdefault('denominacio_comercial', fitxa.nom_producte)
+    data_comp = versio.data_comprovacio.strftime('%d/%m/%Y') if versio.data_comprovacio else ''
+    if versio.data_revisio:
+        data_rev = versio.data_revisio.strftime('%d/%m/%Y')
+    elif versio.created_at:
+        data_rev = versio.created_at.strftime('%d/%m/%Y')
+    else:
+        data_rev = ''
+    return generar_pdf(contingut, versio.num_versio, data_rev, data_comp)
+
+
+# ------------------------------------------------------------------
+# Historial de traduccions (només lectura)
+# ------------------------------------------------------------------
+@traduccions_bp.route('/fitxes/<int:fitxa_id>/traduccions/<idioma>/historial', methods=['GET'])
+@login_required
+def historial_traduccio(fitxa_id, idioma):
+    """Totes les còpies d'aquest idioma, de totes les versions de la fitxa."""
+    db.get_or_404(FitxaTecnica, fitxa_id)
+    if not _idioma_valid(idioma):
+        return jsonify({'error': f"Idioma no vàlid: {idioma}"}), 400
+    versions = {v.id: v.num_versio for v in VersioFitxa.query.filter_by(fitxa_id=fitxa_id)}
+    registres = TraduccioHistorial.query.filter(
+        TraduccioHistorial.versio_id.in_(list(versions) or [0]),
+        TraduccioHistorial.idioma == idioma,
+    ).order_by(TraduccioHistorial.id.desc()).all()
+    # On s'ha enviat cada còpia (distribucions i correus)
+    from app.models import Distribucio, EnviamentEmailItem, EnviamentEmail
+    ids = [h.id for h in registres] or [0]
+    enviat = {}
+    for d in Distribucio.query.filter(Distribucio.traduccio_historial_id.in_(ids),
+                                      Distribucio.estat == 'ok'):
+        enviat.setdefault(d.traduccio_historial_id, []).append(
+            {'tipus': 'distribucio', 'desti': d.desti,
+             'data': d.executat_at.isoformat() if d.executat_at else None})
+    for it, env in db.session.query(EnviamentEmailItem, EnviamentEmail).join(
+            EnviamentEmail, EnviamentEmail.id == EnviamentEmailItem.enviament_id).filter(
+            EnviamentEmailItem.traduccio_historial_id.in_(ids), EnviamentEmail.estat == 'ok'):
+        enviat.setdefault(it.traduccio_historial_id, []).append(
+            {'tipus': 'correu', 'desti': env.per_a,
+             'data': env.executat_at.isoformat() if env.executat_at else None})
+    resultat = []
+    for h in registres:
+        d = h.to_dict()
+        d['num_versio'] = versions.get(h.versio_id)
+        d['enviat'] = enviat.get(h.id, [])
+        resultat.append(d)
+    return jsonify(resultat)
+
+
+def _carregar_copia(fitxa_id, hid):
+    fitxa = db.get_or_404(FitxaTecnica, fitxa_id)
+    h = db.get_or_404(TraduccioHistorial, hid)
+    versio = db.session.get(VersioFitxa, h.versio_id)
+    if not versio or versio.fitxa_id != fitxa.id:
+        return fitxa, None, None
+    return fitxa, h, versio
+
+
+@traduccions_bp.route('/fitxes/<int:fitxa_id>/traduccions/historial/<int:hid>', methods=['GET'])
+@login_required
+def copia_traduccio(fitxa_id, hid):
+    fitxa, h, versio = _carregar_copia(fitxa_id, hid)
+    if not h:
+        return jsonify({'error': "Aquesta còpia no és d'aquesta fitxa"}), 404
+    d = h.to_dict(include_contingut=True)
+    d['num_versio'] = versio.num_versio
+    return jsonify(d)
+
+
+@traduccions_bp.route('/fitxes/<int:fitxa_id>/traduccions/historial/<int:hid>/pdf', methods=['GET'])
+@login_required
+def pdf_copia_traduccio(fitxa_id, hid):
+    """PDF tal com era aquesta còpia (no es desa en memòria cau)."""
+    import io
+    fitxa, h, versio = _carregar_copia(fitxa_id, hid)
+    if not h:
+        return jsonify({'error': "Aquesta còpia no és d'aquesta fitxa"}), 404
+    pdf_bytes = _generar_pdf_traduccio(fitxa, versio, h.contingut, h.idioma)
+    return send_file(io.BytesIO(pdf_bytes), mimetype='application/pdf', as_attachment=False,
+                     download_name=f'{fitxa.art_codi}_{h.idioma.upper()}_historial_{h.id}.pdf')

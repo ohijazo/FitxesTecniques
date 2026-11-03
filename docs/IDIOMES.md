@@ -507,6 +507,44 @@ còpia associada.
 
 Provat en local: `upgrade` → `downgrade` → `upgrade`.
 
+### Pas 11 — Historial de traduccions al backend
+**Què fa:**
+- **Cada vegada que es desa o es revisa una traducció**, se'n guarda una còpia
+  completa a `traduccio_historial` (accions `desada` i `revisada`). Les còpies
+  no es modifiquen ni s'esborren mai des de l'aplicació.
+- **Cada distribució d'un PDF d'idioma i cada adjunt d'idioma d'un correu**
+  guarden en `traduccio_historial_id` la còpia exacta que es va enviar. Així
+  es pot saber què deia el PDF en anglès que es va enviar al client el dia X.
+- **Traduccions anteriors a l'historial:** quan s'envien, es crea abans una
+  còpia `inicial`, perquè el que s'envia quedi sempre registrat.
+
+**Rutes noves** (només lectura; hi té accés qualsevol usuari amb sessió):
+| Ruta | Descripció |
+| ---- | ---------- |
+| `GET /api/fitxes/:id/traduccions/:idioma/historial` | Totes les còpies d'aquell idioma, de totes les versions, amb on s'ha enviat cada còpia (distribucions i correus que van acabar bé) |
+| `GET /api/fitxes/:id/traduccions/historial/:hid` | Contingut d'una còpia |
+| `GET /api/fitxes/:id/traduccions/historial/:hid/pdf` | PDF tal com era aquella còpia, amb la Rev. i les dates de la seva versió |
+
+**Fitxers:**
+- `backend/app/models.py`: `TraduccioVersio.desar_historial()` i `ultima_copia()`.
+- `backend/app/routes/traduccions.py`:
+  - desar i revisar registren una còpia;
+  - rutes d'historial;
+  - `_generar_pdf_traduccio()`, compartit pel PDF actual i pel de les còpies.
+- `backend/app/routes/distribucions.py` i `backend/app/routes/enviaments.py`:
+  guarden `traduccio_historial_id`.
+
+**Provat en local** amb la fitxa 60360 i dades temporals:
+- desar → revisar → corregir → revisar genera 4 còpies;
+- la distribució i el correu apunten a l'última revisada;
+- la còpia antiga conserva el text anterior i en genera el PDF;
+- una còpia d'una altra fitxa retorna 404.
+
+Les dades de prova s'han esborrat després.
+
+**Tornar enrere:** `git revert <commit del pas 11>`. Les còpies que ja s'hagin
+desat es queden a la taula.
+
 ---
 
 ## Estat i pendents
@@ -524,7 +562,10 @@ Provat en local: `upgrade` → `downgrade` → `upgrade`.
 - [x] Pas 8: correu amb PDFs d'idioma
 - [x] Pas 9: pestanya Contingut en l'idioma triat (català per defecte)
 - [x] Pas 10: model i migració de l'historial
-- [ ] Passos 11-13: historial (API + pantalla) i actualització automàtica
+- [x] Pas 11: historial de traduccions al backend
+- [ ] Pas 12: proveïdors de traducció (Azure OpenAI, Azure AI Translator, Claude)
+- [ ] Pas 13: actualització automàtica en crear una versió
+- [ ] Pas 14: pantalla de l'historial
 
 ## Desplegament de la fase 0 + 1 (servidor Ubuntu)
 ```bash

@@ -230,6 +230,33 @@ class TraduccioVersio(db.Model):
             data['contingut'] = self.contingut or {}
         return data
 
+    def desar_historial(self, accio, usuari):
+        """Afegeix a l'historial una còpia de l'estat actual (cal flush/commit després)."""
+        import copy
+        h = TraduccioHistorial(
+            traduccio_id=self.id, versio_id=self.versio_id, idioma=self.idioma,
+            contingut=copy.deepcopy(self.contingut or {}), estat=self.estat,
+            origen=self.origen, accio=accio,
+            camps_canviats=list(self.camps_canviats or []),
+            created_by=usuari,
+        )
+        db.session.add(h)
+        return h
+
+    def ultima_copia(self, usuari=None):
+        """Còpia de l'historial que correspon a l'estat actual de la traducció.
+
+        Les traduccions desades abans que existís l'historial no en tenen cap:
+        se'n crea una ('inicial') perquè el que s'envia quedi sempre registrat.
+        """
+        h = TraduccioHistorial.query.filter_by(traduccio_id=self.id)\
+            .order_by(TraduccioHistorial.id.desc()).first()
+        if h and h.estat == self.estat and h.contingut == (self.contingut or {}):
+            return h
+        h = self.desar_historial('inicial', usuari)
+        db.session.flush()
+        return h
+
 
 class TraduccioHistorial(db.Model):
     """Còpia completa d'una traducció cada vegada que es desa, es revisa o
@@ -246,7 +273,7 @@ class TraduccioHistorial(db.Model):
     contingut = db.Column(db.JSON, nullable=False)
     estat = db.Column(db.String(20), nullable=False)       # pendent | revisada
     origen = db.Column(db.String(20))
-    accio = db.Column(db.String(20), nullable=False)       # desada | revisada | automatica
+    accio = db.Column(db.String(20), nullable=False)       # desada | revisada | automatica | inicial
     camps_canviats = db.Column(db.JSON)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     created_by = db.Column(db.String(100))
