@@ -682,6 +682,31 @@ traducció de la versió nova:
 **Tornar enrere:** `git revert <commit del pas 13>` i reiniciar el servei. També
 es pot desactivar sense tocar codi amb `TRADUCCIO_AUTOMATICA=0`.
 
+### Pas 14 — Pantalla de l'historial
+**Què fa:** a l'editor de traduccions, a sota de tot, hi ha l'apartat
+desplegable **"Historial de la traducció"**. Mostra totes les còpies d'aquell
+idioma, de totes les versions de la fitxa, amb aquestes columnes:
+- data;
+- Rev.;
+- acció ("Desada", "Revisada", "Actualitzada automàticament" o "Còpia
+  inicial"), amb el nombre de camps que havien canviat a l'original;
+- usuari;
+- on s'ha enviat (destins i correus);
+- un botó **Veure PDF**, que genera el PDF tal com era aquella còpia.
+
+**Fitxers:**
+- `frontend/src/pages/TraduccioFitxa.jsx`: component `HistorialTraduccio`.
+- `frontend/src/components/IdiomesPanel.jsx`: `obrirPdf(url)` reutilitzable.
+- `frontend/src/api/client.js`: `historialTraduccio`.
+- `frontend/src/app.css`: `.trad-historial`.
+
+**Provat al navegador** amb una traducció temporal de la 60360 (desada +
+revisada): l'historial mostra les dues còpies i el PDF de la còpia antiga es
+genera i s'obre. Les dades temporals s'han esborrat després.
+
+**Tornar enrere:** `git revert <commit del pas 14>` i tornar a compilar el
+frontend.
+
 ---
 
 ## Estat i pendents
@@ -702,7 +727,7 @@ es pot desactivar sense tocar codi amb `TRADUCCIO_AUTOMATICA=0`.
 - [x] Pas 11: historial de traduccions al backend
 - [x] Pas 12: proveïdors de traducció (Azure OpenAI, Azure AI Translator, Claude)
 - [x] Pas 13: actualització automàtica en crear una versió
-- [ ] Pas 14: pantalla de l'historial
+- [x] Pas 14: pantalla de l'historial
 
 ## Desplegament de la fase 0 + 1 (servidor Ubuntu)
 ```bash

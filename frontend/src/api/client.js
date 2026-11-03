@@ -279,6 +279,7 @@ export const api = {
   marcarIdiomes: (fitxaId, idiomes) => request(`/fitxes/${fitxaId}/idiomes`, { method: 'PUT', body: JSON.stringify({ idiomes }) }),
   llegirTraduccio: (fitxaId, vid, idioma) => request(`/fitxes/${fitxaId}/versions/${vid}/traduccions/${idioma}`),
   desarTraduccio: (fitxaId, vid, idioma, data) => request(`/fitxes/${fitxaId}/versions/${vid}/traduccions/${idioma}`, { method: 'PUT', body: JSON.stringify(data) }),
+  historialTraduccio: (fitxaId, idioma) => request(`/fitxes/${fitxaId}/traduccions/${idioma}/historial`),
   revisarTraduccio: (fitxaId, vid, idioma) => request(`/fitxes/${fitxaId}/versions/${vid}/traduccions/${idioma}/revisar`, { method: 'POST' }),
   // La IA pot trigar: més marge que la resta de peticions (el servidor talla als 120 s)
   propostaTraduccio: (fitxaId, vid, idioma, metode) => request(`/fitxes/${fitxaId}/versions/${vid}/traduccions/${idioma}/proposta`, {

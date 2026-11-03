@@ -2874,3 +2874,8 @@ tr.row-selected { background: var(--brand-50); }
   border-color: var(--brand);
   color: #fff;
 }
+
+/* Historial de la traducció */
+.trad-historial h4 { margin-bottom: 0.25rem; }
+.trad-historial h4 button { margin: 0; }
+.trad-historial table { font-size: 0.85rem; margin-top: 0.5rem; }

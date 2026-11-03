@@ -6,7 +6,7 @@ import { useToast } from '../components/Toast';
 import ConfirmDialog from '../components/ConfirmDialog';
 import RichEditor from '../components/RichEditor';
 import { DEFAULT_SECTIONS } from '../components/FitxaForm';
-import { BadgeTraduccio, obrirPdfIdioma } from '../components/IdiomesPanel';
+import { BadgeTraduccio, obrirPdfIdioma, obrirPdf } from '../components/IdiomesPanel';
 
 /* Etiqueta de cada camp, a partir de les seccions del formulari */
 const ETIQUETES = Object.fromEntries(
@@ -34,6 +34,80 @@ function htmlOriginal(text) {
   if (!text) return '';
   const html = /<(p|ul|ol|br)\b/i.test(text) ? text : String(text).replace(/\n/g, '<br>');
   return DOMPurify.sanitize(html);
+}
+
+const ACCIONS = {
+  desada: 'Desada',
+  revisada: 'Revisada',
+  automatica: 'Actualitzada automàticament',
+  inicial: 'Còpia inicial',
+};
+
+/* Historial de la traducció d'un idioma (totes les versions de la fitxa):
+   cada còpia es pot obrir en PDF tal com era, i s'hi veu on s'ha enviat. */
+function HistorialTraduccio({ fitxaId, idioma, refrescar }) {
+  const toast = useToast();
+  const [obert, setObert] = useState(false);
+  const [registres, setRegistres] = useState(null);
+
+  useEffect(() => {
+    if (!obert) return;
+    api.historialTraduccio(fitxaId, idioma).then(setRegistres).catch((err) => toast.error(err.message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [obert, fitxaId, idioma, refrescar]);
+
+  return (
+    <section className="trad-camp trad-historial">
+      <h4>
+        <button type="button" className="outline secondary btn-sm" onClick={() => setObert(!obert)}
+          aria-expanded={obert}>
+          {obert ? '▾' : '▸'} Historial de la traducció
+        </button>
+      </h4>
+      {obert && (registres === null ? <p aria-busy="true">Carregant...</p>
+        : registres.length === 0 ? <p style={{ color: 'var(--gray-500)', margin: 0 }}>Encara no hi ha cap canvi registrat.</p>
+          : (
+            <div className="table-wrapper">
+              <table>
+                <thead>
+                  <tr><th>Data</th><th>Rev.</th><th>Acció</th><th>Usuari</th><th>Enviada</th><th></th></tr>
+                </thead>
+                <tbody>
+                  {registres.map((h) => (
+                    <tr key={h.id}>
+                      <td style={{ whiteSpace: 'nowrap' }}>{new Date(h.created_at).toLocaleString('ca')}</td>
+                      <td style={{ textAlign: 'center' }}>{h.num_versio}</td>
+                      <td>
+                        {ACCIONS[h.accio] || h.accio}
+                        {h.camps_canviats?.length > 0 && (
+                          <div style={{ fontSize: '0.75rem', color: 'var(--gray-500)' }}>
+                            {h.camps_canviats.length} camps canviats a l'original
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ fontSize: '0.85rem' }}>{h.created_by || '—'}</td>
+                      <td style={{ fontSize: '0.8rem' }}>
+                        {h.enviat.length === 0 ? '—' : h.enviat.map((e, i) => (
+                          <div key={i}>
+                            {e.tipus === 'correu' ? 'Correu a ' : ''}{e.desti}
+                            {e.data && <span style={{ color: 'var(--gray-500)' }}> · {new Date(e.data).toLocaleDateString('ca')}</span>}
+                          </div>
+                        ))}
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <button type="button" className="outline btn-sm" style={{ margin: 0 }}
+                          onClick={() => obrirPdf(`/api/fitxes/${fitxaId}/traduccions/historial/${h.id}/pdf`, toast)}>
+                          Veure PDF
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+    </section>
+  );
 }
 
 function TraduccioFitxa() {
@@ -292,6 +366,8 @@ function TraduccioFitxa() {
           </section>
         );
       })}
+
+      <HistorialTraduccio fitxaId={id} idioma={idioma} refrescar={dades.traduccio?.updated_at + (dades.traduccio?.revisat_at || '')} />
 
       <ConfirmDialog
         obert={!!confirmarProposta}

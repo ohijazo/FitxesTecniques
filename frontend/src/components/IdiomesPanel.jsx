@@ -42,9 +42,12 @@ export function BadgeTraduccio({ estat }) {
    amb un enllaç). La pestanya s'obre abans del fetch perquè el navegador no la
    bloquegi com a finestra emergent. */
 export function obrirPdfIdioma(fitxaId, idioma, versioId, toast) {
+  obrirPdf(`/api/fitxes/${fitxaId}/pdf/${idioma}${versioId ? `?versio_id=${versioId}` : ''}`, toast);
+}
+
+export function obrirPdf(url, toast) {
   const finestra = window.open('', '_blank');
   const token = localStorage.getItem('token');
-  const url = `/api/fitxes/${fitxaId}/pdf/${idioma}${versioId ? `?versio_id=${versioId}` : ''}`;
   fetch(url, { headers: { Authorization: `Bearer ${token}` } })
     .then(async (res) => {
       if (!res.ok) {
