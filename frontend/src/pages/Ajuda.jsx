@@ -27,6 +27,8 @@ const SECTIONS = [
           <li>Distribució automàtica al FTP</li>
           <li>Historial complet de canvis</li>
           <li>Generació de PDF</li>
+          <li>Fitxes en 5 idiomes (català, castellà, anglès, portuguès i italià), amb traduccions revisades per Qualitat</li>
+          <li>Enviament de fitxes per correu</li>
         </ul>
       </>
     ),
@@ -76,11 +78,14 @@ const SECTIONS = [
           amb el logo, número de revisió i dates.
         </p>
         <HelpImg src="/help/detall.png" alt="Detall de fitxa amb capçalera, contingut i accions" />
-        <p>Pots canviar entre tres pestanyes:</p>
+        <p>La fitxa té aquestes pestanyes:</p>
         <ul>
-          <li><strong>Contingut</strong> — visualització de la fitxa</li>
+          <li><strong>Contingut</strong> — visualització de la fitxa, en l'idioma que triïs</li>
+          <li><strong>Observacions</strong> — notes internes</li>
           <li><strong>Versions</strong> — historial de totes les revisions amb comparació de canvis</li>
           <li><strong>Distribucions</strong> — historial de distribucions i opció de distribuir</li>
+          <li><strong>Correus</strong> — enviaments de la fitxa per correu</li>
+          <li><strong>Idiomes</strong> — idiomes en què està disponible la fitxa i estat de cada traducció</li>
         </ul>
       </>
     ),
@@ -136,6 +141,10 @@ const SECTIONS = [
           <li>Si la distribució és correcta, es mostra la URL pública del fitxer</li>
         </ol>
         <HelpImg src="/help/distribucio.png" alt="Panell de distribució amb selecció de destins i resultats" />
+        <div className="help-tip">
+          <strong>PDFs d'idioma:</strong> a cada destí, a més del PDF principal, pots marcar els idiomes
+          (CA, ES, EN, PT, IT) que vols enviar. Vegeu <strong>Idiomes i traduccions</strong>.
+        </div>
 
         <h4>Indicadors a la llista</h4>
         <p>A la llista principal, cada fitxa mostra l'estat de distribució:</p>
@@ -195,6 +204,99 @@ const SECTIONS = [
     ),
   },
   {
+    id: 'idiomes',
+    titol: 'Idiomes i traduccions',
+    contingut: (
+      <>
+        <p>
+          Cada fitxa pot estar disponible en <strong>català, castellà, anglès, portuguès i italià</strong>.
+          Cada idioma té el seu PDF (<code>30150_CA.pdf</code>, <code>30150_EN.pdf</code>…), a més del PDF
+          principal (<code>30150.pdf</code>), que no canvia.
+        </p>
+
+        <h4>Marcar els idiomes d'una fitxa</h4>
+        <p>
+          A la pestanya <strong>Idiomes</strong> del detall marques en quins idiomes ha d'estar disponible
+          la fitxa i veus l'estat de cada traducció:
+        </p>
+        <ul>
+          <li><span className="dist-badge dist-ok" style={{ display: 'inline-flex' }}>Revisada</span> — revisada per Qualitat: es pot distribuir i enviar</li>
+          <li><span className="dist-badge dist-partial" style={{ display: 'inline-flex' }}>Pendent de revisar</span> — feta però no revisada: encara no es pot distribuir</li>
+          <li><span className="dist-badge dist-partial" style={{ display: 'inline-flex' }}>De la versió anterior</span> — la fitxa té una versió nova i la traducció encara no s'ha actualitzat</li>
+          <li><span className="dist-badge dist-pending" style={{ display: 'inline-flex' }}>Sense traduir</span></li>
+        </ul>
+        <HelpImg src="/help/idiomes_panell.png" alt="Pestanya Idiomes: idiomes marcats i estat de cada traducció" />
+
+        <h4>Traduir i revisar</h4>
+        <p>
+          Prem <strong>Editar traducció</strong>. A l'esquerra hi ha l'original i a la dreta la traducció,
+          camp per camp.
+        </p>
+        <ul>
+          <li><strong>Proposar des del bilingüe</strong> (català i castellà): separa automàticament la part catalana o castellana del text bilingüe. Els camps on la separació no és clara els resol la IA i surten marcats en blau (<em>Separat amb IA</em>); si no es poden resoldre, surten en groc (<em>Separació dubtosa</em>).</li>
+          <li><strong>Traduir amb IA</strong> (anglès, portuguès i italià): proposa la traducció de tota la fitxa en uns segons.</li>
+          <li>Les propostes <strong>no es desen soles</strong>: revisa-les, corregeix el que calgui i prem <strong>Desar</strong>.</li>
+          <li>Quan la traducció és correcta, prem <strong>Marcar com a revisada</strong>. Només les traduccions revisades es poden distribuir i enviar per correu.</li>
+        </ul>
+        <HelpImg src="/help/idiomes_editor.png" alt="Editor de traduccions: original a l'esquerra i traducció a la dreta" />
+        <div className="help-tip">
+          Corregir una traducció <strong>no crea una revisió nova</strong> de la fitxa: les traduccions van
+          lligades a la versió, però tenen el seu propi estat.
+        </div>
+
+        <h4>Veure la fitxa en un idioma</h4>
+        <p>
+          A la pestanya <strong>Contingut</strong>, els botons <strong>Veure en:</strong> canvien l'idioma en
+          què es mostra la fitxa (per defecte, el català si hi ha traducció). Les traduccions pendents de
+          revisar porten un <strong>*</strong>. La <strong>Vista prèvia PDF</strong> s'obre en el mateix idioma.
+        </p>
+        <HelpImg src="/help/idiomes_contingut.png" alt="Pestanya Contingut amb el selector Veure en: Anglès" />
+        <HelpImg src="/help/idiomes_vista_previa.png" alt="Vista prèvia del PDF en italià" />
+
+        <h4>Distribuir els PDFs d'idioma</h4>
+        <p>
+          Al panell <strong>Distribuir</strong>, la casella de cada destí és el PDF principal. A la dreta hi ha
+          els idiomes: marca els que vulguis enviar a aquell destí. Els idiomes sense revisar surten
+          desactivats, i un <strong>✓</strong> vol dir que aquell idioma ja és al destí. Passant el ratolí
+          per sobre d'un idioma veus el nom exacte del fitxer (p.ex. <code>30150_CA.pdf</code>).
+        </p>
+        <HelpImg src="/help/idiomes_distribuir.png" alt="Panell Distribuir amb els idiomes de cada destí" />
+        <p>
+          A l'historial de distribucions, la columna <strong>Fitxer</strong> indica si és el PDF principal o
+          un idioma, i <strong>Comprovar</strong> i <strong>Retirar</strong> actuen sobre aquell fitxer concret.
+        </p>
+
+        <h4>Enviar per correu en diversos idiomes</h4>
+        <p>
+          Al modal <strong>Enviar per correu</strong>, l'apartat <strong>Què s'adjunta</strong> permet triar el
+          PDF principal i els idiomes. La llista d'adjunts mostra exactament quins PDFs s'enviaran.
+        </p>
+        <HelpImg src="/help/idiomes_correu.png" alt="Enviar per correu: triar el PDF principal i els idiomes" />
+
+        <h4>Quan es crea una versió nova</h4>
+        <p>
+          Quan es desa una <strong>versió nova</strong> d'una fitxa, les traduccions dels idiomes marcats
+          <strong> s'actualitzen soles</strong> en pocs segons:
+        </p>
+        <ul>
+          <li>Els camps que no han canviat es copien de la traducció anterior, tal com estaven revisats.</li>
+          <li>Els camps canviats es tornen a proposar (separant el bilingüe o amb IA).</li>
+          <li>La traducció queda <strong>Pendent de revisar</strong> i, a l'editor, els camps canviats surten <strong>en taronja</strong>.</li>
+        </ul>
+        <p>Només cal revisar els camps marcats i prémer <strong>Marcar com a revisada</strong>.</p>
+
+        <h4>Historial de la traducció</h4>
+        <p>
+          A sota de l'editor hi ha l'<strong>Historial de la traducció</strong>: cada vegada que una traducció
+          es desa, es revisa o s'actualitza automàticament se'n guarda una còpia, amb qui i quan. També hi
+          surt on s'ha enviat cada còpia (destins i correus), i <strong>Veure PDF</strong> mostra el PDF tal
+          com era.
+        </p>
+        <HelpImg src="/help/idiomes_historial.png" alt="Historial de la traducció amb les còpies desades" />
+      </>
+    ),
+  },
+  {
     id: 'control',
     titol: 'Control de revisions',
     contingut: (
@@ -245,7 +347,16 @@ const SECTIONS = [
         <h4>Vista prèvia</h4>
         <p>
           Prem <strong>Vista prèvia PDF</strong> al detall per veure el PDF directament al navegador
-          sense descarregar-lo.
+          sense descarregar-lo. S'obre en el mateix idioma que la pestanya Contingut, i a dalt hi ha els
+          botons <strong>Veure en:</strong> per canviar d'idioma.
+        </p>
+
+        <h4>Idioma dels títols del PDF principal</h4>
+        <p>
+          A l'editor de la fitxa, el selector <strong>Idioma del document</strong> decideix com surten
+          els títols del PDF principal (<code>{'{codi}'}.pdf</code>): bilingües (castellà / català),
+          només en castellà o només en català. Els PDFs de cada idioma (<code>{'{codi}'}_EN.pdf</code>…)
+          surten sempre amb els títols del seu idioma.
         </p>
       </>
     ),
