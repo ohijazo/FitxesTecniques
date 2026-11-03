@@ -12,7 +12,8 @@ import threading
 from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, current_app
 from app import db
-from app.models import FitxaTecnica, VersioFitxa, EnviamentEmail, EnviamentEmailItem
+from app.models import FitxaTecnica, VersioFitxa, EnviamentEmail, EnviamentEmailItem, TraduccioVersio
+from app.services.etiquetes_idioma import IDIOMES
 from app.auth import login_required, rol_requerit
 
 LOG = logging.getLogger(__name__)
@@ -67,9 +68,19 @@ def _preparar_fitxes(fitxa_ids):
             'versio_id': versio.id if versio else None,
             'num_versio': versio.num_versio if versio else None,
             'nom_fitxer': f'{fitxa.art_codi}.pdf',
+            # Idiomes que es poden adjuntar: només traduccions revisades
+            'idiomes_revisats': _idiomes_revisats(fitxa, versio),
         }
         resultat.append(item)
     return resultat
+
+
+def _idiomes_revisats(fitxa, versio):
+    if not versio or (fitxa.tipus_producte or 'elaborat') == 'comercialitzat':
+        return []
+    revisats = {t.idioma for t in TraduccioVersio.query.filter_by(
+        versio_id=versio.id, estat='revisada')}
+    return [i for i in IDIOMES if i in revisats]
 
 
 def _llista_adreces(valor):
@@ -103,8 +114,8 @@ def _executar_enviament(app, enviament_id, config_graph):
                 versio = db.session.get(VersioFitxa, item.versio_id)
                 if not fitxa or not versio:
                     raise RuntimeError(f"La fitxa {item.art_codi} ja no existeix")
-                # Mateix PDF que es distribueix als destins
-                adjunts.append((_assegurar_pdf(fitxa, versio), item.nom_fitxer))
+                # Mateix PDF que es distribueix als destins (idioma None = principal)
+                adjunts.append((_assegurar_pdf(fitxa, versio, item.idioma), item.nom_fitxer))
             # _assegurar_pdf pot haver desat la ruta d'un PDF generat
             db.session.commit()
 
@@ -171,9 +182,12 @@ def crear_enviament():
         return jsonify({'error': "L'assumpte és massa llarg"}), 400
     if not ids:
         return jsonify({'error': "No hi ha cap fitxa seleccionada"}), 400
-    max_adj = current_app.config.get('EMAIL_MAX_ADJUNTS', 30)
-    if len(ids) > max_adj:
-        return jsonify({'error': f"Màxim {max_adj} fitxes per correu"}), 400
+    # Què s'adjunta: el PDF principal (per defecte, com sempre) i/o els PDFs
+    # d'idioma triats. D'un idioma només s'adjunta la traducció revisada.
+    incloure_principal = data.get('incloure_principal', True) is not False
+    idiomes = [i for i in IDIOMES if i in (data.get('idiomes') or [])]
+    if not incloure_principal and not idiomes:
+        return jsonify({'error': "Cal triar almenys el PDF principal o un idioma"}), 400
 
     cfg = _config_graph()
     if not all(cfg.values()):
@@ -189,6 +203,19 @@ def crear_enviament():
         llista = ', '.join(f"{f.get('art_codi', f['fitxa_id'])} ({f['motiu']})" for f in no_enviables)
         return jsonify({'error': f"No es poden enviar: {llista}"}), 400
 
+    # Adjunts per fitxa: [(idioma, nom_fitxer)], idioma None = PDF principal
+    for f in fitxes:
+        f['adjunts'] = ([(None, f['nom_fitxer'])] if incloure_principal else []) + [
+            (i, f"{f['art_codi']}_{i.upper()}.pdf") for i in idiomes if i in f['idiomes_revisats']]
+    sense_adjunt = [f['art_codi'] for f in fitxes if not f['adjunts']]
+    if sense_adjunt:
+        return jsonify({'error': "Aquestes fitxes no tenen revisat cap dels idiomes triats: "
+                                 + ', '.join(sense_adjunt)}), 400
+    max_adj = current_app.config.get('EMAIL_MAX_ADJUNTS', 30)
+    total_adjunts = sum(len(f['adjunts']) for f in fitxes)
+    if total_adjunts > max_adj:
+        return jsonify({'error': f"Màxim {max_adj} PDFs per correu (n'hi ha {total_adjunts})"}), 400
+
     env = EnviamentEmail(
         remitent=remitent,
         per_a=', '.join(per_a),
@@ -201,14 +228,16 @@ def crear_enviament():
     db.session.add(env)
     db.session.flush()
     for f in fitxes:
-        db.session.add(EnviamentEmailItem(
-            enviament_id=env.id,
-            fitxa_id=f['fitxa_id'],
-            versio_id=f['versio_id'],
-            art_codi=f['art_codi'],
-            num_versio=f['num_versio'],
-            nom_fitxer=f['nom_fitxer'],
-        ))
+        for idioma, nom_fitxer in f['adjunts']:
+            db.session.add(EnviamentEmailItem(
+                enviament_id=env.id,
+                fitxa_id=f['fitxa_id'],
+                versio_id=f['versio_id'],
+                art_codi=f['art_codi'],
+                num_versio=f['num_versio'],
+                nom_fitxer=nom_fitxer,
+                idioma=idioma,
+            ))
     db.session.commit()
 
     app = current_app._get_current_object()

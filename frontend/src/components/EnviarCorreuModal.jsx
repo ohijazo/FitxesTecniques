@@ -3,6 +3,7 @@ import { api, missatgeError } from '../api/client';
 import { useToast } from './Toast';
 import { useEscapeKey } from './useEscapeKey';
 
+const IDIOMES = ['ca', 'es', 'en', 'pt'];
 const POLL_MS = 2000;
 const POLL_MAX = 90; // ~3 minuts
 
@@ -29,6 +30,9 @@ function EnviarCorreuModal({ fitxaIds, onClose, onEnviat }) {
   const [assumpte, setAssumpte] = useState('');
   const [cos, setCos] = useState('');
   const [enviant, setEnviant] = useState(false);
+  // Què s'adjunta: PDF principal (per defecte) i PDFs d'idioma triats a mà
+  const [principal, setPrincipal] = useState(true);
+  const [idiomesSel, setIdiomesSel] = useState([]);
   const pollRef = useRef(null);
 
   useEffect(() => {
@@ -53,8 +57,20 @@ function EnviarCorreuModal({ fitxaIds, onClose, onEnviat }) {
 
   const enviables = fitxes.filter((f) => f.enviable);
   const noEnviables = fitxes.filter((f) => !f.enviable);
-  const massaFitxes = info && enviables.length > info.max_adjunts;
+  // Idiomes que té revisats almenys una de les fitxes
+  const idiomesDisponibles = IDIOMES.filter((i) => enviables.some((f) => (f.idiomes_revisats || []).includes(i)));
+  const toggleIdioma = (i) => setIdiomesSel((prev) => (prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i]));
+  // PDFs que s'adjuntaran de cada fitxa (mateixa regla que el servidor)
+  const adjuntsDe = (f) => [
+    ...(principal ? [f.nom_fitxer] : []),
+    ...IDIOMES.filter((i) => idiomesSel.includes(i) && (f.idiomes_revisats || []).includes(i))
+      .map((i) => `${f.art_codi}_${i.toUpperCase()}.pdf`),
+  ];
+  const totalAdjunts = enviables.reduce((n, f) => n + adjuntsDe(f).length, 0);
+  const senseAdjunt = enviables.filter((f) => adjuntsDe(f).length === 0);
+  const massaFitxes = info && totalAdjunts > info.max_adjunts;
   const potEnviar = !carregant && !enviant && info?.configurat && enviables.length > 0
+    && totalAdjunts > 0 && senseAdjunt.length === 0
     && !massaFitxes && perA.trim() && assumpte.trim();
 
   const seguir = (id, intent = 0) => {
@@ -95,6 +111,8 @@ function EnviarCorreuModal({ fitxaIds, onClose, onEnviat }) {
         cc,
         assumpte,
         cos,
+        incloure_principal: principal,
+        idiomes: idiomesSel,
       });
       seguir(env.id);
     } catch (err) {
@@ -150,15 +168,43 @@ function EnviarCorreuModal({ fitxaIds, onClose, onEnviat }) {
               <textarea rows={9} value={cos} onChange={(e) => setCos(e.target.value)} disabled={enviant} />
             </label>
 
+            {idiomesDisponibles.length > 0 && (
+              <fieldset className="correu-idiomes">
+                <legend>Què s'adjunta</legend>
+                <label>
+                  <input type="checkbox" checked={principal} disabled={enviant}
+                    onChange={(e) => setPrincipal(e.target.checked)} />
+                  PDF principal
+                </label>
+                {idiomesDisponibles.map((i) => (
+                  <label key={i}>
+                    <input type="checkbox" checked={idiomesSel.includes(i)} disabled={enviant}
+                      onChange={() => toggleIdioma(i)} />
+                    {i.toUpperCase()}
+                  </label>
+                ))}
+                <small>Dels idiomes només s'adjunten les traduccions revisades.</small>
+              </fieldset>
+            )}
+
             <div className="correu-adjunts">
-              <strong>Adjunts ({enviables.length})</strong>
+              <strong>Adjunts ({totalAdjunts})</strong>
               <ul>
                 {enviables.map((f) => (
                   <li key={f.fitxa_id}>
-                    <code>{f.nom_fitxer}</code> {f.nom_producte} <span className="correu-opcional">· rev. {f.num_versio}</span>
+                    {adjuntsDe(f).length
+                      ? adjuntsDe(f).map((nom) => <code key={nom} style={{ marginRight: '0.3rem' }}>{nom}</code>)
+                      : <span style={{ color: 'var(--danger)' }}>cap PDF</span>}
+                    {' '}{f.nom_producte} <span className="correu-opcional">· rev. {f.num_versio}</span>
                   </li>
                 ))}
               </ul>
+              {senseAdjunt.length > 0 && (
+                <div className="correu-avis correu-avis-error">
+                  {senseAdjunt.map((f) => f.art_codi).join(', ')}: no té revisat cap dels idiomes triats.
+                  Marca el PDF principal o treu la fitxa de la selecció.
+                </div>
+              )}
               {noEnviables.length > 0 && (
                 <div className="correu-avis">
                   No s'enviaran ({noEnviables.length}):{' '}
@@ -167,7 +213,7 @@ function EnviarCorreuModal({ fitxaIds, onClose, onEnviat }) {
               )}
               {massaFitxes && (
                 <div className="correu-avis correu-avis-error">
-                  Màxim {info.max_adjunts} fitxes per correu. Desmarca'n alguna.
+                  Màxim {info.max_adjunts} PDFs per correu. Treu alguna fitxa o algun idioma.
                 </div>
               )}
             </div>

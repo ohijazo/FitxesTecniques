@@ -1452,13 +1452,17 @@ function DetallFitxa() {
                   <tbody>
                     {enviaments.map((e) => {
                       const item = e.items.find((i) => String(i.fitxa_id) === String(id));
+                      const idiomesItem = e.items.filter((i) => String(i.fitxa_id) === String(id) && i.idioma);
                       return (
                         <tr key={e.id}>
                           <td style={{ whiteSpace: 'nowrap' }}>{new Date(e.created_at).toLocaleString('ca')}</td>
                           <td>{e.created_by}</td>
                           <td>{e.per_a}{e.cc && <div style={{ color: 'var(--gray-500)', fontSize: '0.8rem' }}>CC: {e.cc}</div>}</td>
-                          <td>{e.assumpte}{e.items.length > 1 && <div style={{ color: 'var(--gray-500)', fontSize: '0.8rem' }}>{e.items.length} fitxes adjuntes</div>}</td>
-                          <td style={{ textAlign: 'center' }}>{item?.num_versio ?? '-'}</td>
+                          <td>{e.assumpte}{new Set(e.items.map((i) => i.fitxa_id)).size > 1 && <div style={{ color: 'var(--gray-500)', fontSize: '0.8rem' }}>{new Set(e.items.map((i) => i.fitxa_id)).size} fitxes adjuntes</div>}</td>
+                          <td style={{ textAlign: 'center' }}>
+                            {item?.num_versio ?? '-'}
+                            {idiomesItem.map((i) => <span key={i.id} className="idioma-tag">{i.idioma.toUpperCase()}</span>)}
+                          </td>
                           <td>
                             <span className={`dist-badge ${e.estat === 'ok' ? 'dist-ok' : e.estat === 'error' ? 'dist-error' : 'dist-pending'}`}
                               title={e.missatge_error || ''}>

@@ -2832,3 +2832,19 @@ tr.row-selected { background: var(--brand-50); }
 }
 .desti-idioma input { margin: 0; width: 15px; height: 15px; }
 .desti-idioma.desactivat { color: var(--gray-400); cursor: not-allowed; }
+
+/* Correu: triar idiomes */
+.correu-idiomes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  align-items: center;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.9rem 0.6rem;
+  margin-bottom: 1rem;
+}
+.correu-idiomes legend { font-size: 0.85rem; font-weight: 600; padding: 0 0.3rem; }
+.correu-idiomes label { display: inline-flex; align-items: center; gap: 0.3rem; margin: 0; font-size: 0.88rem; white-space: nowrap; width: auto; }
+.correu-idiomes input { margin: 0; }
+.correu-idiomes small { flex-basis: 100%; color: var(--gray-500); font-size: 0.78rem; }

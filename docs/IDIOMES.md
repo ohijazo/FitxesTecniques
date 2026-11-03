@@ -397,6 +397,47 @@ Les dades de prova s'han esborrat després.
 **Tornar enrere:** `git revert <commit del pas 7>` i tornar a compilar el
 frontend.
 
+### Pas 8 — Correu amb PDFs d'idioma (fase 2)
+**Què fa:** el modal "Enviar per correu" té un apartat **"Què s'adjunta"**:
+- "PDF principal", marcat per defecte;
+- una casella per a cada idioma que tingui revisat almenys una de les fitxes
+  seleccionades.
+
+La llista d'adjunts mostra exactament quins PDF sortiran de cada fitxa. D'un
+idioma només s'adjunta la traducció revisada. Si una fitxa es quedaria sense cap
+adjunt, el modal ho avisa i no deixa enviar.
+
+**API** (`POST /api/enviaments`):
+- Camps nous opcionals:
+  - `incloure_principal`, per defecte `true`;
+  - `idiomes`, per exemple `["ca","en"]`.
+- Sense aquests camps funciona com abans (només el principal).
+- `/api/enviaments/preparar` retorna `idiomes_revisats` per a cada fitxa.
+- El límit `EMAIL_MAX_ADJUNTS` ara compta els PDF, no les fitxes.
+
+**Historial:** cada PDF d'idioma és un `EnviamentEmailItem` amb `idioma` i
+`nom_fitxer` (`30150_CA.pdf`). A la pestanya "Correus" del detall surt l'etiqueta
+de l'idioma al costat de la revisió.
+
+**Fitxers:**
+- `backend/app/routes/enviaments.py`
+- `frontend/src/components/EnviarCorreuModal.jsx`
+- `frontend/src/pages/DetallFitxa.jsx`: historial de correus
+- `frontend/src/app.css`: `.correu-idiomes`
+
+**Provat en local** sense enviar cap correu (la funció d'enviament es va
+substituir per una que només anotava els adjunts):
+- es rebutja un idioma no revisat i també un enviament sense res a adjuntar;
+- amb principal + CA s'adjunten `30150.pdf` i `30150_CA.pdf`, generats
+  correctament;
+- sense els camps nous s'adjunta només el principal, com abans;
+- el modal funciona al navegador.
+
+Les dades de prova s'han esborrat després.
+
+**Tornar enrere:** `git revert <commit del pas 8>` i tornar a compilar el
+frontend.
+
 ---
 
 ## Estat i pendents
@@ -411,7 +452,7 @@ frontend.
 - [x] Pas 5: migració de la fase 2
 - [x] Pas 6: distribució per idioma al backend
 - [x] Pas 7: pantalla de distribució per idioma
-- [ ] Pas 8: correu amb PDFs d'idioma
+- [x] Pas 8: correu amb PDFs d'idioma
 
 ## Desplegament de la fase 0 + 1 (servidor Ubuntu)
 ```bash
