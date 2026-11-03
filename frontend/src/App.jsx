@@ -7,6 +7,7 @@ import LlistaFitxes from './pages/LlistaFitxes';
 import DetallFitxa from './pages/DetallFitxa';
 import NovaFitxa from './pages/NovaFitxa';
 import EditarFitxa from './pages/EditarFitxa';
+import TraduccioFitxa from './pages/TraduccioFitxa';
 import AdminUsuaris from './pages/AdminUsuaris';
 import AdminDestins from './pages/AdminDestins';
 import AdminEstats from './pages/AdminEstats';
@@ -229,6 +230,9 @@ function App() {
             } />
             <Route path="/fitxes/:id/editar" element={
               <ProtectedRoute usuari={usuari} rolsPermesos={['admin', 'editor']}><EditarFitxa /></ProtectedRoute>
+            } />
+            <Route path="/fitxes/:id/traduccio/:idioma" element={
+              <ProtectedRoute usuari={usuari} rolsPermesos={['admin', 'editor']}><TraduccioFitxa /></ProtectedRoute>
             } />
             <Route path="/control-revisions" element={
               <ProtectedRoute usuari={usuari}><ControlRevisions /></ProtectedRoute>

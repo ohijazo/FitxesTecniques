@@ -219,3 +219,84 @@ dades de prova s'han esborrat després.
 
 **Tornar enrere:** `git revert <commit del pas 3>`. No toca dades: les traduccions
 ja desades es queden a la taula fins que es faci el downgrade del pas 1.
+
+### Pas 4 — Pantalles (fase 1)
+**Què fa:** Qualitat ja pot marcar idiomes, traduir, revisar i veure el PDF de cada
+idioma des de l'aplicació.
+
+**Fitxers:**
+- `frontend/src/components/IdiomesPanel.jsx` (nou): pestanya "Idiomes" del detall.
+- `frontend/src/pages/TraduccioFitxa.jsx` (nou): editor de traduccions, ruta
+  `/fitxes/:id/traduccio/:idioma` (rols `admin` i `editor`).
+- `frontend/src/pages/DetallFitxa.jsx`: pestanya "Idiomes".
+- `frontend/src/App.jsx`: ruta nova.
+- `frontend/src/api/client.js`:
+  - funcions de traduccions;
+  - `request()` accepta `timeoutMs`, perquè la IA pot trigar més de 60 s.
+- `frontend/src/app.css`: estils `.trad-*` i `.idiomes-panel`.
+- `backend/app/services/traduccio.py`: temps màxims de la IA ajustats al límit de
+  120 s de Gunicorn (50 s per intent, 1 reintent, `effort: low`).
+
+**Com es fa servir:**
+1. Detall de la fitxa → pestanya **Idiomes** → marcar els idiomes en què ha d'estar
+   disponible.
+2. **Traduir** (o **Editar traducció**) obre l'editor. L'original queda a
+   l'esquerra i la traducció a la dreta.
+3. Per obtenir una proposta:
+   - català i castellà: **Proposar des del bilingüe**;
+   - anglès i portuguès: **Traduir amb IA**.
+
+   La proposta no es desa sola. En el cas del bilingüe, els camps dubtosos
+   surten marcats en groc.
+4. Revisar i corregir → **Desar**. La traducció queda "Pendent de revisar".
+5. **Marcar com a revisada**: queda registrat qui ho ha fet i quan.
+6. **Veure PDF** obre `{codi}_{IDIOMA}.pdf`.
+7. Quan es crea una versió nova de la fitxa, l'idioma passa a "De la versió
+   anterior". En obrir l'editor es carrega la traducció anterior, amb els camps
+   canviats a l'original marcats en taronja.
+
+A les taules, la columna "Valor" buida vol dir que es fa servir el valor original.
+
+**Provat al navegador** amb la fitxa 30150 i l'usuari de proves: marcar el
+català, proposta (2 camps dubtosos), desar, revisar, panell actualitzat, sense
+errors a la consola. Les dades de prova s'han esborrat després.
+
+**Tornar enrere:** `git revert <commit del pas 4>` i tornar a compilar el
+frontend. Les dades no es veuen afectades.
+
+---
+
+## Estat i pendents
+- [x] Pas 0: "Només català" al PDF principal
+- [x] Pas 1: model i migració
+- [x] Pas 2: servei de traducció
+- [x] Pas 3: API
+- [x] Pas 4: pantalles
+- [ ] Validació de Qualitat dels títols en anglès i portuguès
+  (`backend/app/services/etiquetes_idioma.py`)
+- [ ] Vist-i-plau de l'empresa per enviar text a Anthropic i clau `ANTHROPIC_API_KEY`
+- [ ] Fase 2: distribució i correu dels PDFs per idioma
+
+## Desplegament de la fase 0 + 1 (servidor Ubuntu)
+```bash
+cd /var/www/fitxes-tecniques
+sudo -u www-data git pull
+sudo -u www-data backend/venv/bin/pip install -r backend/requirements.txt   # anthropic
+cd backend
+sudo -u www-data venv/bin/flask db upgrade                                  # c3a8d5e7f912
+cd ../frontend
+sudo -u www-data npm run build
+sudo systemctl restart fitxes-tecniques
+```
+Opcional (IA): afegir `ANTHROPIC_API_KEY=...` (i, si es vol, `TRADUCCIO_MODEL=...`) a
+`backend/.env` i reiniciar.
+
+## Tornar enrere tot el desenvolupament
+Els commits estan a la branca `idiomes`, un per pas (vegeu `git log`).
+1. Abans del `git pull`/merge a `master`: n'hi ha prou amb no fusionar la branca.
+2. Ja desplegat:
+   - si hi ha traduccions que es vulguin conservar, fer-ne abans una còpia:
+     `pg_dump -t traduccio_versio`;
+   - `flask db downgrade b7e3f1a9c2d4`;
+   - `git revert` dels commits en ordre invers;
+   - build del frontend i restart.

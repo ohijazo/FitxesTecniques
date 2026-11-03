@@ -72,7 +72,7 @@ async function request(path, options = {}) {
 
   let response;
   try {
-    response = await fetch(url, { ...config, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    response = await fetch(url, { ...config, signal: AbortSignal.timeout(options.timeoutMs || TIMEOUT_MS) });
   } catch (err) {
     throw new Error(missatgeError(err));
   }
@@ -272,4 +272,15 @@ export const api = {
   crearEnviament: (data) => request('/enviaments', { method: 'POST', body: JSON.stringify(data) }),
   detallEnviament: (id) => request(`/enviaments/${id}`),
   llistarEnviaments: (fitxaId) => request(`/enviaments${fitxaId ? `?fitxa_id=${fitxaId}` : ''}`),
+
+  // Idiomes i traduccions
+  resumTraduccions: (fitxaId) => request(`/fitxes/${fitxaId}/traduccions`),
+  marcarIdiomes: (fitxaId, idiomes) => request(`/fitxes/${fitxaId}/idiomes`, { method: 'PUT', body: JSON.stringify({ idiomes }) }),
+  llegirTraduccio: (fitxaId, vid, idioma) => request(`/fitxes/${fitxaId}/versions/${vid}/traduccions/${idioma}`),
+  desarTraduccio: (fitxaId, vid, idioma, data) => request(`/fitxes/${fitxaId}/versions/${vid}/traduccions/${idioma}`, { method: 'PUT', body: JSON.stringify(data) }),
+  revisarTraduccio: (fitxaId, vid, idioma) => request(`/fitxes/${fitxaId}/versions/${vid}/traduccions/${idioma}/revisar`, { method: 'POST' }),
+  // La IA pot trigar: més marge que la resta de peticions (el servidor talla als 120 s)
+  propostaTraduccio: (fitxaId, vid, idioma, metode) => request(`/fitxes/${fitxaId}/versions/${vid}/traduccions/${idioma}/proposta`, {
+    method: 'POST', body: JSON.stringify({ metode }), timeoutMs: 115000,
+  }),
 };

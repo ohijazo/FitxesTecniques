@@ -9,6 +9,7 @@ import { useEscapeKey } from '../components/useEscapeKey';
 import RetirarDestiModal from '../components/RetirarDestiModal';
 import ComprovarDestinsPanel from '../components/ComprovarDestinsPanel';
 import BadgeVerificacio from '../components/BadgeVerificacio';
+import IdiomesPanel from '../components/IdiomesPanel';
 import DOMPurify from 'dompurify';
 
 
@@ -1201,6 +1202,9 @@ function DetallFitxa() {
             <button type="button" className={section === 'correus' ? 'active' : ''} onClick={() => setSection('correus')}>
               Correus ({enviaments.length})
             </button>
+            <button type="button" className={section === 'idiomes' ? 'active' : ''} onClick={() => setSection('idiomes')}>
+              Idiomes{fitxa.idiomes?.length ? ` (${fitxa.idiomes.length})` : ''}
+            </button>
           </div>
 
           {section === 'contingut' && (
@@ -1370,6 +1374,10 @@ function DetallFitxa() {
                 </table>
               )}
             </>
+          )}
+
+          {section === 'idiomes' && (
+            <IdiomesPanel fitxaId={id} artCodi={fitxa.art_codi} potEditar={usuari.rol === 'admin' || usuari.rol === 'editor'} />
           )}
 
           {section === 'correus' && (

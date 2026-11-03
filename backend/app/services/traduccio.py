@@ -314,7 +314,8 @@ def traduir_ia(contingut_es, idioma, valors_originals=None):
         return None, "Falta instal·lar la llibreria 'anthropic' al servidor"
 
     model = os.environ.get('TRADUCCIO_MODEL') or 'claude-opus-5-5'
-    client = anthropic.Anthropic(timeout=120.0)
+    # Gunicorn talla les peticions als 120 s: 50 s per intent i 1 reintent com a màxim
+    client = anthropic.Anthropic(timeout=50.0, max_retries=1)
     try:
         resp = client.messages.create(
             model=model,
@@ -322,7 +323,7 @@ def traduir_ia(contingut_es, idioma, valors_originals=None):
             system=_SISTEMA_IA.format(lang=NOMS_IA[idioma]),
             messages=[{'role': 'user', 'content': json.dumps(items, ensure_ascii=False)}],
             output_config={
-                'effort': 'medium',
+                'effort': 'low',      # traduir no necessita raonament llarg; respon abans
                 'format': {
                     'type': 'json_schema',
                     'schema': {
@@ -353,6 +354,8 @@ def traduir_ia(contingut_es, idioma, valors_originals=None):
         return None, "El servei de traducció està saturat; torna-ho a provar d'aquí a un minut"
     except anthropic.APIStatusError as e:
         return None, f"Error del servei de traducció ({e.status_code}): {e.message}"
+    except anthropic.APITimeoutError:
+        return None, "El servei de traducció ha trigat massa; torna-ho a provar"
     except anthropic.APIConnectionError:
         return None, "No s'ha pogut connectar amb el servei de traducció"
 

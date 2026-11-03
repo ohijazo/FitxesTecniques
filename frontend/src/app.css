@@ -2730,3 +2730,74 @@ tr.row-selected { background: var(--brand-50); }
     scroll-behavior: auto !important;
   }
 }
+
+/* ==========================================
+   IDIOMES I TRADUCCIONS
+   ========================================== */
+.idiomes-panel tr.idioma-no-marcat td { color: var(--gray-400); }
+.idiomes-panel tr.idioma-no-marcat td strong { color: var(--gray-500); font-weight: 500; }
+
+.trad-avis {
+  background: var(--brand-50);
+  border-left: 3px solid var(--brand);
+  font-size: 0.9rem;
+  padding: 0.75rem 1rem;
+}
+.trad-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+.trad-grid-capcalera {
+  margin: 1rem 0 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gray-500);
+}
+.trad-camp {
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+}
+.trad-camp h4 {
+  font-size: 0.85rem;
+  margin: 0 0 0.5rem;
+  color: var(--gray-700);
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.trad-original {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--gray-600);
+  background: var(--gray-50);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+}
+.trad-marca {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 9999px;
+}
+.trad-dubtos { border-color: var(--warning); }
+.trad-dubtos .trad-marca { background: var(--warning-bg); color: #92400e; }
+.trad-canviat { border-color: #ea580c; }
+.trad-canviat .trad-marca { background: #fff7ed; color: #c2410c; }
+.trad-taula { width: 100%; font-size: 0.85rem; }
+.trad-taula td { vertical-align: top; }
+.trad-taula input { margin: 0; padding: 0.3rem 0.5rem; font-size: 0.85rem; }
+
+@media (max-width: 900px) {
+  .trad-grid { grid-template-columns: 1fr; }
+  .trad-grid-capcalera { display: none; }
+  .trad-taula thead { display: none; }
+  .trad-taula td { display: block; border: none; padding: 0.15rem 0; }
+}
