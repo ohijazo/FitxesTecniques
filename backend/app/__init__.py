@@ -59,6 +59,8 @@ def create_app():
     # Ordres de la traducció inicial (exportar / importar traduccions)
     from app.cli_traduccions import registrar as registrar_cli_traduccions
     registrar_cli_traduccions(app)
+    from app.cli_superindexs import registrar as registrar_cli_superindexs
+    registrar_cli_superindexs(app)
 
     # Comanda per crear l'admin inicial
     @app.cli.command('crear-admin')

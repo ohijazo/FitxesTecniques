@@ -43,6 +43,7 @@ const ACCIONS = {
   automatica: 'Actualitzada automàticament',
   inicial: 'Còpia inicial',
   importada: 'Traducció inicial (importada)',
+  correccio: 'Correcció automàtica',
 };
 
 /* Historial de la traducció d'un idioma (totes les versions de la fitxa):

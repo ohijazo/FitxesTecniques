@@ -1010,6 +1010,46 @@ fitxes. En fer-ho, l'actualització automàtica ajusta les traduccions.
 (simulació → `--aplicar`). Si alguna fitxa ha canviat de versió després de la
 còpia, la importació se la salta i ho avisa.
 
+### Correcció dels superíndexs perduts (valors microbiològics)
+**Problema:**
+- En importar les fitxes es va perdre el format de superíndex: «< 10⁶ ufc/g»
+  va quedar com «< 106 ufc/g».
+- Afecta la taula microbiològica de **140 fitxes (426 valors)** i les seves
+  traduccions.
+- Els PDF publicats deien «menys de 106» en lloc de «menys d'un milió».
+
+**Decisió de l'usuari:**
+- Corregir la **versió activa sense crear una revisió nova**. És una excepció
+  a la norma que les versions són immutables.
+- Mantenir l'estat de les traduccions.
+
+**Ordre** (`backend/app/cli_superindexs.py`): `flask corregir-superindexs [--aplicar] [--copia FITXER]`
+- **Per defecte és una simulació.** Les versions anteriors no es toquen.
+- **Patró:** «10» seguit d'una xifra de l'1 al 9 just abans de la unitat
+  (ufc/cfu) o d'una barra: `< 106 ufc/g` → `< 10⁶ ufc/g`,
+  `< 1x104 ufc/g` → `< 1x10⁴ ufc/g`.
+- **No toca** «< 100 ufc/g», «Màx. 106», «10,6 g», «1067 kJ»…
+- **Traçabilitat:**
+  - a la descripció del canvi de la versió s'hi afegeix una línia amb la data;
+  - les traduccions tenen una entrada a l'historial (acció `correccio`, "Correcció
+    automàtica");
+  - una còpia JSON desa tots els valors abans i després.
+- S'esborren els PDF desats de les versions corregides, perquè es tornin a
+  generar.
+- **Cal redistribuir** el PDF principal (i els idiomes ja distribuïts): els
+  destins tenen el PDF antic amb el mateix número de revisió, i la comprovació
+  de destins no ho detecta perquè només compara la revisió i les dates.
+
+**Provat en local** (còpia de producció):
+- la simulació i l'aplicació han afectat 140 versions, 426 valors i 559
+  traduccions;
+- a la 30180, els valors 10⁶, 10⁴ i 10² es dibuixen com a superíndex al PDF
+  principal i al PDF en anglès;
+- tests a `backend/tests/test_superindexs.py`.
+
+**Tornar enrere:** amb la còpia JSON (`versions[].canvis` i
+`versions[].traduccions[]`) es poden restaurar els valors anteriors.
+
 ---
 
 ## Estat i pendents
