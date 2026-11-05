@@ -251,30 +251,47 @@ def _executar_item_distribucio(item):
     if not versio_activa:
         return 'error', f'Fitxa {fitxa.art_codi} sense versió publicada'
 
-    # Crear registre Distribucio (audit trail tradicional)
-    dist = Distribucio(
-        versio_id=versio_activa.id,
-        desti_id=desti.id,
-        desti=desti.nom,
-        estat='pendent',
-    )
-    db.session.add(dist)
-    db.session.flush()
+    # Només es distribueixen PDFs d'un sol idioma: tots els idiomes marcats a
+    # la fitxa que tinguin la traducció revisada. El PDF principal (bilingüe)
+    # ja no es distribueix.
+    from app.models import TraduccioVersio
+    from app.routes.distribucions import _traduccio_distribuible
+    from app.services.etiquetes_idioma import IDIOMES
+    revisats = {t.idioma for t in TraduccioVersio.query.filter_by(
+        versio_id=versio_activa.id, estat='revisada')}
+    idiomes = [i for i in IDIOMES if i in (fitxa.idiomes or []) and i in revisats]
+    if not idiomes:
+        return 'omes', f'{fitxa.art_codi}: cap idioma marcat amb la traducció revisada'
 
     executat_by = (item.job.created_by or '') if item.job else ''
-
-    try:
-        _executar_distribucio(dist, fitxa, versio_activa, desti, executat_by=executat_by)
+    resultats = []
+    for idioma in idiomes:
+        traduccio, motiu = _traduccio_distribuible(fitxa, versio_activa, idioma)
+        if motiu:
+            resultats.append((idioma, 'error', motiu))
+            continue
+        dist = Distribucio(
+            versio_id=versio_activa.id,
+            desti_id=desti.id,
+            desti=desti.nom,
+            idioma=idioma,
+            traduccio_historial_id=traduccio.ultima_copia(executat_by).id,
+            estat='pendent',
+        )
+        db.session.add(dist)
+        db.session.flush()
+        try:
+            _executar_distribucio(dist, fitxa, versio_activa, desti, executat_by=executat_by)
+        except Exception as e:
+            dist.estat = 'error'
+            dist.missatge_error = str(e)
         db.session.commit()
-    except Exception as e:
-        dist.estat = 'error'
-        dist.missatge_error = str(e)
-        db.session.commit()
-        return 'error', str(e)
+        resultats.append((idioma, dist.estat, dist.missatge_error))
 
-    if dist.estat == 'ok':
-        return 'ok', dist.missatge_error  # contains url/path on success
-    return 'error', dist.missatge_error or 'Error desconegut'
+    errors = [r for r in resultats if r[1] != 'ok']
+    if errors:
+        return 'error', '; '.join(f'{i.upper()}: {m or "error"}' for i, _, m in errors)
+    return 'ok', ', '.join(f'{i.upper()}: {m}' for i, _, m in resultats)
 
 
 def _executar_item_verificacio(item):

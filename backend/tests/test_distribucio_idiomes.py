@@ -53,9 +53,25 @@ def test_jobs_massius_nomes_pdf_principal():
     assert 'd.idioma IS NULL' in inspect.getsource(_parells_distribuits)
 
 
-def test_resum_de_la_llista_nomes_pdf_principal():
+def test_resum_de_la_llista_compta_destins():
+    """Pas 22: el resum compta destins (amb algun fitxer d'idioma ok), no fitxers."""
     from app.routes import fitxes
-    assert "filter_by(versio_id=va.id, idioma=None)" in inspect.getsource(fitxes)
+    codi = inspect.getsource(fitxes)
+    assert "Distribucio.query.filter_by(versio_id=va.id).all()" in codi
+    assert "destins_ok = {dd.desti_id for dd in dists if dd.estat == 'ok'}" in codi
+
+
+def test_principal_ja_no_es_distribueix():
+    """Pas 22: distribuir sense idioma (PDF principal bilingüe) es rebutja."""
+    assert 'return jsonify' in inspect.getsource(d.distribuir_tots)
+    assert 'if not idioma:' in inspect.getsource(d.distribuir_desti)
+
+
+def test_correu_rebutja_el_principal():
+    from app.routes import enviaments
+    codi = inspect.getsource(enviaments)
+    assert "if data.get('incloure_principal'):" in codi
+    assert 'incloure_principal = False' in codi
 
 
 def test_executar_distribucio_fa_servir_l_idioma():

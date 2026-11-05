@@ -1052,6 +1052,54 @@ còpia, la importació se la salta i ho avisa.
 
 ---
 
+### Pas 22 — Només es distribueixen i s'envien PDFs d'un sol idioma
+Decisió de l'usuari: el PDF principal bilingüe (`30150.pdf`) ja no surt de
+l'aplicació. Només es distribueixen i s'envien per correu els PDFs d'un idioma
+(`30150_CA.pdf`, `_ES`, `_EN`, `_PT`, `_IT`), i només amb la traducció revisada.
+
+**Backend**
+- `routes/distribucions.py`:
+  - `POST /fitxes/<id>/distribuir` retorna 400;
+  - `POST /fitxes/<id>/distribuir/<desti>` sense `?idioma=` retorna 400.
+  - Retirar i Comprovar el principal continuen funcionant, per poder treure els
+    fitxers bilingües antics dels destins.
+- `routes/enviaments.py`: `incloure_principal` a cert retorna 400, i cal triar
+  almenys un idioma.
+- `services/job_worker.py` (distribució massiva): per cada fitxa i destí es
+  distribueixen tots els idiomes marcats amb la traducció revisada.
+  - Hi ha un registre `Distribucio` per idioma, amb `traduccio_historial_id`.
+  - Si no n'hi ha cap, l'element queda `omes`.
+- `routes/fitxes.py`: el resum de la llista compta **destins** amb algun fitxer
+  ok de la versió activa (de qualsevol idioma), no fitxers.
+
+**Frontend**
+- `DistribuirPanel`:
+  - s'ha tret la casella del PDF principal;
+  - nou botó «Marcar tots els idiomes revisats a tots els destins»;
+  - avís si la fitxa no té idiomes o cap traducció revisada;
+  - si al destí hi ha el bilingüe antic, surt «Hi ha el PDF bilingüe antic» amb
+    el botó «Retirar bilingüe».
+- `EnviarCorreuModal`:
+  - s'ha tret «PDF principal»; l'apartat ara és «Idiomes que s'adjunten»;
+  - surt un avís si cap fitxa seleccionada té traduccions revisades.
+- `Ajuda.jsx`: textos actualitzats.
+  - S'ha tret la captura del correu, perquè mostrava la casella del principal.
+  - La captura `idiomes_distribuir.png` encara mostra la casella antiga i cal
+    refer-la.
+
+**No canvia:**
+- el PDF bilingüe es pot veure i descarregar a l'aplicació;
+- l'historial de distribucions i enviaments queda intacte;
+- no cal cap migració;
+- els `30150.pdf` que ja són als destins no es toquen sols (es poden retirar a mà).
+
+**Tests:** `tests/test_distribucio_idiomes.py`. S'ha adaptat el test del resum
+i n'hi ha de nous per als 400 de distribució i correu. En total, 218 passen.
+
+**Tornar enrere:** `git revert` del commit, build i restart.
+
+---
+
 ## Estat i pendents
 - [x] Pas 0: "Només català" al PDF principal
 - [x] Pas 1: model i migració

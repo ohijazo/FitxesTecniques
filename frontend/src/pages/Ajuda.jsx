@@ -142,8 +142,9 @@ const SECTIONS = [
         </ol>
         <HelpImg src="/help/distribucio.png" alt="Panell de distribució amb selecció de destins i resultats" />
         <div className="help-tip">
-          <strong>PDFs d'idioma:</strong> a cada destí, a més del PDF principal, pots marcar els idiomes
-          (CA, ES, EN, PT, IT) que vols enviar. Vegeu <strong>Idiomes i traduccions</strong>.
+          <strong>Només PDFs d'un sol idioma:</strong> a cada destí marques els idiomes (CA, ES, EN, PT, IT)
+          que vols enviar; el PDF bilingüe ja no es distribueix. Només es poden distribuir les traduccions
+          revisades. Vegeu <strong>Idiomes i traduccions</strong>.
         </div>
 
         <h4>Indicadors a la llista</h4>
@@ -210,8 +211,9 @@ const SECTIONS = [
       <>
         <p>
           Cada fitxa pot estar disponible en <strong>català, castellà, anglès, portuguès i italià</strong>.
-          Cada idioma té el seu PDF (<code>30150_CA.pdf</code>, <code>30150_EN.pdf</code>…), a més del PDF
-          principal (<code>30150.pdf</code>), que no canvia.
+          Cada idioma té el seu PDF (<code>30150_CA.pdf</code>, <code>30150_EN.pdf</code>…). Són els únics
+          que es distribueixen i s'envien per correu. El PDF bilingüe (<code>30150.pdf</code>) es pot
+          continuar veient i descarregant a l'aplicació, però ja no surt de l'aplicació.
         </p>
 
         <h4>Marcar els idiomes d'una fitxa</h4>
@@ -255,10 +257,16 @@ const SECTIONS = [
 
         <h4>Distribuir els PDFs d'idioma</h4>
         <p>
-          Al panell <strong>Distribuir</strong>, la casella de cada destí és el PDF principal. A la dreta hi ha
-          els idiomes: marca els que vulguis enviar a aquell destí. Els idiomes sense revisar surten
-          desactivats, i un <strong>✓</strong> vol dir que aquell idioma ja és al destí. Passant el ratolí
-          per sobre d'un idioma veus el nom exacte del fitxer (p.ex. <code>30150_CA.pdf</code>).
+          Al panell <strong>Distribuir</strong>, a cada destí hi ha els idiomes: marca els que vulguis enviar
+          a aquell destí (o prem <strong>Marcar tots els idiomes revisats a tots els destins</strong>). Els
+          idiomes sense revisar surten desactivats, i un <strong>✓</strong> vol dir que aquell idioma ja és
+          al destí. Passant el ratolí per sobre d'un idioma veus el nom exacte del fitxer
+          (p.ex. <code>30150_CA.pdf</code>).
+        </p>
+        <p>
+          Si en un destí encara hi ha el PDF bilingüe d'abans, surt l'avís <strong>Hi ha el PDF bilingüe
+          antic</strong> i el botó <strong>Retirar bilingüe</strong> per treure'l. La distribució massiva
+          envia, de cada fitxa, tots els idiomes marcats amb la traducció revisada.
         </p>
         <HelpImg src="/help/idiomes_distribuir.png" alt="Panell Distribuir amb els idiomes de cada destí" />
         <p>
@@ -268,10 +276,10 @@ const SECTIONS = [
 
         <h4>Enviar per correu en diversos idiomes</h4>
         <p>
-          Al modal <strong>Enviar per correu</strong>, l'apartat <strong>Què s'adjunta</strong> permet triar el
-          PDF principal i els idiomes. La llista d'adjunts mostra exactament quins PDFs s'enviaran.
+          Al modal <strong>Enviar per correu</strong>, l'apartat <strong>Idiomes que s'adjunten</strong> permet
+          triar els idiomes; s'adjunta un PDF per idioma (només traduccions revisades). La llista d'adjunts
+          mostra exactament quins PDFs s'enviaran.
         </p>
-        <HelpImg src="/help/idiomes_correu.png" alt="Enviar per correu: triar el PDF principal i els idiomes" />
 
         <h4>Quan es crea una versió nova</h4>
         <p>

@@ -299,39 +299,10 @@ def llistar_distribucions(fitxa_id):
 @distribucions_bp.route('/fitxes/<int:fitxa_id>/distribuir', methods=['POST'])
 @rol_requerit('admin', 'editor', 'distribuidor')
 def distribuir_tots(fitxa_id):
-    fitxa = db.get_or_404(FitxaTecnica, fitxa_id)
-    versio_activa = VersioFitxa.query.filter_by(
-        fitxa_id=fitxa_id, activa=True
-    ).first()
-
-    if not versio_activa:
-        return jsonify({'error': "No hi ha cap versió publicada"}), 400
-
-    destins = DestiDistribucio.query.filter_by(actiu=True).all()
-    if not destins:
-        return jsonify({'error': "No hi ha destins de distribució configurats"}), 400
-
-    resultats = []
-    for desti in destins:
-        dist = Distribucio(
-            versio_id=versio_activa.id,
-            desti_id=desti.id,
-            desti=desti.nom,
-            estat='pendent',
-        )
-        db.session.add(dist)
-        db.session.flush()
-
-        try:
-            _executar_distribucio(dist, fitxa, versio_activa, desti)
-        except Exception as e:
-            dist.estat = 'error'
-            dist.missatge_error = str(e)
-
-        resultats.append(dist)
-
-    db.session.commit()
-    return jsonify([d.to_dict() for d in resultats]), 200
+    # El PDF principal (bilingüe) ja no es distribueix: només els d'un idioma,
+    # que es trien a cada destí (POST /fitxes/<id>/distribuir/<desti>?idioma=xx).
+    db.get_or_404(FitxaTecnica, fitxa_id)
+    return jsonify({'error': "Només es poden distribuir PDFs d'un sol idioma (_CA, _ES, _EN, _PT, _IT): el PDF principal bilingüe ja no es distribueix"}), 400
 
 
 @distribucions_bp.route('/fitxes/<int:fitxa_id>/retirar/<int:desti_id>', methods=['POST'])
@@ -435,9 +406,11 @@ def distribuir_desti(fitxa_id, desti_id):
     if not versio_activa:
         return jsonify({'error': "No hi ha cap versió publicada"}), 400
 
-    # ?idioma=en distribueix el PDF d'aquell idioma; sense, el principal (com sempre).
-    # Només es pot distribuir una traducció revisada.
+    # Només PDFs d'un sol idioma (?idioma=xx), i només traduccions revisades.
+    # El PDF principal (bilingüe) ja no es distribueix.
     idioma = request.args.get('idioma') or None
+    if not idioma:
+        return jsonify({'error': "Només es poden distribuir PDFs d'un sol idioma (_CA, _ES, _EN, _PT, _IT): el PDF principal bilingüe ja no es distribueix"}), 400
     copia_id = None
     if idioma:
         t, motiu = _traduccio_distribuible(fitxa, versio_activa, idioma)

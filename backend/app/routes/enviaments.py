@@ -182,12 +182,14 @@ def crear_enviament():
         return jsonify({'error': "L'assumpte és massa llarg"}), 400
     if not ids:
         return jsonify({'error': "No hi ha cap fitxa seleccionada"}), 400
-    # Què s'adjunta: el PDF principal (per defecte, com sempre) i/o els PDFs
-    # d'idioma triats. D'un idioma només s'adjunta la traducció revisada.
-    incloure_principal = data.get('incloure_principal', True) is not False
+    # Només s'adjunten PDFs d'un sol idioma (traduccions revisades). El PDF
+    # principal (bilingüe) ja no s'envia.
+    if data.get('incloure_principal'):
+        return jsonify({'error': "Només es poden enviar PDFs d'un sol idioma: el PDF principal bilingüe ja no s'envia"}), 400
+    incloure_principal = False
     idiomes = [i for i in IDIOMES if i in (data.get('idiomes') or [])]
-    if not incloure_principal and not idiomes:
-        return jsonify({'error': "Cal triar almenys el PDF principal o un idioma"}), 400
+    if not idiomes:
+        return jsonify({'error': "Cal triar almenys un idioma"}), 400
 
     cfg = _config_graph()
     if not all(cfg.values()):

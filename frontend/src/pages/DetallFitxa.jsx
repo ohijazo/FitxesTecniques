@@ -117,9 +117,9 @@ function nomFitxerDesti(patro, artCodi, nomProducte, numVersio, idioma) {
 
 function DistribuirPanel({ fitxaId, fitxaArtCodi, nomProducte, numVersio, distribucions, onDone, onClose }) {
   const [destins, setDestins] = useState([]);
-  const [selected, setSelected] = useState({});
+  // Només es distribueixen PDFs d'un sol idioma (el principal bilingüe ja no).
   // Idiomes de la fitxa (marcats o amb traducció) i selecció manual per destí:
-  // {destiId: {ca: true, en: false...}}. Per defecte cap: només el principal.
+  // {destiId: {ca: true, en: false...}}. Per defecte, cap.
   const [idiomes, setIdiomes] = useState([]);
   const [selIdiomes, setSelIdiomes] = useState({});
   const [loading, setLoading] = useState(true);
@@ -141,17 +141,12 @@ function DistribuirPanel({ fitxaId, fitxaArtCodi, nomProducte, numVersio, distri
       .sort((a, b) => new Date(b.executat_at) - new Date(a.executat_at));
     return perDesti.length > 0 && perDesti[0].estat === 'ok';
   };
-  const destiJaDistribuit = (destiId) => esJaDistribuit(destiId, distribucions);
+  // PDF principal bilingüe que va quedar al destí d'abans (ja no es distribueix)
+  const bilingueAlDesti = (destiId) => esJaDistribuit(destiId, distribucions);
 
   useEffect(() => {
     api.llistarDestins().then((data) => {
-      const actius = data.filter((d) => d.actiu);
-      setDestins(actius);
-      // Només es premarquen els destins on la fitxa encara no hi és: abans
-      // venien tots marcats i un clic ràpid la redistribuïa a tot arreu.
-      const sel = {};
-      actius.forEach((d) => { sel[d.id] = !esJaDistribuit(d.id, distribucions); });
-      setSelected(sel);
+      setDestins(data.filter((d) => d.actiu));
       setLoading(false);
     }).catch(() => setLoading(false));
     api.resumTraduccions(fitxaId)
@@ -160,16 +155,20 @@ function DistribuirPanel({ fitxaId, fitxaArtCodi, nomProducte, numVersio, distri
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const toggle = (id) => setSelected((prev) => ({ ...prev, [id]: !prev[id] }));
+  const revisats = idiomes.filter((i) => i.estat === 'revisada');
+  const marcarTotsRevisats = () => {
+    const sel = {};
+    destins.forEach((d) => { sel[d.id] = Object.fromEntries(revisats.map((i) => [i.idioma, true])); });
+    setSelIdiomes(sel);
+  };
   const toggleIdioma = (destiId, idioma) => setSelIdiomes((prev) => ({
     ...prev, [destiId]: { ...(prev[destiId] || {}), [idioma]: !prev[destiId]?.[idioma] },
   }));
 
-  // Parells [destiId, idioma] a enviar (idioma null = PDF principal)
+  // Parells [destiId, idioma] a enviar
   const enviaments = () => {
     const parells = [];
     destins.forEach((d) => {
-      if (selected[d.id]) parells.push([d.id, null]);
       idiomes.forEach((i) => { if (selIdiomes[d.id]?.[i.idioma]) parells.push([d.id, i.idioma]); });
     });
     return parells;
@@ -181,7 +180,7 @@ function DistribuirPanel({ fitxaId, fitxaArtCodi, nomProducte, numVersio, distri
     setSending(true);
     const res = [];
     for (const [destiId, idioma] of parells) {
-      const nom = destins.find((d) => d.id === destiId)?.nom + (idioma ? ` (${idioma.toUpperCase()})` : '');
+      const nom = `${destins.find((d) => d.id === destiId)?.nom} (${idioma.toUpperCase()})`;
       try {
         const r = await api.distribuirDesti(fitxaId, destiId, idioma);
         res.push({ desti: nom, ok: r.estat === 'ok', url: r.missatge_error, error: r.missatge_error });
@@ -221,39 +220,49 @@ function DistribuirPanel({ fitxaId, fitxaArtCodi, nomProducte, numVersio, distri
       ) : (
         <>
           <p style={{ fontSize: '0.88rem', color: 'var(--gray-500)', marginBottom: '1rem' }}>
-            Selecciona els destins on vols distribuir la versió activa. La casella de cada destí és el
-            PDF principal; a la dreta pots afegir els PDFs d'idioma revisats, que es pugen amb el codi
-            d'idioma al final del nom (p.ex. {fitxaArtCodi}_CA.pdf). Un idioma amb ✓ ja és al destí;
-            passa el ratolí per sobre per veure el nom exacte del fitxer.
-            {idiomes.length > 0 && idiomes.some((i) => i.estat !== 'revisada') && (
-              <> Els idiomes sense revisar no es poden distribuir.</>
-            )}
+            Es distribueixen <strong>només PDFs d'un sol idioma</strong>, amb el codi d'idioma al final del
+            nom (p.ex. {fitxaArtCodi}_CA.pdf). Marca a cada destí els idiomes que vols enviar. Només es
+            poden distribuir les traduccions revisades. Un idioma amb ✓ ja és al destí; passa el ratolí per
+            sobre per veure el nom exacte del fitxer.
           </p>
+          {idiomes.length === 0 ? (
+            <div className="correu-avis" style={{ marginBottom: '1rem' }}>
+              Aquesta fitxa no té cap idioma. Marca'ls a la pestanya <strong>Idiomes</strong>.
+            </div>
+          ) : revisats.length === 0 ? (
+            <div className="correu-avis" style={{ marginBottom: '1rem' }}>
+              Cap traducció d'aquesta fitxa està revisada encara: revisa-les a la pestanya <strong>Idiomes</strong>.
+            </div>
+          ) : (
+            <button type="button" className="outline btn-sm" style={{ marginBottom: '0.75rem' }}
+              onClick={marcarTotsRevisats}>
+              Marcar tots els idiomes revisats a tots els destins
+            </button>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.25rem' }}>
             {destins.map((d) => {
-              const jaOk = destiJaDistribuit(d.id);
+              const jaBilingue = bilingueAlDesti(d.id);
+              const algunMarcat = idiomes.some((i) => selIdiomes[d.id]?.[i.idioma]);
               return (
-                <label key={d.id} className="desti-check" style={{
+                <div key={d.id} className="desti-check" style={{
                   display: 'flex', alignItems: 'center', gap: '0.75rem',
                   padding: '0.7rem 1rem', border: '1px solid var(--gray-200)',
-                  borderRadius: 'var(--radius)', cursor: 'pointer', margin: 0,
-                  background: selected[d.id] ? 'var(--brand-50)' : '#fff',
-                  borderColor: selected[d.id] ? 'var(--brand)' : 'var(--gray-200)',
+                  borderRadius: 'var(--radius)', margin: 0,
+                  background: algunMarcat ? 'var(--brand-50)' : '#fff',
+                  borderColor: algunMarcat ? 'var(--brand)' : 'var(--gray-200)',
                 }}>
-                  <input
-                    type="checkbox"
-                    checked={selected[d.id] || false}
-                    onChange={() => toggle(d.id)}
-                    aria-label={`PDF principal a ${d.nom}`}
-                    style={{ width: '18px', height: '18px', margin: 0, accentColor: 'var(--brand)' }}
-                  />
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 600, fontSize: '0.9rem', display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
                       {d.nom}
-                      {jaOk && <span className="badge ok" style={{ fontSize: '0.72rem' }}>Principal ja distribuït</span>}
+                      {jaBilingue && (
+                        <span className="badge" style={{ fontSize: '0.72rem', background: 'var(--gray-100)', color: 'var(--gray-600)' }}
+                          title={`Al destí hi ha el PDF bilingüe antic (${nomFitxerDesti(d.patro_nom_fitxer, fitxaArtCodi, nomProducte, numVersio)}), que ja no s'actualitza`}>
+                          Hi ha el PDF bilingüe antic
+                        </span>
+                      )}
                     </div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--gray-500)' }} title={`Patró: ${d.patro_nom_fitxer}`}>
-                      {d.tipus.toUpperCase()} &middot; PDF principal: <code>{nomFitxerDesti(d.patro_nom_fitxer, fitxaArtCodi, nomProducte, numVersio)}</code>
+                      {d.tipus.toUpperCase()} &middot; Fitxers: <code>{nomFitxerDesti(d.patro_nom_fitxer, fitxaArtCodi, nomProducte, numVersio, 'xx')}</code>
                     </div>
                   </div>
                   {idiomes.length > 0 && (
@@ -279,20 +288,18 @@ function DistribuirPanel({ fitxaId, fitxaArtCodi, nomProducte, numVersio, distri
                       })}
                     </div>
                   )}
-                  {jaOk && (
-                    <>
-                      <button
-                        type="button"
-                        className="outline btn-sm"
-                        onClick={(e) => { e.preventDefault(); setRetirarDesti(d); }}
-                        style={{ margin: 0, color: 'var(--danger)', borderColor: 'var(--danger)', fontSize: '0.78rem' }}
-                        title={`Retirar el PDF de ${d.nom}`}
-                      >
-                        Retirar
-                      </button>
-                    </>
+                  {jaBilingue && (
+                    <button
+                      type="button"
+                      className="outline btn-sm"
+                      onClick={() => setRetirarDesti(d)}
+                      style={{ margin: 0, color: 'var(--danger)', borderColor: 'var(--danger)', fontSize: '0.78rem' }}
+                      title={`Retirar el PDF bilingüe antic de ${d.nom}`}
+                    >
+                      Retirar bilingüe
+                    </button>
                   )}
-                </label>
+                </div>
               );
             })}
           </div>

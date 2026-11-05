@@ -295,11 +295,14 @@ def llistar_fitxes():
         d['versio_activa'] = va.num_versio if va else None
         # Resum distribucions de la versió activa
         if va:
-            # Només el PDF principal: els fitxers d'idioma no compten al resum
-            dists = Distribucio.query.filter_by(versio_id=va.id, idioma=None).all()
+            # Per destí (no per fitxer): un destí està distribuït si hi ha algun
+            # fitxer de la versió activa (de qualsevol idioma) que hi ha anat bé.
+            dists = Distribucio.query.filter_by(versio_id=va.id).all()
             total_destins = DestiDistribucio.query.filter_by(actiu=True).count()
-            ok_count = sum(1 for dd in dists if dd.estat == 'ok')
-            error_count = sum(1 for dd in dists if dd.estat == 'error')
+            destins_ok = {dd.desti_id for dd in dists if dd.estat == 'ok'}
+            destins_error = {dd.desti_id for dd in dists if dd.estat == 'error'} - destins_ok
+            ok_count = len(destins_ok)
+            error_count = len(destins_error)
             d['dist_resum'] = {
                 'total_destins': total_destins,
                 'ok': ok_count,

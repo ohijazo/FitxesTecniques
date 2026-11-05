@@ -30,8 +30,7 @@ function EnviarCorreuModal({ fitxaIds, onClose, onEnviat }) {
   const [assumpte, setAssumpte] = useState('');
   const [cos, setCos] = useState('');
   const [enviant, setEnviant] = useState(false);
-  // Què s'adjunta: PDF principal (per defecte) i PDFs d'idioma triats a mà
-  const [principal, setPrincipal] = useState(true);
+  // Només s'adjunten PDFs d'un sol idioma (el principal bilingüe ja no s'envia)
   const [idiomesSel, setIdiomesSel] = useState([]);
   const pollRef = useRef(null);
 
@@ -62,7 +61,6 @@ function EnviarCorreuModal({ fitxaIds, onClose, onEnviat }) {
   const toggleIdioma = (i) => setIdiomesSel((prev) => (prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i]));
   // PDFs que s'adjuntaran de cada fitxa (mateixa regla que el servidor)
   const adjuntsDe = (f) => [
-    ...(principal ? [f.nom_fitxer] : []),
     ...IDIOMES.filter((i) => idiomesSel.includes(i) && (f.idiomes_revisats || []).includes(i))
       .map((i) => `${f.art_codi}_${i.toUpperCase()}.pdf`),
   ];
@@ -111,7 +109,6 @@ function EnviarCorreuModal({ fitxaIds, onClose, onEnviat }) {
         cc,
         assumpte,
         cos,
-        incloure_principal: principal,
         idiomes: idiomesSel,
       });
       seguir(env.id);
@@ -168,14 +165,14 @@ function EnviarCorreuModal({ fitxaIds, onClose, onEnviat }) {
               <textarea rows={9} value={cos} onChange={(e) => setCos(e.target.value)} disabled={enviant} />
             </label>
 
-            {idiomesDisponibles.length > 0 && (
+            {idiomesDisponibles.length === 0 ? (
+              <div className="correu-avis correu-avis-error">
+                Cap de les fitxes seleccionades té cap traducció revisada. Només es poden enviar PDFs d'un
+                sol idioma amb la traducció revisada (pestanya Idiomes de cada fitxa).
+              </div>
+            ) : (
               <fieldset className="correu-idiomes">
-                <legend>Què s'adjunta</legend>
-                <label>
-                  <input type="checkbox" checked={principal} disabled={enviant}
-                    onChange={(e) => setPrincipal(e.target.checked)} />
-                  PDF principal
-                </label>
+                <legend>Idiomes que s'adjunten</legend>
                 {idiomesDisponibles.map((i) => (
                   <label key={i}>
                     <input type="checkbox" checked={idiomesSel.includes(i)} disabled={enviant}
@@ -183,7 +180,7 @@ function EnviarCorreuModal({ fitxaIds, onClose, onEnviat }) {
                     {i.toUpperCase()}
                   </label>
                 ))}
-                <small>Dels idiomes només s'adjunten les traduccions revisades.</small>
+                <small>S'adjunta un PDF per idioma (p.ex. 30150_CA.pdf). Només les traduccions revisades.</small>
               </fieldset>
             )}
 
@@ -202,7 +199,7 @@ function EnviarCorreuModal({ fitxaIds, onClose, onEnviat }) {
               {senseAdjunt.length > 0 && (
                 <div className="correu-avis correu-avis-error">
                   {senseAdjunt.map((f) => f.art_codi).join(', ')}: no té revisat cap dels idiomes triats.
-                  Marca el PDF principal o treu la fitxa de la selecció.
+                  Tria un altre idioma o treu la fitxa de la selecció.
                 </div>
               )}
               {noEnviables.length > 0 && (
